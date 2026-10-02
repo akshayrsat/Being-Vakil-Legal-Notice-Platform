@@ -6,6 +6,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { deliveryWhere, filtersToSearch, readDeliveryFilters, reportCsv, type ReportRow } from "@/lib/delivery-report";
 import { noticePublicUrl } from "@/lib/notice-link";
+import { noticeLinkOpensByNumber } from "@/lib/public-notice";
 import { resolveReportBank } from "@/lib/report-bank";
 
 export const dynamic = "force-dynamic";
@@ -40,23 +41,29 @@ export async function GET(request: Request) {
     take: EXPORT_LIMIT,
   });
 
-  const report: ReportRow[] = rows.map((row) => ({
-    bankName: row.campaign.bank.name,
-    campaignName: row.campaign.templateName,
-    when: row.campaign.createdAt,
-    customerName: row.customerName,
-    mobile: row.mobile,
-    email: row.email,
-    loanNumber: row.loanNumber,
-    customerId: row.customerId,
-    channel: row.channel,
-    status: row.status,
-    detail: row.detail,
-    rowNumber: row.rowNumber,
-    noticeNumber: row.noticeNumber,
-    noticeUrl: row.noticeNumber ? noticePublicUrl(row.noticeNumber) : "",
-    openedAt: row.openedAt,
-  }));
+  const linkOpens = await noticeLinkOpensByNumber(rows.map((row) => row.noticeNumber));
+  const report: ReportRow[] = rows.map((row) => {
+    const linkOpen = row.noticeNumber ? linkOpens.get(row.noticeNumber) : undefined;
+    return {
+      bankName: row.campaign.bank.name,
+      campaignName: row.campaign.templateName,
+      when: row.campaign.createdAt,
+      customerName: row.customerName,
+      mobile: row.mobile,
+      email: row.email,
+      loanNumber: row.loanNumber,
+      customerId: row.customerId,
+      channel: row.channel,
+      status: row.status,
+      detail: row.detail,
+      rowNumber: row.rowNumber,
+      noticeNumber: row.noticeNumber,
+      noticeUrl: row.noticeNumber ? noticePublicUrl(row.noticeNumber) : "",
+      openedAt: row.openedAt,
+      linkOpenedAt: linkOpen?.linkOpenedAt ?? null,
+      linkViewCount: linkOpen?.linkViewCount ?? 0,
+    };
+  });
 
   const matched = filters.text ? ` matching “${filters.text}”` : "";
   await auditCurrentUser({

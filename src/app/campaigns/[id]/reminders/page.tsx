@@ -5,6 +5,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AppHeader } from "@/components/app-header";
+import { NoticeLinkOpened } from "@/components/notice-link-opened";
 import { NoticeOpenLink } from "@/components/notice-open-link";
 import { FollowUpButton } from "@/components/follow-up-button";
 import { buttonVariants } from "@/components/ui/button";
@@ -20,6 +21,7 @@ import { workingBank } from "@/lib/bank-context";
 import { deliveryStatusLabel, sendChannelLabel } from "@/lib/campaigns";
 import { prisma } from "@/lib/db";
 import { personHistoryHref } from "@/lib/delivery-report";
+import { noticeLinkOpensByNumber } from "@/lib/public-notice";
 import { canReadBank } from "@/lib/report-bank";
 import { ROLE_ADMIN } from "@/lib/roles";
 
@@ -62,6 +64,8 @@ export default async function RemindersPage({ params }: { params: Promise<{ id: 
       </div>
     );
   }
+
+  const linkOpens = await noticeLinkOpensByNumber(campaign.deliveries.map((row) => row.noticeNumber));
 
   const canFollowUp =
     isAdmin && working?.id === campaign.bankId && campaign.bank.active && campaign.status !== "REVIEW";
@@ -134,6 +138,7 @@ export default async function RemindersPage({ params }: { params: Promise<{ id: 
                           <td className="px-2 py-2">
                             <p>{deliveryStatusLabel(row.status)}</p>
                             <p className="text-muted-foreground">{row.detail}</p>
+                            <NoticeLinkOpened open={linkOpens.get(row.noticeNumber)} />
                             {history ? (
                               <Link href={history} className="underline">
                                 History

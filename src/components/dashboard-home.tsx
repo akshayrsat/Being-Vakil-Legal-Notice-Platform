@@ -216,7 +216,7 @@ export function DashboardHome({ user }: { user: SignedInUser }) {
             <ul className="flex flex-col gap-2 text-sm">
               {DEMO_NOTICES.map((notice) => (
                 <li key={notice.noticeNumber}>
-                  <Link href={noticePageHref(notice.noticeNumber)} className="font-medium underline">
+                  <Link href={noticePageHref(notice.noticeNumber)} prefetch={false} className="font-medium underline">
                     {notice.customerName}
                   </Link>
                   <span className="text-muted-foreground"> · {notice.noticeNumber}</span>

@@ -6,6 +6,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AppHeader } from "@/components/app-header";
 import { ConfirmCampaign } from "@/components/confirm-campaign";
+import { MessageOpened, NoticeLinkOpened } from "@/components/notice-link-opened";
 import { NoticeOpenLink } from "@/components/notice-open-link";
 import { buttonVariants } from "@/components/ui/button";
 import {
@@ -30,6 +31,7 @@ import {
 } from "@/lib/campaigns";
 import { prisma } from "@/lib/db";
 import { personHistoryHref } from "@/lib/delivery-report";
+import { noticeLinkOpensByNumber } from "@/lib/public-notice";
 import { canReadBank } from "@/lib/report-bank";
 import { ROLE_ADMIN } from "@/lib/roles";
 
@@ -115,6 +117,7 @@ export default async function CampaignPage({
     return true;
   });
   const shown = matching.slice(0, TABLE_LIMIT);
+  const linkOpens = await noticeLinkOpensByNumber(shown.map((row) => row.noticeNumber));
   const exportQuery = new URLSearchParams();
   if (channelFilter) exportQuery.set("channel", channelFilter);
   if (statusFilter) exportQuery.set("status", statusFilter);
@@ -355,9 +358,8 @@ export default async function CampaignPage({
                           <td className="px-2 py-2">{sendChannelLabel(row.channel)}</td>
                           <td className="px-2 py-2">
                             <p>{deliveryStatusLabel(row.status)}</p>
-                            {row.openedAt ? (
-                              <p className="text-muted-foreground">Opened {formatWhen(row.openedAt)}</p>
-                            ) : null}
+                            <MessageOpened openedAt={row.openedAt} />
+                            <NoticeLinkOpened open={linkOpens.get(row.noticeNumber)} />
                           </td>
                           <td className="px-2 py-2 text-muted-foreground">
                             <p>{row.detail || "—"}</p>
@@ -386,8 +388,4 @@ export default async function CampaignPage({
       </main>
     </div>
   );
-}
-
-function formatWhen(date: Date): string {
-  return new Intl.DateTimeFormat("en-IN", { dateStyle: "medium", timeStyle: "short" }).format(date);
 }
