@@ -17,6 +17,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { getCurrentUser } from "@/lib/auth";
+import { campaignWhere } from "@/lib/bank-data";
 import { workingBank } from "@/lib/bank-context";
 import { backToCampaigns, backToSend } from "@/lib/desk-back";
 import { deliveryStatusLabel, sendChannelLabel } from "@/lib/campaigns";
@@ -48,7 +49,7 @@ export default async function RemindersPage({
 
   const campaign = scope
     ? await prisma.campaign.findFirst({
-        where: { id, bankId: scope },
+        where: campaignWhere(scope, id),
         include: {
           bank: { select: { id: true, name: true, active: true } },
           deliveries: {

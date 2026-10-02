@@ -9,6 +9,7 @@ import { AUDIT_ACTIONS, auditActionLabel, auditWhere, isAuditAction } from "@/li
 import { getCurrentUser } from "@/lib/auth";
 import { workingBank } from "@/lib/bank-context";
 import { prisma } from "@/lib/db";
+import { formatIndiaDateTime } from "@/lib/india-day";
 import { isWebhookConfigured } from "@/lib/msg91-webhook";
 import { ROLE_ADMIN, roleTitle } from "@/lib/roles";
 
@@ -49,14 +50,14 @@ export default async function AuditPage({
   const raw = await searchParams;
   const requestedBank = one(raw.bank);
   const explicitAll = requestedBank === "all";
+  const workingId = workingBank(user)?.id ?? "";
   const filters = {
     action: one(raw.action).toLowerCase(),
-    bankId: explicitAll ? "" : requestedBank || workingBank(user)?.id || "",
+    bankId: explicitAll ? "" : workingId,
     text: one(raw.q).slice(0, 80),
     from: dateOnly(one(raw.from)),
     to: dateOnly(one(raw.to)),
   };
-  const banks = await prisma.bank.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } });
   const events =
     !explicitAll && !filters.bankId
       ? []
@@ -115,15 +116,11 @@ export default async function AuditPage({
             Bank
             <select
               name="bank"
-              defaultValue={explicitAll ? "all" : filters.bankId}
+              defaultValue={explicitAll ? "all" : workingId}
               className="h-11 rounded-lg border border-input bg-card px-3 text-sm font-normal"
             >
+              <option value={workingId}>This bank</option>
               <option value="all">All banks</option>
-              {banks.map((bank) => (
-                <option key={bank.id} value={bank.id}>
-                  {bank.name}
-                </option>
-              ))}
             </select>
           </label>
           <label className="flex flex-col gap-1 text-sm font-medium">
@@ -173,7 +170,7 @@ export default async function AuditPage({
                 <tbody>
                   {events.map((event) => (
                     <tr key={event.id} className="border-t border-border">
-                      <td className="px-3 py-2 whitespace-nowrap">{formatWhen(event.createdAt)}</td>
+                      <td className="px-3 py-2 whitespace-nowrap">{formatIndiaDateTime(event.createdAt)}</td>
                       <td className="px-3 py-2">
                         <p className="font-medium">{event.actorName}</p>
                         <p className="text-muted-foreground">
@@ -205,6 +202,3 @@ function dateOnly(value: string): string {
   return /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : "";
 }
 
-function formatWhen(date: Date): string {
-  return new Intl.DateTimeFormat("en-IN", { dateStyle: "medium", timeStyle: "short" }).format(date);
-}

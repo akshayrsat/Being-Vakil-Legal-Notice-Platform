@@ -3,6 +3,7 @@
 import { NextResponse } from "next/server";
 import { auditCurrentUser } from "@/lib/audit";
 import { getCurrentUser } from "@/lib/auth";
+import { campaignWhere } from "@/lib/bank-data";
 import { isSendChannel } from "@/lib/campaign-plan";
 import { isDeliveryStatus, statusesForFilter } from "@/lib/campaigns";
 import { prisma } from "@/lib/db";
@@ -30,7 +31,7 @@ export async function GET(
   const scope = scopedBankId(user, url.searchParams.get("bank"));
   const campaign = scope
     ? await prisma.campaign.findFirst({
-        where: { id, bankId: scope },
+        where: campaignWhere(scope, id),
         select: {
           id: true,
           bankId: true,

@@ -30,8 +30,9 @@ These practice passwords are for your own computer. Do not put this site on the 
 Each spreadsheet, template, send, delivery, public-notice record, Speed Post consignment, loan timeline, and report belongs to one bank.
 
 - A Bank Viewer can read only the bank on their login. A `?bank=` parameter does not change that.
-- An Admin’s default pages use the bank chosen with **Use this bank**. Reports, search, Speed Post, and loan history can name one other bank with `?bank=`. That filter is a single bank, not a mix.
-- Opening a campaign, consignment, or CSV by id loads that row only when its `bankId` is the switched bank or, for an Admin, the bank named in the address. Guessing another bank’s id returns “not found”.
+- An Admin’s pages use the bank chosen with **Use this bank** (`selectedBankId`). Uploads, recipient rows, campaigns, tracking, bank-owned templates, Speed Post, loans, and reports stay on that bank. A `?bank=` address cannot open a different bank. Switch on the Banks page first.
+- Opening a campaign, consignment, or CSV by id loads that row only when its `bankId` is the bank in use. Guessing another bank’s id returns “not found”.
+- Approved template names saved on another bank may be mentioned so staff know to switch banks. That note does not share spreadsheets or recipient rows.
 - The public letter at `/notice-<id>` stays open without sign-in. It shows that one notice and no one else’s.
 
 ## MSG91

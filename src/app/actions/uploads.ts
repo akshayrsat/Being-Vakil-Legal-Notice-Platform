@@ -10,6 +10,7 @@ import {
   mappingFromForm,
   validateMapping,
 } from "@/lib/apply-mapping";
+import { uploadBatchWhere } from "@/lib/bank-data";
 import { workingBank } from "@/lib/bank-context";
 import { prisma } from "@/lib/db";
 import { parseXlsx, SheetReadError } from "@/lib/parse-xlsx";
@@ -102,7 +103,7 @@ export async function saveMapping(
 
   const batchId = String(formData.get("batchId") ?? "");
   const batch = await prisma.uploadBatch.findFirst({
-    where: { id: batchId, bankId: scope.bank.id },
+    where: { id: batchId, ...uploadBatchWhere(scope.bank.id) },
   });
   if (!batch) {
     return { error: "That spreadsheet was not found for the bank you are working on." };

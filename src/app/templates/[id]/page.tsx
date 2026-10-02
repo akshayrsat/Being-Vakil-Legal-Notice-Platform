@@ -14,6 +14,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { getCurrentUser } from "@/lib/auth";
+import { requiredBankId } from "@/lib/bank-data";
 import { workingBank } from "@/lib/bank-context";
 import { backToTemplates } from "@/lib/desk-back";
 import { prisma } from "@/lib/db";
@@ -43,7 +44,7 @@ export default async function TemplatePage({
   const canEdit = isAdmin && bank.active;
 
   const template = await prisma.noticeTemplate.findFirst({
-    where: { id, bankId: bank.id },
+    where: { id, bankId: requiredBankId(bank.id) },
   });
 
   if (!template) {

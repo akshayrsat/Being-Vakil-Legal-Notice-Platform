@@ -1,7 +1,9 @@
 // The shared frame for every page: the language, the fonts, and the browser title.
 
 import type { Metadata } from "next";
+import type { ReactNode } from "react";
 import { Source_Sans_3, Source_Serif_4 } from "next/font/google";
+import { connection } from "next/server";
 import { PRODUCT_NAME, PRODUCT_TAGLINE } from "@/lib/brand";
 import "./globals.css";
 
@@ -24,7 +26,9 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default async function RootLayout({ children }: { children: ReactNode }) {
+  // Bank lists must be rendered for the signed-in request, never from a shared cache.
+  await connection();
   return (
     <html
       lang="en"

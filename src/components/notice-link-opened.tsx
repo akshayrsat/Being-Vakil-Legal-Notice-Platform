@@ -1,5 +1,6 @@
 // Webpage open for one public notice. Kept apart from MSG91 "Opened", which is an email or WhatsApp read.
 
+import { formatIndiaDateTime } from "@/lib/india-day";
 import type { NoticeLinkOpen } from "@/lib/public-notice";
 
 export function NoticeLinkOpened({
@@ -13,11 +14,11 @@ export function NoticeLinkOpened({
   const views = open.linkViewCount > 1 ? ` · ${open.linkViewCount} views` : "";
   const lastViewed =
     open.linkViewCount > 1 && open.linkLastViewedAt
-      ? `Last viewed ${formatWhen(open.linkLastViewedAt)}`
+      ? `Last viewed ${formatIndiaDateTime(open.linkLastViewedAt)}`
       : undefined;
   return (
     <p className={className} title={lastViewed}>
-      Notice link opened {formatWhen(open.linkOpenedAt)}
+      Notice link opened {formatIndiaDateTime(open.linkOpenedAt)}
       {views}
     </p>
   );
@@ -31,9 +32,5 @@ export function MessageOpened({
   className?: string;
 }) {
   if (!openedAt) return null;
-  return <p className={className}>Opened {formatWhen(openedAt)}</p>;
-}
-
-function formatWhen(date: Date): string {
-  return new Intl.DateTimeFormat("en-IN", { dateStyle: "medium", timeStyle: "short" }).format(date);
+  return <p className={className}>Opened {formatIndiaDateTime(openedAt)}</p>;
 }

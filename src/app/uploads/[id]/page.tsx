@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/card";
 import { parseStoredMapping, suggestMapping } from "@/lib/apply-mapping";
 import { getCurrentUser } from "@/lib/auth";
+import { recipientRowWhere, uploadBatchWhere } from "@/lib/bank-data";
 import { workingBank } from "@/lib/bank-context";
 import { backToUploads } from "@/lib/desk-back";
 import { loadTemplateLibrary } from "@/lib/load-template-library";
@@ -52,7 +53,7 @@ export default async function UploadBatchPage({
   }
 
   const batch = await prisma.uploadBatch.findFirst({
-    where: { id, bankId: bank.id },
+    where: { id, ...uploadBatchWhere(bank.id) },
   });
 
   if (!batch) {
@@ -77,7 +78,7 @@ export default async function UploadBatchPage({
   const suggested = suggestMapping(headers, parseStoredMapping(savedMap?.fields));
   const previewRows = batch.saved
     ? await prisma.recipientRow.findMany({
-        where: { batchId: batch.id },
+        where: recipientRowWhere(bank.id, batch.id),
         orderBy: { rowNumber: "asc" },
         take: PREVIEW_LIMIT,
       })

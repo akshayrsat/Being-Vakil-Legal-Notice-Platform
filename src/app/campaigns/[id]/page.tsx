@@ -19,6 +19,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { getCurrentUser } from "@/lib/auth";
+import { campaignWhere } from "@/lib/bank-data";
 import { workingBank } from "@/lib/bank-context";
 import { backToCampaigns, backToSpreadsheet } from "@/lib/desk-back";
 import { isSendChannel, parseSendChannels, SEND_CHANNELS } from "@/lib/campaign-plan";
@@ -70,7 +71,7 @@ export default async function CampaignPage({
 
   const campaign = scope
     ? await prisma.campaign.findFirst({
-        where: { id, bankId: scope },
+        where: campaignWhere(scope, id),
         include: {
           bank: { select: { id: true, name: true, code: true, active: true, attachNoticePdf: true } },
           batch: { select: { fileName: true, rowCount: true } },

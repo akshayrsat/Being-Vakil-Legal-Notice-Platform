@@ -1,5 +1,6 @@
 // One chronological history for a loan or account number inside a single bank.
 
+import { NO_BANK, requiredBankId } from "./bank-data";
 import { deliveryStatusLabel, sendChannelLabel } from "./campaigns";
 import { prisma } from "./db";
 import { noticePageHref } from "./notice-link";
@@ -40,12 +41,13 @@ export function loanSearchHref(bankId: string, loanNumber: string, customerId: s
 }
 
 export async function searchLoanMatches(bankId: string, text: string): Promise<LoanMatch[]> {
+  const scope = requiredBankId(bankId);
   const query = text.trim().slice(0, 80);
-  if (query.length < 2) return [];
+  if (scope === NO_BANK || query.length < 2) return [];
   const [notices, deliveries, consignments] = await Promise.all([
     prisma.publicNotice.findMany({
       where: {
-        bankId,
+        bankId: scope,
         OR: [{ loanNumber: { contains: query } }, { customerId: { contains: query } }],
       },
       select: { loanNumber: true, customerId: true, customerName: true },
@@ -53,7 +55,7 @@ export async function searchLoanMatches(bankId: string, text: string): Promise<L
     }),
     prisma.campaignDelivery.findMany({
       where: {
-        bankId,
+        bankId: scope,
         OR: [{ loanNumber: { contains: query } }, { customerId: { contains: query } }],
       },
       select: { loanNumber: true, customerId: true, customerName: true },
@@ -61,7 +63,7 @@ export async function searchLoanMatches(bankId: string, text: string): Promise<L
     }),
     prisma.speedPostConsignment.findMany({
       where: {
-        bankId,
+        bankId: scope,
         OR: [{ loanNumber: { contains: query } }, { customerId: { contains: query } }, { articleNumber: { contains: query.toUpperCase() } }],
       },
       select: { loanNumber: true, customerId: true, customerName: true },
@@ -75,7 +77,7 @@ export async function searchLoanMatches(bankId: string, text: string): Promise<L
     const customerId = row.customerId.trim();
     const key = loanNumber || customerId;
     if (!key || matches.has(key)) continue;
-    const href = loanSearchHref(bankId, loanNumber, loanNumber ? "" : customerId);
+    const href = loanSearchHref(scope, loanNumber, loanNumber ? "" : customerId);
     if (!href) continue;
     matches.set(key, {
       key,
@@ -95,13 +97,14 @@ export async function loadAccountTimeline(input: {
   account?: string;
   mobile?: string;
 }): Promise<AccountTimeline | null> {
+  const scope = requiredBankId(input.bankId);
   const loan = (input.loan ?? "").trim();
   const account = (input.account ?? "").trim();
   const mobile = (input.mobile ?? "").trim();
-  if (!loan && !account && !mobile) return null;
+  if (scope === NO_BANK || (!loan && !account && !mobile)) return null;
 
   if (loan || account) {
-    const where = loan ? { bankId: input.bankId, loanNumber: loan } : { bankId: input.bankId, customerId: account };
+    const where = loan ? { bankId: scope, loanNumber: loan } : { bankId: scope, customerId: account };
     const [notices, deliveries, consignments] = await Promise.all([
       prisma.publicNotice.findMany({ where, orderBy: { createdAt: "asc" } }),
       prisma.campaignDelivery.findMany({
@@ -116,15 +119,15 @@ export async function loadAccountTimeline(input: {
         include: { events: { orderBy: { occurredAt: "asc" } } },
       }),
     ]);
-    return assembleTimeline({ bankId: input.bankId, loan, account, notices, deliveries, consignments });
+    return assembleTimeline({ bankId: scope, loan, account, notices, deliveries, consignments });
   }
 
   const tail = mobile.replace(/\D/g, "").slice(-10);
   if (tail.length < 10) {
-    return assembleTimeline({ bankId: input.bankId, loan: "", account: "", notices: [], deliveries: [], consignments: [] });
+    return assembleTimeline({ bankId: scope, loan: "", account: "", notices: [], deliveries: [], consignments: [] });
   }
   const candidates = await prisma.campaignDelivery.findMany({
-    where: { bankId: input.bankId, mobile: { contains: tail } },
+    where: { bankId: scope, mobile: { contains: tail } },
     include: {
       campaign: { select: { id: true, templateName: true, createdAt: true, confirmedAt: true, mode: true } },
     },
@@ -140,17 +143,17 @@ export async function loadAccountTimeline(input: {
   ].filter((item): item is { noticeNumber: { in: string[] } } | { loanNumber: { in: string[] } } => Boolean(item));
   const [notices, consignments] = await Promise.all([
     noticeNumbers.length
-      ? prisma.publicNotice.findMany({ where: { bankId: input.bankId, noticeNumber: { in: noticeNumbers } } })
+      ? prisma.publicNotice.findMany({ where: { bankId: scope, noticeNumber: { in: noticeNumbers } } })
       : Promise.resolve([]),
     postalOr.length
       ? prisma.speedPostConsignment.findMany({
-          where: { bankId: input.bankId, OR: postalOr },
+          where: { bankId: scope, OR: postalOr },
           include: { events: { orderBy: { occurredAt: "asc" } } },
         })
       : Promise.resolve([]),
   ]);
   return assembleTimeline({
-    bankId: input.bankId,
+    bankId: scope,
     loan: loans.length === 1 ? loans[0] : "",
     account: "",
     notices,

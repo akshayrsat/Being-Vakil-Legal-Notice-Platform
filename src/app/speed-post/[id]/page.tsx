@@ -14,6 +14,8 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { getCurrentUser } from "@/lib/auth";
+import { requiredBankId } from "@/lib/bank-data";
+import { formatIndiaDateTime } from "@/lib/india-day";
 import { backToSpeedPost } from "@/lib/desk-back";
 import { prisma } from "@/lib/db";
 import { loanSearchHref } from "@/lib/loan-timeline";
@@ -39,7 +41,7 @@ export default async function SpeedPostDetailPage({
   const scope = scopedBankId(user, query.bank);
   const consignment = scope
     ? await prisma.speedPostConsignment.findFirst({
-        where: { id, bankId: scope },
+        where: { id, bankId: requiredBankId(scope) },
         include: {
           bank: { select: { name: true } },
           events: { orderBy: { occurredAt: "asc" } },
@@ -133,7 +135,7 @@ export default async function SpeedPostDetailPage({
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <p className="font-medium">{postalStatusLabel(event.status)}</p>
                   <p className="text-sm text-muted-foreground">
-                    {new Intl.DateTimeFormat("en-IN", { dateStyle: "medium", timeStyle: "short" }).format(event.occurredAt)}
+                    {formatIndiaDateTime(event.occurredAt)}
                   </p>
                 </div>
                 {event.note ? <p className="mt-1 text-sm leading-6">{event.note}</p> : null}

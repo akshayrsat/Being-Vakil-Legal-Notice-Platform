@@ -1,25 +1,25 @@
 // Which bank a page or download is allowed to use.
 // One bank at a time. Rows from bank A are never mixed into bank B.
 //
-// Bank Viewer: only the bank on their login. A ?bank= parameter is ignored.
-// Admin: the bank they switched to on Banks ("Use this bank"), or one bank
-// named by an explicit ?bank= filter. Guessing a campaign, consignment, or
-// export id does not open another bank unless that filter or switch matches it.
+// Bank Viewer: the bank on their login.
+// Admin: the bank they switched to on Banks ("Use this bank"), stored as selectedBankId.
+// A ?bank= address cannot open a different bank. Uploads, recipient rows, campaigns,
+// tracking, bank-owned templates, Speed Post, loans, and reports all use this id.
+// Switch banks on the Banks page first.
 //
 // Public notice links (/notice-<id>) stay unauthenticated on purpose. They show
 // that one notice and no other customer's row. Staff lists do not use that path.
 
 import type { SignedInUser } from "./auth";
 import type { BankSnapshot } from "./banks";
-import { toBankSnapshot } from "./banks";
-import { prisma } from "./db";
-import { ROLE_ADMIN } from "./roles";
 
 export function scopedBankId(user: SignedInUser, explicitBankId?: string | null): string | null {
-  if (user.role !== ROLE_ADMIN) return user.bank?.id ?? null;
+  const working = user.bank?.id?.trim() || null;
+  if (!working) return null;
   const explicit = (explicitBankId ?? "").trim();
-  if (explicit) return explicit;
-  return user.bank?.id ?? null;
+  // A link may repeat the working bank. Any other id stays on the working bank.
+  if (explicit && explicit !== working) return working;
+  return working;
 }
 
 export function canReadBank(user: SignedInUser, bankId: string, explicitBankId?: string | null): boolean {
@@ -41,14 +41,9 @@ export async function resolveReportBank(
   user: SignedInUser,
   requestedBankId: string,
 ): Promise<BankSnapshot | null> {
-  if (user.role !== ROLE_ADMIN) {
-    return user.bank;
-  }
-
+  const working = user.bank;
+  if (!working) return null;
   const wanted = requestedBankId.trim();
-  if (wanted) {
-    const bank = await prisma.bank.findUnique({ where: { id: wanted } });
-    return toBankSnapshot(bank);
-  }
-  return user.bank;
+  if (wanted && wanted !== working.id) return working;
+  return working;
 }

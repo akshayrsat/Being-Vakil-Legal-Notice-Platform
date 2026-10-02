@@ -1,10 +1,12 @@
 // The short email that points at one public notice, on the firm letterhead.
 
+import { INDIA_TIME_ZONE } from "./india-day";
 import { FIRM_ADDRESS, FIRM_NAME, FIRM_TAGLINE } from "./letterhead";
 import { noticePublicUrl } from "./notice-link";
 
 export function emailDateLabel(date: Date): string {
   return new Intl.DateTimeFormat("en-IN", {
+    timeZone: INDIA_TIME_ZONE,
     day: "numeric",
     month: "long",
     year: "numeric",
