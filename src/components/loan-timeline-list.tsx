@@ -22,7 +22,7 @@ export function LoanTimelineList({ timeline }: { timeline: AccountTimeline }) {
       {timeline.events.map((event, index) => (
         <li key={event.id} className="grid grid-cols-[1rem_minmax(0,1fr)] gap-3">
           <div className="flex flex-col items-center">
-            <span className="mt-1.5 h-2.5 w-2.5 rounded-full bg-[#5b2c83]" />
+            <span className="mt-1.5 h-2.5 w-2.5 rounded-full bg-primary" />
             {index < timeline.events.length - 1 ? <span className="w-px flex-1 bg-border" /> : null}
           </div>
           <div className="pb-5">

@@ -1,8 +1,8 @@
 // The top of every signed-in page: who you are, which bank is in use, and Sign out.
 
-import Image from "next/image";
 import Link from "next/link";
 import { signOut } from "@/app/actions/auth";
+import { BrandLogo } from "@/components/brand-logo";
 import { DeskNav } from "@/components/desk-nav";
 import { SignOutButton } from "@/components/sign-out-button";
 import type { SignedInUser } from "@/lib/auth";
@@ -11,7 +11,7 @@ import { PRODUCT_NAME, PRODUCT_TAGLINE } from "@/lib/brand";
 import { ROLE_ADMIN, roleAccent, roleTitle } from "@/lib/roles";
 
 const barClass = {
-  admin: "bg-[#5b2c83]",
+  admin: "bg-primary",
   viewer: "bg-[#1a4a42]",
   unknown: "bg-[#8a6232]",
 } as const;
@@ -35,15 +35,9 @@ export function AppHeader({ user }: { user: SignedInUser }) {
       <header className="border-b border-border bg-card">
         <div className="mx-auto flex w-full max-w-5xl flex-col gap-4 px-4 py-4 sm:px-6">
           <div className="flex flex-wrap items-center justify-between gap-4">
-            <Link href="/dashboard" className="flex items-center gap-3">
-              <Image
-                src="/branding/letterhead-mark.png"
-                alt=""
-                width={40}
-                height={40}
-                className="h-10 w-10 rounded-md object-contain"
-              />
-              <span>
+            <Link href="/dashboard" className="flex min-w-0 items-center gap-4">
+              <BrandLogo size="header" />
+              <span className="min-w-0">
                 <span className="block font-serif text-2xl leading-none text-primary">{PRODUCT_NAME}</span>
                 <span className="mt-1 block text-sm text-muted-foreground">{PRODUCT_TAGLINE}</span>
               </span>

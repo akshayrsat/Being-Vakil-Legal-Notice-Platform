@@ -26,7 +26,7 @@ export function BankList({
         return (
           <li
             key={bank.id}
-            className={`rounded-xl bg-card px-4 py-4 ring-1 ring-foreground/10 ${current ? "border-l-4 border-l-[#1b3048]" : ""}`}
+            className={`rounded-xl bg-card px-4 py-4 ring-1 ring-foreground/10 ${current ? "border-l-4 border-l-primary" : ""}`}
           >
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>

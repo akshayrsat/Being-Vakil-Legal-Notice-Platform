@@ -1,7 +1,7 @@
 // Safe reads of send gates. Values of keys and entry codes are never returned or logged.
 
-import { entryCode, entryGateEnabled } from "./entry-gate";
 import { indiaPostConfigured } from "./postal";
+import { entryCode } from "./staff-gate";
 
 export type RuntimeGates = {
   liveSend: boolean;
@@ -23,15 +23,15 @@ export function describeRuntimeGates(input: {
   authKeySet: boolean;
   webhookConfigured: boolean;
 }): RuntimeGates {
-  const code = entryCode();
+  const rawCode = (process.env["NOTICE_DESK_ENTRY_CODE"] ?? "").trim();
   return {
     liveSend: input.authKeySet && liveSendFlag() === "true",
     liveFlag: liveSendFlag(),
     authKeySet: input.authKeySet,
     webhookConfigured: input.webhookConfigured,
     indiaPostConfigured: indiaPostConfigured(),
-    entryGate: entryGateEnabled(),
-    entryCodeShort: code.length > 0 && code.length < 8,
+    entryGate: Boolean(entryCode()),
+    entryCodeShort: rawCode.length > 0 && rawCode.length < 8,
   };
 }
 

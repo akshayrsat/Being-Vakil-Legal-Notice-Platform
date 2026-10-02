@@ -93,7 +93,7 @@ export function CampaignForm({
                 value={channel}
                 checked={channels.includes(channel)}
                 onChange={(event) => toggleChannel(channel, event.target.checked)}
-                className="size-4 accent-[#1b3048]"
+                className="size-4 accent-primary"
               />
               {sendChannelLabel(channel)}
             </label>

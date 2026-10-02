@@ -1,8 +1,10 @@
 // Admin one-time code. Bank viewers never land here. Without MSG91, sign-in skips this page.
 
 import type { Metadata } from "next";
+import { cookies } from "next/headers";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { BrandLogo } from "@/components/brand-logo";
 import { OtpForm } from "@/components/otp-form";
 import {
   Card,
@@ -12,7 +14,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { OTP_COOKIE, getCurrentUser } from "@/lib/auth";
-import { cookies } from "next/headers";
+import { staffGateIsOpen } from "@/lib/staff-gate-session";
 
 export const metadata: Metadata = {
   title: "One-time code",
@@ -25,6 +27,7 @@ export default async function OtpPage({
 }) {
   const user = await getCurrentUser();
   if (user) redirect("/dashboard");
+  if (!(await staffGateIsOpen())) redirect("/?staff=1");
 
   const cookieStore = await cookies();
   const query = await searchParams;
@@ -32,9 +35,10 @@ export default async function OtpPage({
 
   return (
     <div className="flex min-h-full flex-col">
-      <div className="h-2 bg-[#1b3048]" />
+      <div className="h-2 bg-primary" />
       <main className="mx-auto flex w-full max-w-lg flex-1 flex-col justify-center px-4 py-10 sm:px-6">
-        <h1 className="font-serif text-4xl tracking-tight text-primary">One-time code</h1>
+        <BrandLogo size="mark" priority />
+        <h1 className="mt-6 font-serif text-4xl tracking-tight text-primary">One-time code</h1>
         <p className="mt-3 text-base leading-7 text-muted-foreground">
           Enter the code MSG91 sent to the firm mobile saved on this computer. A Bank Viewer does
           not use this step.
@@ -62,7 +66,7 @@ export default async function OtpPage({
                 Sign in with your email and password first.
               </p>
             )}
-            <Link href="/login" className="text-sm font-medium underline">
+            <Link href="/login" className="text-sm font-medium text-primary underline">
               Back to sign in
             </Link>
           </CardContent>

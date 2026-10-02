@@ -28,7 +28,7 @@ export function DeskNav({ role }: { role: string }) {
             key={link.href}
             href={link.href}
             className={`rounded-md px-3 py-2 text-sm ${
-              active ? "bg-[#5b2c83] text-white" : "text-foreground hover:bg-muted"
+              active ? "bg-primary text-primary-foreground" : "text-foreground hover:bg-muted"
             }`}
             aria-current={active ? "page" : undefined}
           >

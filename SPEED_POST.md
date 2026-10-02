@@ -78,4 +78,4 @@ Turn it off again with **Stop email PDFs**.
 
 ## Staff entry code
 
-Leave `NOTICE_DESK_ENTRY_CODE` unset on a practice computer. If it is set, staff pages redirect to `/enter` until the code is accepted. Public notice links and `/api/msg91/webhook` stay open. Do not commit the real code.
+The public page keeps the staff door from the main site. Set `NOTICE_DESK_ENTRY_CODE` (at least 8 characters) and use **Staff access** on that page. The code is not stored in the repo. Public notice links and `/api/msg91/webhook` stay open. In production the example placeholder is refused, so the door stays locked until a real code is set on the server.

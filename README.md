@@ -14,6 +14,8 @@ npm run dev
 
 `npm run dev` creates the local SQLite database (`prisma db push`), seeds practice users, banks, and templates (`prisma db seed`), and starts Next.js. Open [http://localhost:4317](http://localhost:4317).
 
+That address is a public page for people who received a notice. It does not show staff sign-in. Set `NOTICE_DESK_ENTRY_CODE` in `.env` (see `.env.example`), restart, then use **Staff access** on that page. The correct code opens `/login` for about two hours. A wrong code stays on the public page. Opening `/login` without that step returns to `/`. On Cloud Run, set `NOTICE_DESK_ENTRY_CODE` in the service environment. The example placeholder is refused in production.
+
 Copy `.env.example` only if `.env` is missing. The example has placeholder `MSG91_*` keys and does not turn live send on.
 
 ## Demo logins
