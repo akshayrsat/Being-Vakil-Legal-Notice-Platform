@@ -35,7 +35,7 @@ An SMS uses the DLT template `Legal_Notice_12092026`. The variables are `custome
 
 `https://www.notice.beingvakil.in/notice-<notice_number>`
 
-That path is this app. `/notice-<notice_number>` shows that one recipient’s demand notice on the Being Vakil Associates letterhead, with the advocate’s signature and stamp. The same page also opens at `/?notice=<notice_number>`, `/notice?notice=<notice_number>`, and `/n/<notice_number>`. Use Print letter to print or save a PDF. No sign-in is required. A missing or unknown number shows a not-found page and no other customer.
+That path is this app. `/notice-<notice_number>` shows that one recipient’s demand notice on the Being Vakil Associates letterhead, with the advocate’s signature and stamp. The same page also opens at `/?notice=<notice_number>`, `/notice?notice=<notice_number>`, and `/n/<notice_number>`. Use Print letter to print or save a PDF. The printable sheet is A4 (210mm × 297mm). No sign-in is required. A missing or unknown number shows a not-found page and no other customer.
 
 The public page is the SPEED POST demand notice. Name, address, overdue amount, loan type, loan number, reference number, collection manager, and bank website come from the spreadsheet. The bank name is the bank on the send. Email uses the short demand email, with the same letterhead and stamp, and the same `/notice-<id>` link.
 

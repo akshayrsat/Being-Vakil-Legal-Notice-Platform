@@ -15,8 +15,9 @@ export async function PublicNoticeScreen({ noticeNumber }: { noticeNumber: strin
 
 function NoticeMissing({ kind }: { kind: "empty" | "missing" }) {
   return (
-    <main className="notice-screen mx-auto flex min-h-full w-full max-w-3xl flex-col px-4 py-8 sm:py-12">
-      <article className="notice-letter bg-card px-5 py-8 shadow-sm ring-1 ring-foreground/10 sm:px-10 sm:py-12">
+    <main className="notice-screen">
+      <div className="notice-stage">
+      <article className="notice-sheet notice-letter bg-card shadow-sm ring-1 ring-foreground/10">
         <NoticeLetterhead />
         <h1 className="mt-8 font-serif text-3xl tracking-tight">Notice not found</h1>
         <p className="mt-3 text-base leading-7">
@@ -26,6 +27,7 @@ function NoticeMissing({ kind }: { kind: "empty" | "missing" }) {
         </p>
         <NoticeLetterfoot />
       </article>
+      </div>
     </main>
   );
 }
@@ -47,48 +49,42 @@ function PublicNoticeDocument({ notice }: { notice: PublicNoticeView }) {
   });
 
   return (
-    <main className="notice-screen mx-auto w-full max-w-3xl px-4 py-8 sm:py-12">
-      <div className="no-print mb-4 flex justify-end">
+    <main className="notice-screen">
+      <div className="no-print mb-3 flex w-full max-w-[210mm] justify-end">
         <PrintLetterButton />
       </div>
-      <article className="notice-letter bg-card px-5 py-8 shadow-sm ring-1 ring-foreground/10 sm:px-10 sm:py-12">
-        <NoticeLetterhead />
-
-        <p className="mt-8 text-center text-sm font-bold tracking-wide">{letter.kicker}</p>
-        <h1 className="mt-2 text-center text-2xl font-bold tracking-wide">{letter.title}</h1>
-        <p className="mt-4 text-sm">{letter.dateLine}</p>
-        <p className="text-sm">{letter.referenceLine}</p>
-
-        <section className="mt-6">
-          <p>To,</p>
-          <p className="mt-2 font-bold">{letter.addresseeName}</p>
-          <p className="mt-1 max-w-md whitespace-pre-wrap leading-6">{letter.addresseeAddress}</p>
-        </section>
-
-        <p className="mt-6">{letter.salutation}</p>
-        <p className="mt-4 font-bold leading-7">{letter.subject}</p>
-        {letter.opening.map((paragraph) => (
-          <p key={paragraph} className="mt-4 leading-7">
-            {paragraph}
-          </p>
-        ))}
-        <dl className="mt-4">
-          {letter.status.map((row) => (
-            <div key={row.label} className="mt-1">
-              <dt className="inline font-bold">{row.label} : </dt>
-              <dd className="inline">{row.value}</dd>
+      <div className="notice-stage">
+        <article className="notice-sheet notice-letter bg-card shadow-sm ring-1 ring-foreground/10">
+          <NoticeLetterhead />
+          <div className="notice-copy">
+            <p className="notice-kicker">{letter.kicker}</p>
+            <h1>{letter.title}</h1>
+            <p>{letter.dateLine}</p>
+            <p>{letter.referenceLine}</p>
+            <p>To,</p>
+            <p className="font-bold">{letter.addresseeName}</p>
+            <p className="whitespace-pre-wrap">{letter.addresseeAddress}</p>
+            <p>{letter.salutation}</p>
+            <p className="font-bold">{letter.subject}</p>
+            {letter.opening.map((paragraph) => (
+              <p key={paragraph}>{paragraph}</p>
+            ))}
+            <div className="notice-status">
+              {letter.status.map((row) => (
+                <p key={row.label}>
+                  <span className="font-bold">{row.label} : </span>
+                  {row.value}
+                </p>
+              ))}
             </div>
-          ))}
-        </dl>
-        {letter.closing.map((paragraph) => (
-          <p key={paragraph} className="mt-4 leading-7">
-            {paragraph}
-          </p>
-        ))}
-
-        <NoticeSignature bankName={notice.bankName} />
-        <NoticeLetterfoot />
-      </article>
+            {letter.closing.map((paragraph) => (
+              <p key={paragraph}>{paragraph}</p>
+            ))}
+          </div>
+          <NoticeSignature bankName={notice.bankName} />
+          <NoticeLetterfoot />
+        </article>
+      </div>
     </main>
   );
 }

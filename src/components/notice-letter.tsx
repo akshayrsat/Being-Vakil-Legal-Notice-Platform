@@ -6,7 +6,7 @@ import { FIRM_NAME } from "@/lib/letterhead";
 
 export function NoticeLetterhead() {
   return (
-    <header>
+    <header className="notice-letterhead">
       <Image
         src="/branding/letterhead-header.png"
         alt="Being Vakil Associates. Empowering You, Protecting You, Being Vakil!"
@@ -14,8 +14,6 @@ export function NoticeLetterhead() {
         height={504}
         unoptimized
         priority
-        className="h-auto w-full"
-        style={{ width: "100%", height: "auto" }}
       />
     </header>
   );
@@ -23,15 +21,13 @@ export function NoticeLetterhead() {
 
 export function NoticeLetterfoot() {
   return (
-    <footer className="mt-8">
+    <footer className="notice-letterfoot">
       <Image
         src="/branding/letterhead-footer.png"
         alt="Being Vakil Associates, +91 93262 47985, 5th Floor, WISE SNDTUW, UMIT, SNDT Juhu Campus, Juhu Tara Road, Santacruz (West), Mumbai - 400049, shweta@beingvakil.com, Mumbai | Thane | Delhi | Nagpur | Bangalore, www.beingvakil.in"
         width={1733}
         height={231}
         unoptimized
-        className="h-auto w-full"
-        style={{ width: "100%", height: "auto" }}
       />
     </footer>
   );
@@ -39,17 +35,17 @@ export function NoticeLetterfoot() {
 
 export function NoticeSignature({ bankName }: { bankName: string }) {
   return (
-    <div className="mt-10">
+    <div className="notice-sign">
       <p>Yours Faithfully,</p>
-      <Image
-        src="/branding/stamp-signature.png"
-        alt="Signature of Shweta and the Being Vakil Associates stamp"
-        width={1080}
-        height={1080}
-        unoptimized
-        className="mt-1 h-auto w-64 sm:w-80"
-        style={{ width: "18rem", height: "auto" }}
-      />
+      <div className="notice-stamp">
+        <Image
+          src="/branding/stamp-signature.png"
+          alt="Signature of Shweta and the Being Vakil Associates stamp"
+          width={1080}
+          height={1080}
+          unoptimized
+        />
+      </div>
       <p className="font-bold">Adv Shweta Sudhir</p>
       <p className="font-bold">For {FIRM_NAME}</p>
       <p>Advocates acting for {bankName}</p>
