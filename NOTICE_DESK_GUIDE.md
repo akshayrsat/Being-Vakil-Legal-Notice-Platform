@@ -138,7 +138,7 @@ The file has to belong to the bank you are working on. If the home page says **N
 
 1. Sign in as Admin and choose a bank, for example **Northwind Housing Finance**.
 2. Press **Uploads**.
-3. Press **download notice-recipients.xlsx**, or use the file `samples/notice-recipients.xlsx` in this project folder. It is a practice list of 12 people, not real customers.
+3. Press **download notice-recipients.xlsx**, or use the file `samples/notice-recipients.xlsx` in this project folder. It is a practice list of three test recipients: Akshay Sathe, Akshay R Sathe, and Shweta Sudhir.
 4. Press **Choose file** (the wording depends on the browser), pick that file, then press **Upload Excel**.
 5. The next page lists the column names from the first row. Each notice field has a dropdown. Customer name is required. Leave a dropdown on **Not in this file** when the sheet does not have that detail. Empty optional cells are fine.
 6. You can match up to three mobile columns. If one cell has two numbers separated by a comma or a slash, both are kept.
@@ -182,7 +182,7 @@ To change one, press **Edit** on its row. An inactive bank can still show its te
 4. The first three people are shown with their details dropped into the wording. An empty detail shows as **[not provided]**.
 5. Nothing is sent.
 
-Upload the practice file, save the column match, and choose **Borrower email notice**. The first person should show the name **Anita Deshmukh** and the loan number **LN10021**.
+Upload the practice file, save the column match, and choose **Borrower email notice**. The first person should show the name **Akshay Sathe** and the loan number **LN10021**.
 
 ## Prepare a send (dry run)
 
@@ -215,7 +215,7 @@ Press **Campaigns**. After an Admin has confirmed a send for Northwind, you can 
 ## Find a person and download a status report
 
 1. Sign in and press **Find a person** on the home page or on **Campaigns**.
-2. Type a name, mobile, loan number, or customer id. The practice file uses loan **LN10021** for Anita Deshmukh.
+2. Type a name, mobile, loan number, or customer id. The practice file uses loan **LN10021** for Akshay Sathe.
 3. Press **Search**. Each row shows the channel and the status. A dry run says **Dry run**. It does not say Delivered.
 4. You can narrow the list by campaign, channel, status, and date. An Admin can also pick a bank. A Bank Viewer cannot.
 5. Press **Download CSV**. Excel can open the file. It has the same rows as the search, for that bank only.
@@ -251,10 +251,10 @@ Send the secret in the header `x-notice-desk-secret`. A wrong secret, or no secr
 A useful body looks like this:
 
 ```json
-{ "mobile": "919876543210", "channel": "SMS", "status": "delivered" }
+{ "mobile": "919619871393", "channel": "SMS", "status": "delivered" }
 ```
 
-`status` may be `delivered`, `read`, or `failed`. The site also understands an MSG91 report that uses `number` and `desc`, such as `DELIVERED`. The matching person has to be on a live send. A dry run stays **Dry run**.
+`status` may be `delivered`, `read`, or `failed`. The site also understands an MSG91 report that uses `number` and `desc`, such as `DELIVERED`. The matching person has to be on a live send. In the practice file, `919619871393` is Akshay Sathe. A dry run stays **Dry run**.
 
 ## If the upload page says something is wrong
 
@@ -310,7 +310,7 @@ You do not need to open these to use the site. This list is so a person can see 
 - `.env` — a local file you create by copying `.env.example`. It tells the site where the database file is, and where optional MSG91 keys would go. It is not part of the download. Do not commit it once it has keys.
 - `.env.example` — the spare copy of `.env`. It has no secrets.
 - `prisma/schema.prisma` — the list of things we store: banks, people, spreadsheets, notice templates, sends, the audit log, and each signed-in visit.
-- `samples/notice-recipients.xlsx` — a practice Excel file of 12 made-up customers.
+- `samples/notice-recipients.xlsx` — a practice Excel file of three test recipients.
 - `scripts/make-sample-workbook.mjs` — rebuilds that practice Excel file if you need a fresh copy.
 - `prisma/seed.ts` — creates the practice users, the practice banks, and the two practice templates.
 - `prisma.config.ts` — tells the database tool to run that practice-user script.
