@@ -1,5 +1,7 @@
-// Practice notice templates. They are filed under the bank marked forViewer (Northwind).
-// Starting the site again puts this wording back. Templates you add yourself are left alone.
+// Practice notice templates. They are stored on the bank marked forViewer (Northwind)
+// and marked Approved, so every bank can select the wording. They are not copied
+// onto each bank. Starting the site again puts this wording back.
+// Templates you add yourself are left alone.
 
 import { TEMPLATE_APPROVED } from "./templates";
 

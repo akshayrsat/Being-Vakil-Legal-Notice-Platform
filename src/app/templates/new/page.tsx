@@ -18,7 +18,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { workingBank } from "@/lib/bank-context";
 import { backToTemplates } from "@/lib/desk-back";
 import { ROLE_ADMIN } from "@/lib/roles";
-import { TEMPLATE_DRAFT } from "@/lib/templates";
+import { TEMPLATE_DRAFT, templateFormNote } from "@/lib/templates";
 
 export const metadata: Metadata = {
   title: "New template",
@@ -53,7 +53,11 @@ export default async function NewTemplatePage() {
           <CardContent>
             {bank.active ? (
               <TemplateForm
-                bankName={bank.name}
+                note={templateFormNote({
+                  isNew: true,
+                  status: TEMPLATE_DRAFT,
+                  homeBankName: bank.name,
+                })}
                 initial={{
                   id: "",
                   name: "",

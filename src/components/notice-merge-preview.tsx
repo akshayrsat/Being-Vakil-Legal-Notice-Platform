@@ -53,8 +53,9 @@ export function NoticeMergePreview({
       <CardHeader>
         <CardTitle>Filled notice</CardTitle>
         <CardDescription>
-          Choose an approved template for {bankName}. The first {SAMPLE_COUNT} people are filled in
-          so you can check the wording. Draft templates are not listed. Nothing is sent.
+          Choose an approved template. The list is the firm’s Approved wording, for every bank.
+          The first {SAMPLE_COUNT} people are from this spreadsheet for {bankName} only. Drafts are
+          not listed. Nothing is sent.
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
@@ -66,7 +67,7 @@ export function NoticeMergePreview({
             {templates.length === 0
               ? (libraryNotes.length > 0
                   ? libraryNotes
-                  : [`No approved template for ${bankName} yet.`]
+                  : ["No approved template yet."]
                 ).map((note) => (
                   <p key={note} className="text-sm leading-6 text-muted-foreground">
                     {note}
@@ -80,8 +81,8 @@ export function NoticeMergePreview({
               ? libraryNotes
               : [
                   canEdit
-                    ? `No approved template for ${bankName} yet. Write one, mark it Approved, then come back.`
-                    : `The firm has not approved a template for ${bankName} yet.`,
+                    ? "No approved template yet. Write one, mark it Approved, then come back. An Approved template is listed for every bank."
+                    : "The firm has not approved a template yet.",
                 ]
             ).map((note) => (
               <p key={note} className="text-sm leading-6 text-muted-foreground">

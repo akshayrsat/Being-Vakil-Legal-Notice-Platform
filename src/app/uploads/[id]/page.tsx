@@ -26,6 +26,7 @@ import { prisma } from "@/lib/db";
 import { ROLE_ADMIN } from "@/lib/roles";
 import { SHEET_FIELDS, type FieldKey, type FieldMapping } from "@/lib/sheet-fields";
 import { templateLibraryNotes } from "@/lib/template-library";
+import { templateChoiceLabel } from "@/lib/templates";
 
 export const metadata: Metadata = {
   title: "Match columns",
@@ -195,7 +196,16 @@ export default async function UploadBatchPage({
           saved={batch.saved}
           total={batch.rowCount}
           rows={previewRows}
-          templates={approvedTemplates}
+          templates={approvedTemplates.map((template) => ({
+            id: template.id,
+            name: templateChoiceLabel(
+              { name: template.name, bankId: template.bankId, bankName: template.bank.name },
+              bank.id,
+            ),
+            dltTemplateId: template.dltTemplateId,
+            channels: template.channels,
+            body: template.body,
+          }))}
           selectedId={selectedTemplate?.id ?? ""}
           canEdit={isAdmin && bank.active}
           libraryNotes={libraryNotes}

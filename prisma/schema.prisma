@@ -50,7 +50,10 @@ model Bank {
   createdAt  DateTime       @default(now())
 }
 
-// A notice template belongs to one bank. Firm-wide templates are not used.
+// bankId is the bank this wording was written for.
+// A draft is listed only for that bank. Approved wording is the firm library:
+// every bank can select it. That share is the template text only.
+// Spreadsheets, people, sends, deliveries, and notices stay on one bank.
 // channels is a JSON list such as ["SMS","EMAIL"]. seedKey is set only for the practice templates.
 model NoticeTemplate {
   id            String         @id @default(cuid())

@@ -1,4 +1,4 @@
-// The form firm staff use to write or change a notice template for the current bank.
+// The form firm staff use to write or change notice wording.
 
 "use client";
 
@@ -23,10 +23,10 @@ import {
 } from "@/lib/templates";
 
 export function TemplateForm({
-  bankName,
+  note,
   initial,
 }: {
-  bankName: string;
+  note: string;
   initial: {
     id: string;
     name: string;
@@ -57,10 +57,7 @@ export function TemplateForm({
   return (
     <form action={formAction} className="flex flex-col gap-5">
       <input type="hidden" name="templateId" value={initial.id} />
-      <p className="text-sm leading-6 text-muted-foreground">
-        This template is saved on {bankName} only. Another bank does not see it. Mark it Approved
-        when the wording is ready to fill in. Nothing is sent from this page.
-      </p>
+      <p className="text-sm leading-6 text-muted-foreground">{note}</p>
 
       <div className="flex flex-col gap-2">
         <Label htmlFor="template-name">Template name</Label>

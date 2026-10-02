@@ -30,7 +30,7 @@ export function roleHeadline(role: string): string {
 
 export function roleSummary(role: string): string {
   if (role === ROLE_ADMIN) {
-    return "You work for the law firm. Choose a bank, upload that bank’s spreadsheet, keep its notice templates, and prepare a send. Without MSG91, a send is only a dry run. The audit log shows who did what.";
+    return "You work for the law firm. Choose a bank, upload that bank’s spreadsheet, and prepare a send. Approved notice wording can be selected for any bank. A spreadsheet, its people, and a send stay on the bank you are working on. Without MSG91, a send is only a dry run. The audit log shows who did what.";
   }
   if (role === ROLE_BANK_VIEWER) {
     return "You are on the bank side. This login is tied to one bank. You can look at spreadsheets, templates, campaigns, and delivery status for that bank. You cannot upload, edit, or send.";

@@ -1,5 +1,6 @@
 // Which saved templates a bank can select.
-// A template belongs to one bank. Approved wording stays selectable for later sends.
+// Approved wording is the firm library: every bank can select it.
+// A draft stays on the bank it was written for.
 // A spreadsheet upload is a list of people. It does not create a template.
 
 import { isApprovedTemplateStatus } from "./templates";
@@ -31,11 +32,9 @@ export function sortTemplatesByName<T extends NamedTemplate>(templates: T[]): T[
 }
 
 export function approvedTemplatesForBank<T extends BankTemplateRow>(templates: T[], bankId: string): T[] {
-  return sortTemplatesByName(
-    templates.filter(
-      (template) => template.bankId === bankId && isApprovedTemplateStatus(template.status),
-    ),
-  );
+  // bankId is the bank being worked on. Approved wording from every bank is selectable.
+  void bankId;
+  return sortTemplatesByName(templates.filter((template) => isApprovedTemplateStatus(template.status)));
 }
 
 export function otherBankApprovedSummary(
@@ -81,8 +80,8 @@ export function templateLibraryNotes(input: {
   if (input.approvedCount === 0) {
     notes.push(
       input.canWrite
-        ? `Uploading a spreadsheet saves the people for ${input.bankName}. It does not save notice wording. Write a template for this bank and mark it Approved. Approved templates stay in this list and can be selected on every later send.`
-        : `${input.bankName} has no Approved template yet. Notice wording is saved by the firm for this bank. A spreadsheet upload does not add a template.`,
+        ? `Uploading a spreadsheet saves the people for ${input.bankName}. It does not save notice wording. Write a template and mark it Approved. Approved wording can be selected for every bank.`
+        : `${input.bankName} has no Approved template yet. Notice wording is saved by the firm. A spreadsheet upload does not add a template.`,
     );
     if (input.canWrite && drafts > 0) {
       notes.push(
@@ -101,7 +100,7 @@ export function templateLibraryNotes(input: {
       })
       .join("; ");
     notes.push(
-      `You are working on ${input.bankName}. Approved templates saved on another bank stay with that bank: ${where}. Switch to that bank to select them.`,
+      `Approved wording from another bank is already listed for ${input.bankName}: ${where}. Spreadsheets and people stay on ${input.bankName}.`,
     );
   }
 
