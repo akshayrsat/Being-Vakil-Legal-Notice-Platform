@@ -2,7 +2,9 @@
 
 import { randomBytes } from "node:crypto";
 import type { Prisma } from "@prisma/client";
+import { logDesk } from "./desk-log";
 import { prisma } from "./db";
+import { tooManyAttempts } from "./rate-limit";
 import { demandNoticePlainText } from "./demand-notice";
 import type { NoticeRecipient } from "./merge-notice";
 
@@ -173,6 +175,7 @@ export function shouldRecordNoticeView(headerList: { get(name: string): string |
 
 // Keeps the first open, and counts later views of the same notice page.
 export async function recordPublicNoticeOpen(noticeNumber: string): Promise<void> {
+  if (tooManyAttempts(`notice-view:${noticeNumber}`, 40, 60 * 1000)) return;
   const now = new Date();
   try {
     await prisma.$transaction([
@@ -186,7 +189,9 @@ export async function recordPublicNoticeOpen(noticeNumber: string): Promise<void
       }),
     ]);
   } catch (error) {
-    console.error("Could not record a notice link open.", error);
+    logDesk("notice.open.error", {
+      message: error instanceof Error ? error.message.slice(0, 160) : "failed",
+    });
   }
 }
 

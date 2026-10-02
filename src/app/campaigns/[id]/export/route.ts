@@ -8,6 +8,7 @@ import { isDeliveryStatus, statusesForFilter } from "@/lib/campaigns";
 import { prisma } from "@/lib/db";
 import { reportCsv, type ReportRow } from "@/lib/delivery-report";
 import { noticePublicUrl } from "@/lib/notice-link";
+import { postalStatusLabel } from "@/lib/postal";
 import { noticeLinkOpensByNumber } from "@/lib/public-notice";
 import { canReadBank } from "@/lib/report-bank";
 
@@ -55,8 +56,14 @@ export async function GET(
   });
 
   const linkOpens = await noticeLinkOpensByNumber(rows.map((row) => row.noticeNumber));
+  const consignments = await prisma.speedPostConsignment.findMany({
+    where: { campaignId: campaign.id },
+    select: { recipientRowId: true, articleNumber: true, status: true },
+  });
+  const postalByRecipient = new Map(consignments.map((item) => [item.recipientRowId, item]));
   const report: ReportRow[] = rows.map((row) => {
     const linkOpen = row.noticeNumber ? linkOpens.get(row.noticeNumber) : undefined;
+    const postal = postalByRecipient.get(row.recipientRowId);
     return {
       bankName: campaign.bank.name,
       campaignName: campaign.templateName,
@@ -75,6 +82,8 @@ export async function GET(
       openedAt: row.openedAt,
       linkOpenedAt: linkOpen?.linkOpenedAt ?? null,
       linkViewCount: linkOpen?.linkViewCount ?? 0,
+      speedPostArticle: postal?.articleNumber ?? "",
+      speedPostStatus: postal ? postalStatusLabel(postal.status) : "",
     };
   });
 

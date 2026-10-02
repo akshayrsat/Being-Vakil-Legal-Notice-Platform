@@ -2,13 +2,13 @@
 
 import Link from "next/link";
 import { signOut } from "@/app/actions/auth";
-import { SignOutButton } from "@/components/sign-out-button";
-import { buttonVariants } from "@/components/ui/button";
 import { BrandLogo } from "@/components/brand-logo";
+import { DeskNav } from "@/components/desk-nav";
+import { SignOutButton } from "@/components/sign-out-button";
 import type { SignedInUser } from "@/lib/auth";
 import { workingBank } from "@/lib/bank-context";
 import { PRODUCT_NAME, PRODUCT_TAGLINE } from "@/lib/brand";
-import { ROLE_ADMIN, roleAccent } from "@/lib/roles";
+import { ROLE_ADMIN, roleAccent, roleTitle } from "@/lib/roles";
 
 const barClass = {
   admin: "bg-primary",
@@ -33,61 +33,28 @@ export function AppHeader({ user }: { user: SignedInUser }) {
     <>
       <div className={`h-2 ${barClass[accent]}`} />
       <header className="border-b border-border bg-card">
-        <div className="mx-auto flex w-full max-w-3xl flex-wrap items-center justify-between gap-4 px-4 py-4 sm:px-6">
-          <div className="flex items-center gap-4">
-            <Link href="/dashboard" className="shrink-0">
+        <div className="mx-auto flex w-full max-w-5xl flex-col gap-4 px-4 py-4 sm:px-6">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <Link href="/dashboard" className="flex min-w-0 items-center gap-4">
               <BrandLogo size="header" />
+              <span className="min-w-0">
+                <span className="block font-serif text-2xl leading-none text-primary">{PRODUCT_NAME}</span>
+                <span className="mt-1 block text-sm text-muted-foreground">{PRODUCT_TAGLINE}</span>
+              </span>
             </Link>
-            <div>
-              <p className="font-serif text-2xl leading-none text-primary">{PRODUCT_NAME}</p>
-              <p className="mt-1 text-sm text-muted-foreground">{PRODUCT_TAGLINE}</p>
-              <p className="mt-2 text-sm font-medium text-foreground">{bankLine(user)}</p>
+            <div className="flex flex-wrap items-center gap-3">
+              <p className="text-sm">
+                <span className="font-medium">{user.name}</span>
+                <span className="text-muted-foreground"> · {roleTitle(user.role)}</span>
+              </p>
+              <form action={signOut}>
+                <SignOutButton />
+              </form>
             </div>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Link
-              href="/dashboard"
-              className={buttonVariants({ variant: "outline", className: "h-11 px-4" })}
-            >
-              Home
-            </Link>
-            {user.role === ROLE_ADMIN ? (
-              <Link
-                href="/banks"
-                className={buttonVariants({ variant: "outline", className: "h-11 px-4" })}
-              >
-                Banks
-              </Link>
-            ) : null}
-            <Link
-              href="/uploads"
-              className={buttonVariants({ variant: "outline", className: "h-11 px-4" })}
-            >
-              Uploads
-            </Link>
-            <Link
-              href="/templates"
-              className={buttonVariants({ variant: "outline", className: "h-11 px-4" })}
-            >
-              Templates
-            </Link>
-            <Link
-              href="/campaigns"
-              className={buttonVariants({ variant: "outline", className: "h-11 px-4" })}
-            >
-              Campaigns
-            </Link>
-            {user.role === ROLE_ADMIN ? (
-              <Link
-                href="/audit"
-                className={buttonVariants({ variant: "outline", className: "h-11 px-4" })}
-              >
-                Audit
-              </Link>
-            ) : null}
-            <form action={signOut}>
-              <SignOutButton />
-            </form>
+          <div className="flex flex-col gap-3">
+            <p className="text-sm font-medium text-foreground">{bankLine(user)}</p>
+            <DeskNav role={user.role} />
           </div>
         </div>
       </header>

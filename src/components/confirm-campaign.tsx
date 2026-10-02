@@ -21,7 +21,7 @@ export function ConfirmCampaign({
       <p className="text-sm leading-6 text-muted-foreground">
         {dryRun
           ? "Confirming records a dry run on this computer. MSG91 is not called."
-          : "Confirming asks MSG91 to deliver the notices that are not skipped."}
+          : "Confirming asks MSG91 to deliver the notices that are not skipped. Each row is claimed once, so a second confirm does not send it again."}
       </p>
       {state?.error ? (
         <p

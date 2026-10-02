@@ -13,17 +13,31 @@ import {
 } from "@/lib/public-notice";
 
 export async function PublicNoticeScreen({ noticeNumber }: { noticeNumber: string }) {
-  const normalized = normalizeNoticeNumber(noticeNumber);
-  if (!normalized) return <NoticeMissing kind="empty" />;
-  const notice = await findPublicNotice(normalized);
-  if (!notice) return <NoticeMissing kind="missing" />;
-  if (shouldRecordNoticeView(await headers())) {
-    await recordPublicNoticeOpen(normalized);
-  }
-  return <PublicNoticeDocument notice={notice} />;
+  const loaded = await loadNotice(noticeNumber);
+  if (loaded.kind !== "ready") return <NoticeMissing kind={loaded.kind} />;
+  return <PublicNoticeDocument notice={loaded.notice} />;
 }
 
-function NoticeMissing({ kind }: { kind: "empty" | "missing" }) {
+async function loadNotice(noticeNumber: string): Promise<
+  | { kind: "empty" | "missing" | "error" }
+  | { kind: "ready"; notice: PublicNoticeView }
+> {
+  try {
+    const normalized = normalizeNoticeNumber(noticeNumber);
+    if (!normalized) return { kind: "empty" };
+    const notice = await findPublicNotice(normalized);
+    if (!notice) return { kind: "missing" };
+    if (shouldRecordNoticeView(await headers())) {
+      await recordPublicNoticeOpen(normalized);
+    }
+    return { kind: "ready", notice };
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : "notice page failed");
+    return { kind: "error" };
+  }
+}
+
+function NoticeMissing({ kind }: { kind: "empty" | "missing" | "error" }) {
   return (
     <main className="notice-screen">
       <div className="notice-stage">
@@ -33,7 +47,9 @@ function NoticeMissing({ kind }: { kind: "empty" | "missing" }) {
         <p className="mt-3 text-base leading-7">
           {kind === "empty"
             ? "Open the link from your message. It includes a notice number."
-            : "This notice number is not on file. Check the link in your message, or contact the advocate who sent it."}
+            : kind === "error"
+              ? "This page could not be opened just now. Wait a moment and open the link again."
+              : "This notice number is not on file. Check the link in your message, or contact the advocate who sent it."}
         </p>
         <NoticeLetterfoot />
       </article>

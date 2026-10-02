@@ -6,6 +6,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { deliveryWhere, filtersToSearch, readDeliveryFilters, reportCsv, type ReportRow } from "@/lib/delivery-report";
 import { noticePublicUrl } from "@/lib/notice-link";
+import { postalStatusLabel } from "@/lib/postal";
 import { noticeLinkOpensByNumber } from "@/lib/public-notice";
 import { resolveReportBank } from "@/lib/report-bank";
 
@@ -42,8 +43,23 @@ export async function GET(request: Request) {
   });
 
   const linkOpens = await noticeLinkOpensByNumber(rows.map((row) => row.noticeNumber));
+  const noticeNumbers = [...new Set(rows.map((row) => row.noticeNumber).filter(Boolean))];
+  const consignments = noticeNumbers.length
+    ? await prisma.speedPostConsignment.findMany({
+        where: { bankId: bank.id, noticeNumber: { in: noticeNumbers } },
+        select: { noticeNumber: true, articleNumber: true, status: true, updatedAt: true },
+        orderBy: { updatedAt: "desc" },
+      })
+    : [];
+  const postalByNotice = new Map<string, { articleNumber: string; status: string }>();
+  for (const item of consignments) {
+    if (item.noticeNumber && !postalByNotice.has(item.noticeNumber)) {
+      postalByNotice.set(item.noticeNumber, { articleNumber: item.articleNumber, status: item.status });
+    }
+  }
   const report: ReportRow[] = rows.map((row) => {
     const linkOpen = row.noticeNumber ? linkOpens.get(row.noticeNumber) : undefined;
+    const postal = row.noticeNumber ? postalByNotice.get(row.noticeNumber) : undefined;
     return {
       bankName: row.campaign.bank.name,
       campaignName: row.campaign.templateName,
@@ -62,6 +78,8 @@ export async function GET(request: Request) {
       openedAt: row.openedAt,
       linkOpenedAt: linkOpen?.linkOpenedAt ?? null,
       linkViewCount: linkOpen?.linkViewCount ?? 0,
+      speedPostArticle: postal?.articleNumber ?? "",
+      speedPostStatus: postal ? postalStatusLabel(postal.status) : "",
     };
   });
 

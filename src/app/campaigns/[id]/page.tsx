@@ -5,6 +5,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AppHeader } from "@/components/app-header";
+import { CampaignSpeedPost } from "@/components/campaign-speed-post";
 import { ConfirmCampaign } from "@/components/confirm-campaign";
 import { MessageOpened, NoticeLinkOpened } from "@/components/notice-link-opened";
 import { NoticeOpenLink } from "@/components/notice-open-link";
@@ -31,6 +32,7 @@ import {
 } from "@/lib/campaigns";
 import { prisma } from "@/lib/db";
 import { personHistoryHref } from "@/lib/delivery-report";
+import { loanSearchHref } from "@/lib/loan-timeline";
 import { noticeLinkOpensByNumber } from "@/lib/public-notice";
 import { canReadBank } from "@/lib/report-bank";
 import { ROLE_ADMIN } from "@/lib/roles";
@@ -66,7 +68,7 @@ export default async function CampaignPage({
   const campaign = await prisma.campaign.findFirst({
     where: { id },
     include: {
-      bank: { select: { id: true, name: true, code: true, active: true } },
+      bank: { select: { id: true, name: true, code: true, active: true, attachNoticePdf: true } },
       batch: { select: { fileName: true, rowCount: true } },
       followsCampaign: { select: { id: true, templateName: true } },
       followUps: {
@@ -81,7 +83,7 @@ export default async function CampaignPage({
     return (
       <div className="flex min-h-full flex-col">
         <AppHeader user={user} />
-        <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-4 px-4 py-8 sm:px-6">
+        <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-4 px-4 py-8 sm:px-6">
           <h1 className="font-serif text-3xl">Send not found</h1>
           <p className="leading-7 text-muted-foreground">
             That send is not under a bank this login can see.
@@ -126,7 +128,7 @@ export default async function CampaignPage({
   return (
     <div className="flex min-h-full flex-col">
       <AppHeader user={user} />
-      <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 px-4 py-8 sm:px-6">
+      <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 px-4 py-8 sm:px-6">
         <div>
           <p className="text-sm text-muted-foreground">{campaign.bank.name}</p>
           <h1 className="mt-1 font-serif text-4xl tracking-tight">Review send</h1>
@@ -210,7 +212,10 @@ export default async function CampaignPage({
               ))}
             </ul>
             <p className="text-muted-foreground">
-              Speed Post is not part of this send. There is no courier status.
+              Speed Post is tracked on its own card. A dry run still does not call MSG91.
+              {campaign.bank.attachNoticePdf
+                ? " Live emails for this bank also attach a PDF. The notice link stays in the message."
+                : " Notice PDFs are off for this bank. Turn them on under Banks if a live email should carry the letter."}
             </p>
             <div className="flex flex-wrap gap-2">
               <Link
@@ -262,6 +267,21 @@ export default async function CampaignPage({
             )}
           </CardContent>
         </Card>
+
+        <CampaignSpeedPost
+          campaignId={campaign.id}
+          bankId={campaign.bankId}
+          canManage={canManage}
+          people={campaign.deliveries
+            .filter((row, index, list) => list.findIndex((item) => item.recipientRowId === row.recipientRowId) === index)
+            .map((row) => ({
+              recipientRowId: row.recipientRowId,
+              customerName: row.customerName,
+              loanNumber: row.loanNumber,
+              customerId: row.customerId,
+              noticeNumber: row.noticeNumber,
+            }))}
+        />
 
         {waiting && canManage ? <ConfirmCampaign campaignId={campaign.id} dryRun={dryRun} /> : null}
         {waiting && isAdmin && !canManage ? (
@@ -344,6 +364,7 @@ export default async function CampaignPage({
                   <tbody>
                     {shown.map((row) => {
                       const history = personHistoryHref(row, campaign.bankId);
+                      const loanHref = loanSearchHref(campaign.bankId, row.loanNumber, row.customerId);
                       return (
                         <tr key={row.id} className="border-b border-border">
                           <td className="px-2 py-2">
@@ -363,9 +384,14 @@ export default async function CampaignPage({
                           </td>
                           <td className="px-2 py-2 text-muted-foreground">
                             <p>{row.detail || "—"}</p>
+                            {loanHref ? (
+                              <Link href={loanHref} className="underline">
+                                Loan timeline
+                              </Link>
+                            ) : null}
                             {history ? (
-                              <Link href={history} className="underline">
-                                History
+                              <Link href={history} className="mt-1 block underline">
+                                Channel history
                               </Link>
                             ) : null}
                           </td>

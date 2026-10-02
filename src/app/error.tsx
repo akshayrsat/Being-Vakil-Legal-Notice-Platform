@@ -18,6 +18,7 @@ export default function AppError({
 
   return (
     <div className="mx-auto flex min-h-full w-full max-w-lg flex-col justify-center px-4 py-16 sm:px-6">
+      <div className="mb-4 h-2 w-16 rounded bg-primary" />
       <p className="text-xs font-medium tracking-[0.16em] text-muted-foreground uppercase">
         Notice Desk
       </p>

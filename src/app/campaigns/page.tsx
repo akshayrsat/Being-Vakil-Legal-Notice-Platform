@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AppHeader } from "@/components/app-header";
+import { EmptyState } from "@/components/empty-state";
 import { buttonVariants } from "@/components/ui/button";
 import {
   Card,
@@ -33,7 +34,7 @@ export default async function CampaignsPage() {
   return (
     <div className="flex min-h-full flex-col">
       <AppHeader user={user} />
-      <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 px-4 py-8 sm:px-6">
+      <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 px-4 py-8 sm:px-6">
         <div>
           <h1 className="font-serif text-4xl tracking-tight">Campaigns</h1>
           <p className="mt-3 text-base leading-7 text-muted-foreground">
@@ -124,7 +125,9 @@ async function CampaignList({ bankId }: { bankId: string }) {
     <section className="flex flex-col gap-3">
       <h2 className="font-serif text-2xl">Sends for this bank</h2>
       {campaigns.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No sends yet.</p>
+        <EmptyState title="No sends yet">
+          Prepare a send from a saved spreadsheet and an approved template. Confirming with live send off records a dry run.
+        </EmptyState>
       ) : (
         <ul className="flex flex-col gap-3">
           {campaigns.map((campaign) => {

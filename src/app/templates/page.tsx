@@ -37,7 +37,7 @@ export default async function TemplatesPage() {
   return (
     <div className="flex min-h-full flex-col">
       <AppHeader user={user} />
-      <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 px-4 py-8 sm:px-6">
+      <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 px-4 py-8 sm:px-6">
         <div>
           <h1 className="font-serif text-4xl tracking-tight">Notice templates</h1>
           <p className="mt-3 text-base leading-7 text-muted-foreground">

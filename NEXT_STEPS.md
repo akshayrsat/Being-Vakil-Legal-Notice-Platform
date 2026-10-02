@@ -6,9 +6,9 @@ Step 7 is done. Firm staff can open Security / Audit and see who signed in, chan
 
 These are not required for practice on this computer. Do them only when the firm is ready to go further.
 
-### Speed Post, later
+### Speed Post
 
-Speed Post stays a disabled tick box. A later version can add a courier booking API, store a consignment number, and show a courier status next to SMS, email, and WhatsApp. Do not invent a courier status before that API exists.
+Speed Post is on the Speed Post page and on each send. Staff mark a person, enter an article number, and add booked / in transit / out for delivery / delivered / returned, with a time and a note. A CSV import uses `samples/speed-post-import.csv`. A live India Post call runs only when `INDIA_POST_API_BASE_URL` and `INDIA_POST_API_KEY` are both set. See `SPEED_POST.md`.
 
 ### Live send checklist
 

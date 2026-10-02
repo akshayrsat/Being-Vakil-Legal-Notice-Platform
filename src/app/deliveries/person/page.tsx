@@ -4,12 +4,14 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AppHeader } from "@/components/app-header";
+import { LoanTimelineList } from "@/components/loan-timeline-list";
 import { MessageOpened, NoticeLinkOpened } from "@/components/notice-link-opened";
 import { NoticeOpenLink } from "@/components/notice-open-link";
 import { buttonVariants } from "@/components/ui/button";
 import { getCurrentUser } from "@/lib/auth";
 import { campaignStatusLabel, deliveryStatusLabel, sendChannelLabel } from "@/lib/campaigns";
 import { prisma } from "@/lib/db";
+import { loadAccountTimeline } from "@/lib/loan-timeline";
 import { noticeLinkOpensByNumber } from "@/lib/public-notice";
 import { resolveReportBank } from "@/lib/report-bank";
 
@@ -63,11 +65,17 @@ export default async function PersonHistoryPage({
 
   const name = rows[0]?.customerName ?? "This person";
   const linkOpens = await noticeLinkOpensByNumber(rows.map((row) => row.noticeNumber));
+  const timeline = await loadAccountTimeline({
+    bankId: bank.id,
+    loan,
+    account: loan ? "" : customer,
+    mobile: loan || customer ? "" : mobile,
+  });
 
   return (
     <div className="flex min-h-full flex-col">
       <AppHeader user={user} />
-      <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 px-4 py-8 sm:px-6">
+      <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 px-4 py-8 sm:px-6">
         <div>
           <p className="text-sm text-muted-foreground">{bank.name}</p>
           <h1 className="mt-1 font-serif text-4xl tracking-tight">{name}</h1>
@@ -79,6 +87,15 @@ export default async function PersonHistoryPage({
             person.
           </p>
         </div>
+
+        {timeline && timeline.events.length > 0 ? (
+          <section>
+            <h2 className="font-serif text-2xl">Timeline</h2>
+            <div className="mt-4">
+              <LoanTimelineList timeline={timeline} />
+            </div>
+          </section>
+        ) : null}
 
         {rows.length === 0 ? (
           <p className="text-sm text-muted-foreground">No sends matched this person in {bank.name}.</p>
