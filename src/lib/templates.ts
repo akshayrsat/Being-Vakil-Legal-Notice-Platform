@@ -14,9 +14,13 @@ export type TemplateStatusValue = typeof TEMPLATE_DRAFT | typeof TEMPLATE_APPROV
 
 const CHANNEL_IDS = new Set<string>(TEMPLATE_CHANNELS.map((channel) => channel.id));
 
+export function isApprovedTemplateStatus(status: string): boolean {
+  return status.trim().toUpperCase() === TEMPLATE_APPROVED;
+}
+
 export function templateStatusLabel(status: string): string {
-  if (status === TEMPLATE_APPROVED) return "Approved";
-  if (status === TEMPLATE_DRAFT) return "Draft";
+  if (isApprovedTemplateStatus(status)) return "Approved";
+  if (status.trim().toUpperCase() === TEMPLATE_DRAFT) return "Draft";
   return "Draft";
 }
 

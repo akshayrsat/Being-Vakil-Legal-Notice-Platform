@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AppHeader } from "@/components/app-header";
+import { BackLinks } from "@/components/back-link";
 import { ColumnMapper } from "@/components/column-mapper";
 import { NoticeMergePreview } from "@/components/notice-merge-preview";
 import { RecipientPreview } from "@/components/recipient-preview";
@@ -18,10 +19,12 @@ import {
 import { parseStoredMapping, suggestMapping } from "@/lib/apply-mapping";
 import { getCurrentUser } from "@/lib/auth";
 import { workingBank } from "@/lib/bank-context";
+import { backToUploads } from "@/lib/desk-back";
+import { loadTemplateLibrary } from "@/lib/load-template-library";
 import { prisma } from "@/lib/db";
 import { ROLE_ADMIN } from "@/lib/roles";
 import { SHEET_FIELDS, type FieldKey, type FieldMapping } from "@/lib/sheet-fields";
-import { TEMPLATE_APPROVED } from "@/lib/templates";
+import { templateLibraryNotes } from "@/lib/template-library";
 
 export const metadata: Metadata = {
   title: "Match columns",
@@ -57,13 +60,11 @@ export default async function UploadBatchPage({
       <div className="flex min-h-full flex-col">
         <AppHeader user={user} />
         <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-4 px-4 py-8 sm:px-6">
+          <BackLinks links={[backToUploads()]} />
           <h1 className="font-serif text-3xl">Spreadsheet not found</h1>
           <p className="leading-7 text-muted-foreground">
             That file is not under the bank you are working on.
           </p>
-          <Link href="/uploads" className={buttonVariants({ variant: "outline", className: "h-11 w-fit px-4" })}>
-            Back to uploads
-          </Link>
         </main>
       </div>
     );
@@ -87,10 +88,14 @@ export default async function UploadBatchPage({
     label: field.label,
   }));
   const skipped = Number(query.skipped ?? "0");
-  const approvedTemplates = await prisma.noticeTemplate.findMany({
-    where: { bankId: bank.id, status: TEMPLATE_APPROVED },
-    orderBy: { name: "asc" },
-    select: { id: true, name: true, dltTemplateId: true, channels: true, body: true },
+  const library = await loadTemplateLibrary(bank.id, isAdmin);
+  const approvedTemplates = library.approved;
+  const libraryNotes = templateLibraryNotes({
+    bankName: bank.name,
+    savedCount: library.templates.length,
+    approvedCount: approvedTemplates.length,
+    elsewhere: library.elsewhere,
+    canWrite: isAdmin && bank.active,
   });
   const requestedTemplate = query.template?.trim() ?? "";
   const selectedTemplate =
@@ -102,6 +107,7 @@ export default async function UploadBatchPage({
     <div className="flex min-h-full flex-col">
       <AppHeader user={user} />
       <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 px-4 py-8 sm:px-6">
+        <BackLinks links={[backToUploads()]} />
         <div>
           <p className="text-sm text-muted-foreground">{bank.name}</p>
           <h1 className="mt-1 font-serif text-4xl tracking-tight">{batch.fileName}</h1>
@@ -191,6 +197,7 @@ export default async function UploadBatchPage({
           templates={approvedTemplates}
           selectedId={selectedTemplate?.id ?? ""}
           canEdit={isAdmin && bank.active}
+          libraryNotes={libraryNotes}
         />
 
         {isAdmin && bank.active && batch.saved ? (
@@ -202,9 +209,7 @@ export default async function UploadBatchPage({
           </Link>
         ) : null}
 
-        <Link href="/uploads" className={buttonVariants({ variant: "outline", className: "h-11 w-fit px-4" })}>
-          Back to uploads
-        </Link>
+        <BackLinks links={[backToUploads()]} />
       </main>
     </div>
   );

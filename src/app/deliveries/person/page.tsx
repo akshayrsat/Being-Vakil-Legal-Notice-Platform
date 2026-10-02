@@ -4,12 +4,13 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AppHeader } from "@/components/app-header";
+import { BackLinks } from "@/components/back-link";
 import { LoanTimelineList } from "@/components/loan-timeline-list";
 import { MessageOpened, NoticeLinkOpened } from "@/components/notice-link-opened";
 import { NoticeOpenLink } from "@/components/notice-open-link";
-import { buttonVariants } from "@/components/ui/button";
 import { getCurrentUser } from "@/lib/auth";
 import { campaignStatusLabel, deliveryStatusLabel, sendChannelLabel } from "@/lib/campaigns";
+import { backToSearch } from "@/lib/desk-back";
 import { prisma } from "@/lib/db";
 import { loadAccountTimeline } from "@/lib/loan-timeline";
 import { noticeLinkOpensByNumber } from "@/lib/public-notice";
@@ -79,6 +80,7 @@ export default async function PersonHistoryPage({
     <div className="flex min-h-full flex-col">
       <AppHeader user={user} />
       <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 px-4 py-8 sm:px-6">
+        <BackLinks links={[backToSearch(bank.id)]} />
         <div>
           <p className="text-sm text-muted-foreground">{bank.name}</p>
           <h1 className="mt-1 font-serif text-4xl tracking-tight">{name}</h1>
@@ -148,12 +150,7 @@ export default async function PersonHistoryPage({
           </ul>
         )}
 
-        <Link
-          href={`/deliveries?bank=${bank.id}`}
-          className={buttonVariants({ variant: "outline", className: "h-11 w-fit px-4" })}
-        >
-          Back to search
-        </Link>
+        <BackLinks links={[backToSearch(bank.id)]} />
       </main>
     </div>
   );

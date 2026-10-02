@@ -5,10 +5,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AppHeader } from "@/components/app-header";
+import { BackLinks } from "@/components/back-link";
 import { NoticeLinkOpened } from "@/components/notice-link-opened";
 import { NoticeOpenLink } from "@/components/notice-open-link";
 import { FollowUpButton } from "@/components/follow-up-button";
-import { buttonVariants } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -18,11 +18,12 @@ import {
 } from "@/components/ui/card";
 import { getCurrentUser } from "@/lib/auth";
 import { workingBank } from "@/lib/bank-context";
+import { backToCampaigns, backToSend } from "@/lib/desk-back";
 import { deliveryStatusLabel, sendChannelLabel } from "@/lib/campaigns";
 import { prisma } from "@/lib/db";
 import { personHistoryHref } from "@/lib/delivery-report";
 import { noticeLinkOpensByNumber } from "@/lib/public-notice";
-import { scopedBankId, withBank } from "@/lib/report-bank";
+import { scopedBankId } from "@/lib/report-bank";
 import { ROLE_ADMIN } from "@/lib/roles";
 
 export const metadata: Metadata = {
@@ -63,13 +64,8 @@ export default async function RemindersPage({
       <div className="flex min-h-full flex-col">
         <AppHeader user={user} />
         <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-4 px-4 py-8 sm:px-6">
+          <BackLinks links={[backToCampaigns()]} />
           <h1 className="font-serif text-3xl">Send not found</h1>
-          <Link
-            href="/campaigns"
-            className={buttonVariants({ variant: "outline", className: "h-11 w-fit px-4" })}
-          >
-            Back to campaigns
-          </Link>
         </main>
       </div>
     );
@@ -87,6 +83,7 @@ export default async function RemindersPage({
     <div className="flex min-h-full flex-col">
       <AppHeader user={user} />
       <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 px-4 py-8 sm:px-6">
+        <BackLinks links={[backToSend(campaign.id, campaign.bankId)]} />
         <div>
           <p className="text-sm text-muted-foreground">{campaign.bank.name}</p>
           <h1 className="mt-1 font-serif text-4xl tracking-tight">Reminders</h1>
@@ -168,12 +165,7 @@ export default async function RemindersPage({
           </CardContent>
         </Card>
 
-        <Link
-          href={withBank(`/campaigns/${campaign.id}`, campaign.bankId)}
-          className={buttonVariants({ variant: "outline", className: "h-11 w-fit px-4" })}
-        >
-          Back to this send
-        </Link>
+        <BackLinks links={[backToSend(campaign.id, campaign.bankId)]} />
       </main>
     </div>
   );

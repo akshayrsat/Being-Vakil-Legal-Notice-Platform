@@ -26,9 +26,10 @@ export function CampaignForm({
   const startingBatch = batches.some((batch) => batch.id === initialBatchId)
     ? initialBatchId
     : batches[0]?.id ?? "";
-  const [templateId, setTemplateId] = useState(templates[0]?.id ?? "");
+  const onlyTemplate = templates.length === 1 ? templates[0] : null;
+  const [templateId, setTemplateId] = useState(onlyTemplate?.id ?? "");
   const [channels, setChannels] = useState<SendChannel[]>(
-    templates[0]?.channels.length ? templates[0].channels : ["SMS"],
+    onlyTemplate?.channels.length ? onlyTemplate.channels : onlyTemplate ? ["SMS"] : [],
   );
 
   function chooseTemplate(nextId: string) {
@@ -65,7 +66,7 @@ export function CampaignForm({
       </div>
 
       <div className="flex flex-col gap-2">
-        <Label htmlFor="campaign-template">Approved template</Label>
+        <Label htmlFor="campaign-template">Select approved template</Label>
         <select
           id="campaign-template"
           name="templateId"
@@ -74,12 +75,20 @@ export function CampaignForm({
           required
           className="h-11 rounded-lg border border-input bg-card px-3 text-sm"
         >
+          {templates.length > 1 ? (
+            <option value="" disabled>
+              Choose an approved template
+            </option>
+          ) : null}
           {templates.map((template) => (
             <option key={template.id} value={template.id}>
               {template.name}
             </option>
           ))}
         </select>
+        <p className="text-sm font-normal text-muted-foreground">
+          Approved templates saved for this bank, A to Z. Drafts are not listed. The same list is on Templates.
+        </p>
       </div>
 
       <fieldset className="flex flex-col gap-3">

@@ -17,7 +17,7 @@ export function TemplatePicker({
 
   return (
     <label className="flex flex-col gap-2 text-sm font-medium">
-      Approved template
+      Select approved template
       <select
         value={selectedId}
         onChange={(event) => {
