@@ -10,7 +10,9 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { DEMO_NOTICES } from "@/lib/demo-notices";
 import type { SignedInUser } from "@/lib/auth";
+import { noticePageHref } from "@/lib/notice-link";
 import { workingBank } from "@/lib/bank-context";
 import { bankStatusLabel } from "@/lib/banks";
 import {
@@ -205,8 +207,29 @@ export function DashboardHome({ user }: { user: SignedInUser }) {
 
         <Card>
           <CardHeader>
+            <CardTitle>Practice notice pages</CardTitle>
+            <CardDescription>
+              These three pages are public. An SMS link uses the same notice number after a question mark.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ul className="flex flex-col gap-2 text-sm">
+              {DEMO_NOTICES.map((notice) => (
+                <li key={notice.noticeNumber}>
+                  <Link href={noticePageHref(notice.noticeNumber)} className="font-medium underline">
+                    {notice.customerName}
+                  </Link>
+                  <span className="text-muted-foreground"> · {notice.noticeNumber}</span>
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
             <CardTitle>This version</CardTitle>
-            <CardDescription>Sign-in, banks, uploads, templates, a dry-run send, status search, and an audit log are working.</CardDescription>
+            <CardDescription>Sign-in, banks, uploads, templates, a dry-run send, public notice pages, status search, and an audit log are working.</CardDescription>
           </CardHeader>
           <CardContent>
             <p className="leading-7 text-foreground">

@@ -1,10 +1,35 @@
-// The front door. If you are already signed in, you go to the dashboard.
-// If you are not, you go to the sign-in page.
+// The front door. A notice number in the query shows that recipient's public notice.
+// Otherwise a signed-in person goes to the dashboard, and everyone else goes to sign-in.
 
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
+import { PublicNoticeScreen } from "@/components/public-notice-screen";
 import { getCurrentUser } from "@/lib/auth";
 
-export default async function HomePage() {
+export const dynamic = "force-dynamic";
+
+type HomeQuery = { notice?: string | string[] };
+
+export async function generateMetadata({
+  searchParams,
+}: {
+  searchParams: Promise<HomeQuery>;
+}): Promise<Metadata> {
+  const query = await searchParams;
+  if ("notice" in query) return { title: "Legal notice" };
+  return {};
+}
+
+export default async function HomePage({ searchParams }: { searchParams: Promise<HomeQuery> }) {
+  const query = await searchParams;
+  if ("notice" in query) {
+    return <PublicNoticeScreen noticeNumber={firstQuery(query.notice)} />;
+  }
   const user = await getCurrentUser();
   redirect(user ? "/dashboard" : "/login");
+}
+
+function firstQuery(value: string | string[] | undefined): string {
+  if (Array.isArray(value)) return value[0] ?? "";
+  return value ?? "";
 }

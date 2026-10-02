@@ -7,13 +7,11 @@ import { redirect } from "next/navigation";
 import { auditCurrentUser } from "@/lib/audit";
 import { getSessionContext } from "@/lib/auth";
 import { workingBank } from "@/lib/bank-context";
-import {
-  isSendChannel,
-  planDeliveries,
-  type SendChannel,
-} from "@/lib/campaign-plan";
+import { isSendChannel, type SendChannel } from "@/lib/campaign-plan";
 import { prisma } from "@/lib/db";
 import { deliverNotice, dryRunReason, isLiveSendEnabled } from "@/lib/msg91";
+import { smsNoticeVars } from "@/lib/notice-link";
+import { writePreparedDeliveries } from "@/lib/prepare-send";
 import { ROLE_ADMIN } from "@/lib/roles";
 import { TEMPLATE_APPROVED } from "@/lib/templates";
 
@@ -78,43 +76,36 @@ export async function createCampaign(
     return { error: "That spreadsheet has no saved people." };
   }
 
-  const planned = planDeliveries(rows, channels, scope.bank.name, template.body);
   const live = isLiveSendEnabled();
-  const campaign = await prisma.campaign.create({
-    data: {
-      bankId: scope.bank.id,
-      batchId: batch.id,
-      templateId: template.id,
-      templateName: template.name,
-      templateBody: template.body,
-      dltTemplateId: template.dltTemplateId,
-      channels: JSON.stringify(channels),
-      mode: live ? "LIVE" : "DRY_RUN",
-      status: "REVIEW",
-      dryRunNote: live ? "" : dryRunReason(),
-      createdById: scope.userId,
+  const campaign = await prisma.$transaction(
+    async (tx) => {
+      const created = await tx.campaign.create({
+        data: {
+          bankId: scope.bank.id,
+          batchId: batch.id,
+          templateId: template.id,
+          templateName: template.name,
+          templateBody: template.body,
+          dltTemplateId: template.dltTemplateId,
+          channels: JSON.stringify(channels),
+          mode: live ? "LIVE" : "DRY_RUN",
+          status: "REVIEW",
+          dryRunNote: live ? "" : dryRunReason(),
+          createdById: scope.userId,
+        },
+      });
+      await writePreparedDeliveries(tx, {
+        campaignId: created.id,
+        bankId: scope.bank.id,
+        bankName: scope.bank.name,
+        templateBody: template.body,
+        rows,
+        channels,
+      });
+      return created;
     },
-  });
-
-  const deliveries = planned.map((row) => ({
-    campaignId: campaign.id,
-    bankId: scope.bank.id,
-    recipientRowId: row.recipientRowId,
-    rowNumber: row.rowNumber,
-    customerName: row.customerName,
-    mobile: row.mobile,
-    email: row.email,
-    loanNumber: row.loanNumber,
-    customerId: row.customerId,
-    channel: row.channel,
-    status: row.status,
-    detail: row.detail,
-    messageText: row.messageText,
-  }));
-
-  for (let index = 0; index < deliveries.length; index += 200) {
-    await prisma.campaignDelivery.createMany({ data: deliveries.slice(index, index + 200) });
-  }
+    { timeout: 30000 },
+  );
 
   redirect(`/campaigns/${campaign.id}`);
 }
@@ -162,51 +153,49 @@ export async function startFollowUp(
   }
 
   const missedKeys = new Set(missed.map((row) => `${row.recipientRowId}:${row.channel}`));
-  const planned = planDeliveries(rows, channels, scope.bank.name, parent.templateBody).filter((row) =>
-    missedKeys.has(`${row.recipientRowId}:${row.channel}`),
-  );
-  if (planned.length === 0) {
-    return { error: "Nobody was skipped or failed, so there is nobody to follow up." };
-  }
-
   const live = isLiveSendEnabled();
   const note = `Follow-up to “${parent.templateName}”. People are matched on loan number, customer id, or mobile. ${
     live ? "Live send is on." : dryRunReason()
   }`;
-  const campaign = await prisma.campaign.create({
-    data: {
-      bankId: scope.bank.id,
-      batchId: parent.batchId,
-      templateId: parent.templateId,
-      templateName: parent.templateName,
-      templateBody: parent.templateBody,
-      dltTemplateId: parent.dltTemplateId,
-      channels: JSON.stringify(channels),
-      mode: live ? "LIVE" : "DRY_RUN",
-      status: "REVIEW",
-      dryRunNote: note,
-      createdById: scope.userId,
-      followsCampaignId: parent.id,
-    },
-  });
-
-  const deliveries = planned.map((row) => ({
-    campaignId: campaign.id,
-    bankId: scope.bank.id,
-    recipientRowId: row.recipientRowId,
-    rowNumber: row.rowNumber,
-    customerName: row.customerName,
-    mobile: row.mobile,
-    email: row.email,
-    loanNumber: row.loanNumber,
-    customerId: row.customerId,
-    channel: row.channel,
-    status: row.status,
-    detail: row.detail,
-    messageText: row.messageText,
-  }));
-  for (let index = 0; index < deliveries.length; index += 200) {
-    await prisma.campaignDelivery.createMany({ data: deliveries.slice(index, index + 200) });
+  let campaign;
+  try {
+    campaign = await prisma.$transaction(
+      async (tx) => {
+        const created = await tx.campaign.create({
+          data: {
+            bankId: scope.bank.id,
+            batchId: parent.batchId,
+            templateId: parent.templateId,
+            templateName: parent.templateName,
+            templateBody: parent.templateBody,
+            dltTemplateId: parent.dltTemplateId,
+            channels: JSON.stringify(channels),
+            mode: live ? "LIVE" : "DRY_RUN",
+            status: "REVIEW",
+            dryRunNote: note,
+            createdById: scope.userId,
+            followsCampaignId: parent.id,
+          },
+        });
+        const kept = await writePreparedDeliveries(tx, {
+          campaignId: created.id,
+          bankId: scope.bank.id,
+          bankName: scope.bank.name,
+          templateBody: parent.templateBody,
+          rows,
+          channels,
+          include: missedKeys,
+        });
+        if (kept === 0) throw new Error("NO_FOLLOW_UP");
+        return created;
+      },
+      { timeout: 30000 },
+    );
+  } catch (error) {
+    if (error instanceof Error && error.message === "NO_FOLLOW_UP") {
+      return { error: "Nobody was skipped or failed, so there is nobody to follow up." };
+    }
+    throw error;
   }
 
   await auditCurrentUser({
@@ -292,6 +281,11 @@ async function finishLiveSend(
   bankId: string,
   dltTemplateId: string,
 ): Promise<boolean> {
+  const campaign = await prisma.campaign.findFirst({
+    where: { id: campaignId, bankId },
+    select: { bank: { select: { name: true } } },
+  });
+  const bankName = campaign?.bank.name ?? "";
   const pending = await prisma.campaignDelivery.findMany({
     where: { campaignId, status: "PENDING" },
     orderBy: { rowNumber: "asc" },
@@ -305,6 +299,14 @@ async function finishLiveSend(
       to,
       body: row.messageText,
       dltTemplateId,
+      sms:
+        channel === "SMS" && row.noticeNumber
+          ? smsNoticeVars({
+              customerName: row.customerName,
+              bankName,
+              noticeNumber: row.noticeNumber,
+            })
+          : undefined,
     });
     await prisma.campaignDelivery.updateMany({
       where: { id: row.id, campaignId, status: "PENDING" },

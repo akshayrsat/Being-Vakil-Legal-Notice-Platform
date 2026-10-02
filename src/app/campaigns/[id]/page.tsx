@@ -6,6 +6,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AppHeader } from "@/components/app-header";
 import { ConfirmCampaign } from "@/components/confirm-campaign";
+import { NoticeOpenLink } from "@/components/notice-open-link";
 import { buttonVariants } from "@/components/ui/button";
 import {
   Card,
@@ -230,7 +231,7 @@ export default async function CampaignPage({
             <CardTitle>Sample messages</CardTitle>
             <CardDescription>
               The first {samples.length} {samples.length === 1 ? "person" : "people"} with a message.
-              Check the wording before you confirm.
+              An SMS uses the notice number in the public link. Open notice shows that person’s page.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -247,7 +248,9 @@ export default async function CampaignPage({
                       <p className="text-sm text-muted-foreground">
                         Row {row.rowNumber}
                         {row.loanNumber ? ` · ${row.loanNumber}` : ""}
+                        {row.noticeNumber ? ` · ${row.noticeNumber}` : ""}
                       </p>
+                      <NoticeOpenLink noticeNumber={row.noticeNumber} />
                     </div>
                     <p className="px-3 py-3 text-sm leading-6 whitespace-pre-wrap">{row.messageText}</p>
                   </li>
@@ -343,6 +346,7 @@ export default async function CampaignPage({
                           <td className="px-2 py-2">
                             <p className="font-medium">{row.customerName}</p>
                             <p className="text-muted-foreground">{row.mobile || row.email || "—"}</p>
+                            <NoticeOpenLink noticeNumber={row.noticeNumber} />
                           </td>
                           <td className="px-2 py-2">
                             <p>{row.loanNumber || "—"}</p>

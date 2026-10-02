@@ -51,6 +51,7 @@ export function deliveryWhere(bankId: string, filters: DeliveryFilters): Prisma.
     if (digits.length >= 4 && digits !== text) {
       or.push({ mobile: { contains: digits } });
     }
+    or.push({ noticeNumber: { contains: text.toUpperCase() } });
     where.OR = or;
   }
   if (isSendChannel(filters.channel)) where.channel = filters.channel;
@@ -79,6 +80,8 @@ export type ReportRow = {
   status: string;
   detail: string;
   rowNumber: number;
+  noticeNumber: string;
+  noticeUrl: string;
 };
 
 export function reportCsv(rows: ReportRow[]): string {
@@ -95,6 +98,8 @@ export function reportCsv(rows: ReportRow[]): string {
     "Status",
     "Note",
     "Sheet row",
+    "Notice number",
+    "Notice link",
   ];
   const lines = [header.map(csvCell).join(",")];
   for (const row of rows) {
@@ -112,6 +117,8 @@ export function reportCsv(rows: ReportRow[]): string {
         deliveryStatusLabel(row.status),
         row.detail,
         String(row.rowNumber),
+        row.noticeNumber,
+        row.noticeUrl,
       ]
         .map(csvCell)
         .join(","),

@@ -38,6 +38,7 @@ model Bank {
   batches    UploadBatch[]
   templates  NoticeTemplate[]
   campaigns  Campaign[]
+  notices    PublicNotice[]
   createdAt  DateTime       @default(now())
 }
 
@@ -202,6 +203,7 @@ model Campaign {
   followsCampaignId String?
   followsCampaign   Campaign?  @relation("FollowUp", fields: [followsCampaignId], references: [id], onDelete: SetNull)
   followUps         Campaign[] @relation("FollowUp")
+  notices           PublicNotice[]
 
   @@index([bankId])
   @@index([followsCampaignId])
@@ -225,6 +227,7 @@ model CampaignDelivery {
   detail         String         @default("")
   messageText    String         @default("")
   providerId     String         @default("")
+  noticeNumber   String         @default("")
 
   @@index([campaignId])
   @@index([providerId])
@@ -233,6 +236,33 @@ model CampaignDelivery {
   @@index([mobile])
   @@index([loanNumber])
   @@index([customerId])
+}
+
+// One recipient's public notice. The SMS link looks this up by noticeNumber.
+// The fields are copied at prepare time, so a later spreadsheet edit does not change the page.
+// seedKey is set only for the three practice notices.
+model PublicNotice {
+  id                String    @id @default(cuid())
+  noticeNumber      String    @unique
+  bankId            String
+  bank              Bank      @relation(fields: [bankId], references: [id], onDelete: Cascade)
+  campaignId        String?
+  campaign          Campaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  recipientRowId    String    @default("")
+  customerName      String
+  address           String    @default("")
+  loanAmount        String    @default("")
+  outstandingAmount String    @default("")
+  loanNumber        String    @default("")
+  customerId        String    @default("")
+  bankName          String
+  body              String
+  seedKey           String?   @unique
+  createdAt         DateTime  @default(now())
+
+  @@index([bankId])
+  @@index([campaignId])
+  @@index([recipientRowId])
 }
 
 // Who did what. Firm staff can read this. A Bank Viewer cannot.

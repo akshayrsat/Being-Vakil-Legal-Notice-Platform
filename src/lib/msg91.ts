@@ -1,6 +1,7 @@
 // MSG91 access. The auth key is read from the environment on the server.
 // Never put it in a NEXT_PUBLIC_ variable, and never send it to the browser.
 
+import type { SmsNoticeVars } from "./notice-link";
 import { toMsg91Mobile } from "./phone";
 
 const OTP_SEND_URL = "https://control.msg91.com/api/v5/otp";
@@ -16,6 +17,7 @@ export type DeliveryRequest = {
   to: string;
   body: string;
   dltTemplateId: string;
+  sms?: SmsNoticeVars;
 };
 
 export type DeliveryResult = { ok: true; providerId: string } | { ok: false; error: string };
@@ -113,15 +115,24 @@ async function deliverSms(authKey: string, request: DeliveryRequest): Promise<De
     };
   }
 
-  // The flow in MSG91 must accept a variable named message, or map this body itself.
-  // DLT still has to match the template registered for that flow.
+  // Legal_Notice_12092026 reads customer_name, bank_name, and notice_number.
+  // message is the same wording kept for a flow that still expects one body variable.
+  const recipient: Record<string, string> = {
+    mobiles: mobile,
+    message: request.body,
+  };
+  if (request.sms) {
+    recipient.customer_name = request.sms.customer_name;
+    recipient.bank_name = request.sms.bank_name;
+    recipient.notice_number = request.sms.notice_number;
+  }
   const result = await postMsg91(
     SMS_FLOW_URL,
     authKey,
     {
       flow_id: flowId,
       sender: senderId,
-      recipients: [{ mobiles: mobile, message: request.body }],
+      recipients: [recipient],
     },
     "MSG91 did not accept the SMS.",
   );

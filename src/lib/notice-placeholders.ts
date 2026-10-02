@@ -1,7 +1,8 @@
 // The words a notice template can fill from a saved spreadsheet row.
 // Write them in the template as {{customer_name}}. A blank value is allowed.
+// notice_number and notice_link are filled when a send is prepared. They are not spreadsheet columns.
 
-export type PlaceholderGroup = "Customer" | "Loan" | "Co-borrower" | "Guarantor" | "Bank";
+export type PlaceholderGroup = "Customer" | "Loan" | "Co-borrower" | "Guarantor" | "Bank" | "Notice";
 
 export type NoticePlaceholder = {
   token: string;
@@ -15,6 +16,7 @@ export const PLACEHOLDER_GROUPS: PlaceholderGroup[] = [
   "Co-borrower",
   "Guarantor",
   "Bank",
+  "Notice",
 ];
 
 export const NOTICE_PLACEHOLDERS: NoticePlaceholder[] = [
@@ -36,6 +38,8 @@ export const NOTICE_PLACEHOLDERS: NoticePlaceholder[] = [
   { token: "guarantor_mobile", label: "Guarantor mobile", group: "Guarantor" },
   { token: "guarantor_email", label: "Guarantor email", group: "Guarantor" },
   { token: "bank_name", label: "Bank name", group: "Bank" },
+  { token: "notice_number", label: "Notice number", group: "Notice" },
+  { token: "notice_link", label: "Notice link", group: "Notice" },
 ];
 
 const byToken = new Map(NOTICE_PLACEHOLDERS.map((item) => [item.token, item]));

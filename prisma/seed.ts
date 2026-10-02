@@ -1,4 +1,5 @@
-// Creates the practice users, the practice banks, and two practice notice templates.
+// Creates the practice users, the practice banks, two practice notice templates,
+// and three practice public notices.
 // Running this again sets the practice passwords back, and resets the practice banks.
 // Banks you add yourself, with a different short code, are left alone.
 // The bank viewer is always tied to the practice bank marked forViewer.
@@ -8,6 +9,7 @@ import bcrypt from "bcryptjs";
 import { PrismaClient } from "@prisma/client";
 import { DEMO_BANKS } from "../src/lib/demo-banks";
 import { DEMO_ACCOUNTS } from "../src/lib/demo-accounts";
+import { DEMO_NOTICES } from "../src/lib/demo-notices";
 import { DEMO_TEMPLATES } from "../src/lib/demo-templates";
 import { ROLE_BANK_VIEWER } from "../src/lib/roles";
 
@@ -92,6 +94,30 @@ async function main() {
   console.log("Practice templates are ready for the bank viewer’s bank.");
   for (const template of DEMO_TEMPLATES) {
     console.log(`  ${template.name}`);
+  }
+
+  for (const notice of DEMO_NOTICES) {
+    const data = {
+      bankId: viewerBankId,
+      noticeNumber: notice.noticeNumber,
+      customerName: notice.customerName,
+      address: notice.address,
+      loanAmount: notice.loanAmount,
+      outstandingAmount: notice.outstandingAmount,
+      loanNumber: notice.loanNumber,
+      customerId: notice.customerId,
+      bankName: viewerBank.name,
+      body: notice.body,
+    };
+    await prisma.publicNotice.upsert({
+      where: { seedKey: notice.seedKey },
+      update: data,
+      create: { ...data, seedKey: notice.seedKey },
+    });
+  }
+  console.log("Practice notice pages are ready.");
+  for (const notice of DEMO_NOTICES) {
+    console.log(`  ${notice.customerName}: /?notice=${notice.noticeNumber}`);
   }
   console.log("Passwords are listed in the README.");
 }

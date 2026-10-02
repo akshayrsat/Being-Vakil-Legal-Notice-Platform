@@ -64,7 +64,17 @@ Leave the terminal window open while you use the site. Closing it, or pressing C
 
 The site uses port **4317** (not the usual 3000) so it is less likely to clash with another program.
 
-Each time you run `npm run dev`, the two practice passwords are set back to the ones in this guide, and the three practice banks are reset. A bank you added yourself, with a different short code, stays. The bank an Admin last chose also stays. The two practice notice templates for Northwind are put back to the wording in this guide. A template you added yourself stays. A spreadsheet you uploaded stays. A send you confirmed stays.
+Each time you run `npm run dev`, the two practice passwords are set back to the ones in this guide, and the three practice banks are reset. A bank you added yourself, with a different short code, stays. The bank an Admin last chose also stays. The two practice notice templates for Northwind are put back to the wording in this guide. A template you added yourself stays. A spreadsheet you uploaded stays. A send you confirmed stays. The three practice public notices are put back.
+
+## Open a practice notice
+
+These pages need no sign-in. Each one is a single recipient:
+
+- Akshay Sathe: [http://localhost:4317/?notice=DEMO-LN10021](http://localhost:4317/?notice=DEMO-LN10021)
+- Akshay R Sathe: [http://localhost:4317/?notice=DEMO-LN10022](http://localhost:4317/?notice=DEMO-LN10022)
+- Shweta Sudhir: [http://localhost:4317/?notice=DEMO-LN10023](http://localhost:4317/?notice=DEMO-LN10023)
+
+The same page opens at `/notice?notice=DEMO-LN10021` and at `/n/DEMO-LN10021`. After you sign in, the home page lists these three links. A number that is not on file shows **Notice not found** and no other person.
 
 ## Sign in as Admin (firm staff)
 
@@ -193,7 +203,7 @@ A send belongs to the bank you are working on. It uses one saved spreadsheet and
 3. Choose the spreadsheet and the template.
 4. Tick **SMS**, **Email**, or **WhatsApp**. They start from the template, and you can change them. **Speed Post** is shown but cannot be ticked. It says **Coming soon**.
 5. Press **Review send**.
-6. Read the counts, including how many people are skipped because they have no mobile or no email. Read the first few filled messages.
+6. Read the counts, including how many people are skipped because they have no mobile or no email. Read the first few filled messages. An SMS shows a public link with that person’s notice number. **Open notice** shows the page the link will open.
 7. Press **Confirm dry run**.
 
 The page then says **Dry run finished. Nothing was sent.** Each person who could be reached is marked **Dry run**. A person who could not be reached is marked **Skipped**. No call is made to MSG91.

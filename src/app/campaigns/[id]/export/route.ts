@@ -7,6 +7,7 @@ import { isSendChannel } from "@/lib/campaign-plan";
 import { isDeliveryStatus, statusesForFilter } from "@/lib/campaigns";
 import { prisma } from "@/lib/db";
 import { reportCsv, type ReportRow } from "@/lib/delivery-report";
+import { noticePublicUrl } from "@/lib/notice-link";
 import { canReadBank } from "@/lib/report-bank";
 
 export const dynamic = "force-dynamic";
@@ -65,6 +66,8 @@ export async function GET(
     status: row.status,
     detail: row.detail,
     rowNumber: row.rowNumber,
+    noticeNumber: row.noticeNumber,
+    noticeUrl: row.noticeNumber ? noticePublicUrl(row.noticeNumber) : "",
   }));
 
   await auditCurrentUser({

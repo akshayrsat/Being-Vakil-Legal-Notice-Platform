@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AppHeader } from "@/components/app-header";
+import { NoticeOpenLink } from "@/components/notice-open-link";
 import { buttonVariants } from "@/components/ui/button";
 import { getCurrentUser } from "@/lib/auth";
 import { campaignStatusLabel, deliveryStatusLabel, sendChannelLabel } from "@/lib/campaigns";
@@ -96,6 +97,13 @@ export default async function PersonHistoryPage({
                   {campaignStatusLabel(row.campaign.status, row.campaign.mode)}
                 </p>
                 {row.detail ? <p className="mt-1 text-sm text-muted-foreground">{row.detail}</p> : null}
+                {row.noticeNumber ? (
+                  <p className="mt-2 text-sm">
+                    Notice {row.noticeNumber}
+                    <span className="mx-2 text-muted-foreground">·</span>
+                    <NoticeOpenLink noticeNumber={row.noticeNumber} />
+                  </p>
+                ) : null}
                 {row.campaign.followsCampaign ? (
                   <p className="mt-2 text-sm">
                     Follow-up to{" "}
