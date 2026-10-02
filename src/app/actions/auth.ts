@@ -4,10 +4,10 @@
 "use server";
 
 import { randomBytes } from "node:crypto";
-import bcrypt from "bcryptjs";
 import { cookies, headers } from "next/headers";
-import { redirect } from "next/navigation";
+import { redirect, unstable_rethrow } from "next/navigation";
 import { logDesk } from "@/lib/desk-log";
+import { passwordMatches } from "@/lib/passwords";
 import { tooManyAttempts } from "@/lib/rate-limit";
 import {
   OTP_COOKIE,
@@ -24,12 +24,22 @@ import { staffGateIsOpen } from "@/lib/staff-gate-session";
 
 export type SignInState = { error: string } | null;
 
-const UNKNOWN_EMAIL_HASH = bcrypt.hashSync("notice-desk-unknown-email", 10);
+const SIGN_IN_UNAVAILABLE = "Sign-in is unavailable right now. Try again in a moment.";
 
 export async function signIn(
   _previous: SignInState,
   formData: FormData,
 ): Promise<SignInState> {
+  try {
+    return await signInWithPassword(formData);
+  } catch (error) {
+    unstable_rethrow(error);
+    logDesk("signin.failed");
+    return { error: SIGN_IN_UNAVAILABLE };
+  }
+}
+
+async function signInWithPassword(formData: FormData): Promise<SignInState> {
   if (!(await staffGateIsOpen())) redirect("/?staff=1");
 
   const email = String(formData.get("email") ?? "")
@@ -52,12 +62,9 @@ export async function signIn(
   }
 
   const user = await prisma.user.findUnique({ where: { email } });
-  const passwordMatches = await bcrypt.compare(
-    password,
-    user?.passwordHash ?? UNKNOWN_EMAIL_HASH,
-  );
+  const passwordOk = await passwordMatches(password, user?.passwordHash ?? null);
 
-  if (!user || !passwordMatches) {
+  if (!user || !passwordOk) {
     logDesk("signin.rejected");
     return { error: "That email or password is not correct." };
   }

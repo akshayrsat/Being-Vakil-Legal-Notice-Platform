@@ -4,6 +4,7 @@
 // For an Admin, bank is the client they have chosen to work on, or nothing yet.
 
 import { cookies } from "next/headers";
+import { unstable_rethrow } from "next/navigation";
 import { toBankSnapshot, type BankSnapshot } from "./banks";
 import { prisma } from "./db";
 import { ROLE_BANK_VIEWER } from "./roles";
@@ -36,6 +37,18 @@ export function sessionExpiryDate(): Date {
 export const SESSION_MAX_AGE_SECONDS = SESSION_DAYS * 24 * 60 * 60;
 
 export async function getSessionContext(): Promise<SessionContext | null> {
+  try {
+    return await readSessionContext();
+  } catch (error) {
+    // A database failure must not replace /login with the crash page.
+    // Redirects and dynamic rendering still propagate.
+    unstable_rethrow(error);
+    console.error(JSON.stringify({ app: "notice-desk", event: "session.lookup_failed" }));
+    return null;
+  }
+}
+
+async function readSessionContext(): Promise<SessionContext | null> {
   const cookieStore = await cookies();
   const token = cookieStore.get(SESSION_COOKIE)?.value;
   if (!token) return null;
