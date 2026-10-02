@@ -17,7 +17,7 @@ import {
   dryRunReason,
   type SendChannel,
 } from "../src/lib/msg91";
-import { emailNoticeVars, smsNoticeVars, noticePublicUrl } from "../src/lib/notice-link";
+import { emailNoticeVars, smsNoticeVars, noticePublicUrl, whatsappNoticeVars } from "../src/lib/notice-link";
 import { toMsg91Mobile } from "../src/lib/phone";
 
 const ALLOWED = [
@@ -264,8 +264,12 @@ async function main() {
               })
             : undefined,
         whatsapp:
-          channel === "WHATSAPP"
-            ? { customer_name: row.customerName.trim(), bank_name: bank.name.trim() }
+          channel === "WHATSAPP" && row.noticeNumber
+            ? whatsappNoticeVars({
+                customerName: row.customerName,
+                bankName: bank.name,
+                noticeNumber: row.noticeNumber,
+              })
             : undefined,
       });
       await prisma.campaignDelivery.update({

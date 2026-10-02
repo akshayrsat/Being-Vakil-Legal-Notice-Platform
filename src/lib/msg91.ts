@@ -17,6 +17,8 @@ export type SendChannel = "SMS" | "EMAIL" | "WHATSAPP";
 export type WhatsAppNoticeVars = {
   customer_name: string;
   bank_name: string;
+  /** Path suffix for URL button, e.g. notice-UWAT73Y72777 (not the full URL). */
+  notice_path: string;
 };
 
 // Approved MSG91 email template legal_notice_non_payment (id 64975).
@@ -35,9 +37,13 @@ export type DeliveryRequest = {
   whatsapp?: WhatsAppNoticeVars;
 };
 
-// Approved MSG91 WhatsApp template. It has two body variables and no notice number.
-export const WHATSAPP_TEMPLATE_NAME = "legal_notice";
+// Approved MSG91 WhatsApp template legal_notice_link (POSITIONAL):
+// body_1 = customer name, body_2 = bank name, button_1 = notice path suffix for
+// https://www.notice.beingvakil.in/{{1}} (e.g. notice-UWAT73Y72777).
+// Old legal_notice had a static example.com URL button and no URL variable.
+export const WHATSAPP_TEMPLATE_NAME = "legal_notice_link";
 export const WHATSAPP_LANGUAGE = "en_US";
+export const WHATSAPP_TEMPLATE_NAMESPACE = "50ed4427_8a87_49c0_aad5_c2d3b8981e32";
 
 export type DeliveryResult = { ok: true; providerId: string } | { ok: false; error: string };
 
@@ -274,6 +280,7 @@ export function whatsappTemplatePayload(input: {
   mobile: string;
   customerName: string;
   bankName: string;
+  noticePath: string;
 }) {
   return {
     integrated_number: input.integratedNumber,
@@ -284,12 +291,16 @@ export function whatsappTemplatePayload(input: {
       template: {
         name: WHATSAPP_TEMPLATE_NAME,
         language: { code: WHATSAPP_LANGUAGE, policy: "deterministic" as const },
+        namespace: WHATSAPP_TEMPLATE_NAMESPACE,
         to_and_components: [
           {
             to: [input.mobile],
+            // POSITIONAL vars from MSG91 get-template for legal_notice_link.
+            // button_1 subtype url fills https://www.notice.beingvakil.in/{{1}}
             components: {
               body_1: { type: "text" as const, value: input.customerName },
               body_2: { type: "text" as const, value: input.bankName },
+              button_1: { subtype: "url" as const, type: "text" as const, value: input.noticePath },
             },
           },
         ],
@@ -303,16 +314,23 @@ async function deliverWhatsApp(authKey: string, request: DeliveryRequest): Promi
   const mobile = toMsg91Mobile(request.to);
   const customerName = request.whatsapp?.customer_name.trim() ?? "";
   const bankName = request.whatsapp?.bank_name.trim() ?? "";
+  const noticePath = request.whatsapp?.notice_path.trim() ?? "";
   if (!integratedNumber || !mobile) {
     return {
       ok: false,
       error: "Set MSG91_WHATSAPP_INTEGRATED_NUMBER before a live WhatsApp. Nothing was sent.",
     };
   }
-  if (!customerName || !bankName) {
+  if (!customerName || !bankName || !noticePath) {
     return {
       ok: false,
-      error: "WhatsApp needs the customer name and the bank name. Nothing was sent.",
+      error: "WhatsApp needs the customer name, bank name, and notice path. Nothing was sent.",
+    };
+  }
+  if (!/^notice-[A-Za-z0-9_-]+$/.test(noticePath)) {
+    return {
+      ok: false,
+      error: "WhatsApp notice path must look like notice-<id>. Nothing was sent.",
     };
   }
 
@@ -324,6 +342,7 @@ async function deliverWhatsApp(authKey: string, request: DeliveryRequest): Promi
       mobile,
       customerName,
       bankName,
+      noticePath,
     }),
     "MSG91 did not accept the WhatsApp message.",
   );

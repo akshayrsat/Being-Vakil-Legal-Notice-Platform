@@ -10,7 +10,7 @@ import { workingBank } from "@/lib/bank-context";
 import { isSendChannel, type SendChannel } from "@/lib/campaign-plan";
 import { prisma } from "@/lib/db";
 import { deliverNotice, dryRunReason, isLiveSendEnabled } from "@/lib/msg91";
-import { emailNoticeVars, smsNoticeVars } from "@/lib/notice-link";
+import { emailNoticeVars, whatsappNoticeVars, smsNoticeVars } from "@/lib/notice-link";
 import { writePreparedDeliveries } from "@/lib/prepare-send";
 import { ROLE_ADMIN } from "@/lib/roles";
 import { TEMPLATE_APPROVED } from "@/lib/templates";
@@ -316,8 +316,12 @@ async function finishLiveSend(
             })
           : undefined,
       whatsapp:
-        channel === "WHATSAPP"
-          ? { customer_name: row.customerName.trim(), bank_name: bankName.trim() }
+        channel === "WHATSAPP" && row.noticeNumber
+          ? whatsappNoticeVars({
+              customerName: row.customerName,
+              bankName,
+              noticeNumber: row.noticeNumber,
+            })
           : undefined,
     });
     await prisma.campaignDelivery.updateMany({

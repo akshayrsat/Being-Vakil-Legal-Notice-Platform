@@ -85,3 +85,28 @@ export function emailNoticeVars(input: {
     notice_code,
   };
 }
+
+export type WhatsAppNoticeLinkVars = {
+  customer_name: string;
+  bank_name: string;
+  /** Suffix for MSG91 URL button https://www.notice.beingvakil.in/{{1}} */
+  notice_path: string;
+};
+
+export function whatsappNoticePath(noticeNumber: string): string {
+  const id = noticeNumber.trim();
+  if (!id) return "";
+  return `notice-${id}`;
+}
+
+export function whatsappNoticeVars(input: {
+  customerName: string;
+  bankName: string;
+  noticeNumber: string;
+}): WhatsAppNoticeLinkVars {
+  return {
+    customer_name: input.customerName.trim(),
+    bank_name: input.bankName.trim(),
+    notice_path: whatsappNoticePath(input.noticeNumber),
+  };
+}
