@@ -69,6 +69,11 @@ export type NoticeRecipient = {
   customerId: string;
   loanAmount: string;
   outstandingAmount: string;
+  loanType: string;
+  referenceNumber: string;
+  collectionManager: string;
+  collectionManagerMobile: string;
+  bankWebsite: string;
   coBorrowerName: string;
   coBorrowerMobile: string;
   coBorrowerEmail: string;
@@ -91,6 +96,11 @@ export function valuesForRecipient(row: NoticeRecipient, bankName: string): Reco
     customer_id: row.customerId,
     loan_amount: row.loanAmount,
     outstanding_amount: row.outstandingAmount,
+    loan_type: row.loanType,
+    reference_number: row.referenceNumber,
+    collection_manager: row.collectionManager,
+    collection_manager_mobile: row.collectionManagerMobile,
+    bank_website: row.bankWebsite,
     co_borrower_name: row.coBorrowerName,
     co_borrower_mobile: row.coBorrowerMobile,
     co_borrower_email: row.coBorrowerEmail,

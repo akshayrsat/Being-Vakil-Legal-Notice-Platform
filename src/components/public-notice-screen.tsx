@@ -1,0 +1,90 @@
+// The page a recipient opens from an SMS link. It shows one notice, or a not-found message.
+
+import { NoticeLetterfoot, NoticeLetterhead, NoticeSignature } from "@/components/notice-letter";
+import { PrintLetterButton } from "@/components/print-letter-button";
+import { buildDemandNotice } from "@/lib/demand-notice";
+import { findPublicNotice, normalizeNoticeNumber, type PublicNoticeView } from "@/lib/public-notice";
+
+export async function PublicNoticeScreen({ noticeNumber }: { noticeNumber: string }) {
+  const normalized = normalizeNoticeNumber(noticeNumber);
+  if (!normalized) return <NoticeMissing kind="empty" />;
+  const notice = await findPublicNotice(normalized);
+  if (!notice) return <NoticeMissing kind="missing" />;
+  return <PublicNoticeDocument notice={notice} />;
+}
+
+function NoticeMissing({ kind }: { kind: "empty" | "missing" }) {
+  return (
+    <main className="notice-screen">
+      <div className="notice-stage">
+      <article className="notice-sheet notice-letter bg-card shadow-sm ring-1 ring-foreground/10">
+        <NoticeLetterhead />
+        <h1 className="mt-8 font-serif text-3xl tracking-tight">Notice not found</h1>
+        <p className="mt-3 text-base leading-7">
+          {kind === "empty"
+            ? "Open the link from your message. It includes a notice number."
+            : "This notice number is not on file. Check the link in your message, or contact the advocate who sent it."}
+        </p>
+        <NoticeLetterfoot />
+      </article>
+      </div>
+    </main>
+  );
+}
+
+function PublicNoticeDocument({ notice }: { notice: PublicNoticeView }) {
+  const letter = buildDemandNotice({
+    customerName: notice.customerName,
+    address: notice.address,
+    outstandingAmount: notice.outstandingAmount,
+    loanNumber: notice.loanNumber,
+    bankName: notice.bankName,
+    loanType: notice.loanType,
+    referenceNumber: notice.referenceNumber,
+    collectionManager: notice.collectionManager,
+    collectionManagerMobile: notice.collectionManagerMobile,
+    bankWebsite: notice.bankWebsite,
+    noticeNumber: notice.noticeNumber,
+    dated: notice.createdAt,
+  });
+
+  return (
+    <main className="notice-screen">
+      <div className="no-print mb-3 flex w-full max-w-[210mm] justify-end">
+        <PrintLetterButton />
+      </div>
+      <div className="notice-stage">
+        <article className="notice-sheet notice-letter bg-card shadow-sm ring-1 ring-foreground/10">
+          <NoticeLetterhead />
+          <div className="notice-copy">
+            <p className="notice-kicker">{letter.kicker}</p>
+            <h1>{letter.title}</h1>
+            <p>{letter.dateLine}</p>
+            <p>{letter.referenceLine}</p>
+            <p>To,</p>
+            <p className="font-bold">{letter.addresseeName}</p>
+            <p className="whitespace-pre-wrap">{letter.addresseeAddress}</p>
+            <p>{letter.salutation}</p>
+            <p className="font-bold">{letter.subject}</p>
+            {letter.opening.map((paragraph) => (
+              <p key={paragraph}>{paragraph}</p>
+            ))}
+            <div className="notice-status">
+              {letter.status.map((row) => (
+                <p key={row.label}>
+                  <span className="font-bold">{row.label} : </span>
+                  {row.value}
+                </p>
+              ))}
+            </div>
+            {letter.closing.map((paragraph) => (
+              <p key={paragraph}>{paragraph}</p>
+            ))}
+          </div>
+          <NoticeSignature bankName={notice.bankName} />
+          <NoticeLetterfoot />
+        </article>
+      </div>
+    </main>
+  );
+}

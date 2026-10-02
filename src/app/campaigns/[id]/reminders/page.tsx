@@ -5,6 +5,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AppHeader } from "@/components/app-header";
+import { NoticeOpenLink } from "@/components/notice-open-link";
 import { FollowUpButton } from "@/components/follow-up-button";
 import { buttonVariants } from "@/components/ui/button";
 import {
@@ -123,6 +124,7 @@ export default async function RemindersPage({ params }: { params: Promise<{ id: 
                           <td className="px-2 py-2">
                             <p className="font-medium">{row.customerName}</p>
                             <p className="text-muted-foreground">{row.mobile || row.email || "—"}</p>
+                            <NoticeOpenLink noticeNumber={row.noticeNumber} />
                           </td>
                           <td className="px-2 py-2">
                             <p>{row.loanNumber || "—"}</p>

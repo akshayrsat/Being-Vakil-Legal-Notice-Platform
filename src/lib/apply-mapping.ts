@@ -22,6 +22,11 @@ export type MappedRecipient = {
   customerId: string;
   loanAmount: string;
   outstandingAmount: string;
+  loanType: string;
+  referenceNumber: string;
+  collectionManager: string;
+  collectionManagerMobile: string;
+  bankWebsite: string;
   coBorrowerName: string;
   coBorrowerMobile: string;
   coBorrowerEmail: string;
@@ -142,6 +147,11 @@ export function mapSheetRows(
       customerId: cell(row, mapping.customerId),
       loanAmount: cell(row, mapping.loanAmount),
       outstandingAmount: cell(row, mapping.outstandingAmount),
+      loanType: cell(row, mapping.loanType),
+      referenceNumber: cell(row, mapping.referenceNumber),
+      collectionManager: cell(row, mapping.collectionManager),
+      collectionManagerMobile: cell(row, mapping.collectionManagerMobile),
+      bankWebsite: cell(row, mapping.bankWebsite),
       coBorrowerName: cell(row, mapping.coBorrowerName),
       coBorrowerMobile: cell(row, mapping.coBorrowerMobile),
       coBorrowerEmail: cell(row, mapping.coBorrowerEmail),

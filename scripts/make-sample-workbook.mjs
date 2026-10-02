@@ -14,6 +14,11 @@ const headers = [
   "Customer id",
   "Loan amount",
   "Outstanding amount",
+  "Loan type",
+  "Reference number",
+  "Collection manager",
+  "Collection manager mobile",
+  "Bank website",
   "Co-borrower name",
   "Co-borrower mobile",
   "Co-borrower email",
@@ -24,9 +29,9 @@ const headers = [
 
 // The only practice recipients. Do not add other names or mobile numbers.
 const rows = [
-  ["Akshay Sathe", "9619871393", "", "akshayrsathe@gmail.com", "", "LN10021", "CUST501", 500000, 125000, "", "", "", "", "", ""],
-  ["Akshay R Sathe", "8828402800", "", "akshayrsat@gmail.com", "", "LN10022", "CUST502", 250000, 80000, "", "", "", "", "", ""],
-  ["Shweta Sudhir", "9326247985", "", "advshwetasudhir@gmail.com", "", "LN10023", "CUST503", 750000, 210000, "", "", "", "", "", ""],
+  ["Akshay Sathe", "9619871393", "", "akshayrsathe@gmail.com", "14, Shivaji Nagar, Pune 411005", "LN10021", "CUST501", 500000, 125000, "Home Loan", "", "", "", "", "", "", "", "", "", ""],
+  ["Akshay R Sathe", "8828402800", "", "akshayrsat@gmail.com", "22, Law College Road, Pune 411004", "LN10022", "CUST502", 250000, 80000, "Personal Loan", "", "", "", "", "", "", "", "", "", ""],
+  ["Shweta Sudhir", "9326247985", "", "advshwetasudhir@gmail.com", "8, FC Road, Pune 411004", "LN10023", "CUST503", 750000, 210000, "Housing Loan", "", "", "", "", "", "", "", "", "", ""],
 ];
 
 const outDir = path.join(process.cwd(), "samples");

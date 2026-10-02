@@ -130,3 +130,150 @@
     @apply font-sans;
   }
 }
+
+.notice-letter {
+  font-family: "Times New Roman", Times, serif;
+  color: #161616;
+}
+
+/* One A4 sheet: 210mm by 297mm. Screen padding is the stationery margin. */
+.notice-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 16px 12px 40px;
+}
+
+.notice-stage {
+  width: 210mm;
+  height: 297mm;
+}
+
+.notice-sheet {
+  box-sizing: border-box;
+  width: 210mm;
+  height: 297mm;
+  padding: 10mm 14mm 8mm;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: #fff;
+}
+
+.notice-letterhead img {
+  display: block;
+  width: 112mm;
+  height: auto;
+  margin: 0 auto;
+}
+
+.notice-letterfoot {
+  margin-top: auto;
+}
+
+.notice-letterfoot img {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 18mm;
+  object-fit: contain;
+}
+
+.notice-copy {
+  margin-top: 2.5mm;
+  font-size: 9.4pt;
+  line-height: 1.22;
+}
+
+.notice-copy p,
+.notice-copy .notice-status {
+  margin: 0 0 1.35mm;
+}
+
+.notice-copy h1 {
+  margin: 0 0 1.4mm;
+  font-size: 13pt;
+  line-height: 1.15;
+  text-align: center;
+  font-weight: 700;
+}
+
+.notice-kicker {
+  margin: 0 0 0.6mm;
+  text-align: center;
+  font-size: 8.5pt;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.notice-sign {
+  margin-top: 1mm;
+  font-size: 9.4pt;
+  line-height: 1.15;
+}
+
+.notice-stamp {
+  width: 58mm;
+  height: 36mm;
+  overflow: hidden;
+}
+
+.notice-stamp img {
+  display: block;
+  width: 72mm;
+  max-width: none;
+  height: auto;
+  margin-top: -22mm;
+  margin-left: -6.5mm;
+}
+
+@media screen and (max-width: 220mm) {
+  .notice-stage {
+    width: calc(100vw - 16px);
+    height: calc((100vw - 16px) * 297 / 210);
+  }
+
+  .notice-sheet {
+    transform: scale(calc((100vw - 16px) / 210mm));
+    transform-origin: top left;
+  }
+}
+
+@media print {
+  @page {
+    size: A4;
+    margin: 0;
+  }
+
+  html,
+  body {
+    margin: 0 !important;
+    padding: 0 !important;
+    height: auto !important;
+    background: #fff !important;
+  }
+
+  .notice-screen {
+    display: block;
+    padding: 0 !important;
+    background: #fff !important;
+  }
+
+  .notice-stage {
+    width: 210mm;
+    height: 297mm;
+  }
+
+  .notice-sheet {
+    transform: none;
+    margin: 0;
+    box-shadow: none !important;
+    page-break-after: avoid;
+    break-after: avoid;
+    break-inside: avoid;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+}

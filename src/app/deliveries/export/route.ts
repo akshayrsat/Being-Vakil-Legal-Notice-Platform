@@ -5,6 +5,7 @@ import { auditCurrentUser } from "@/lib/audit";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { deliveryWhere, filtersToSearch, readDeliveryFilters, reportCsv, type ReportRow } from "@/lib/delivery-report";
+import { noticePublicUrl } from "@/lib/notice-link";
 import { resolveReportBank } from "@/lib/report-bank";
 
 export const dynamic = "force-dynamic";
@@ -52,6 +53,8 @@ export async function GET(request: Request) {
     status: row.status,
     detail: row.detail,
     rowNumber: row.rowNumber,
+    noticeNumber: row.noticeNumber,
+    noticeUrl: row.noticeNumber ? noticePublicUrl(row.noticeNumber) : "",
   }));
 
   const matched = filters.text ? ` matching “${filters.text}”` : "";

@@ -1,6 +1,8 @@
 // Decides, before anything is sent, which people can be reached on each channel.
 
 import { fillNotice, noticePlainText, valuesForRecipient, type NoticeRecipient } from "./merge-notice";
+import { emailNoticeText } from "./email-notice";
+import { noticePublicUrl, smsNoticeText, withNoticeLink } from "./notice-link";
 
 export const SEND_CHANNELS = ["SMS", "EMAIL", "WHATSAPP"] as const;
 
@@ -18,6 +20,7 @@ export type PlannedDelivery = {
   status: "PENDING" | "SKIPPED";
   detail: string;
   messageText: string;
+  noticeNumber: string;
 };
 
 type PlanRow = NoticeRecipient & {
@@ -30,12 +33,18 @@ export function planDeliveries(
   channels: SendChannel[],
   bankName: string,
   templateBody: string,
+  noticeNumbers?: ReadonlyMap<string, string>,
 ): PlannedDelivery[] {
   const planned: PlannedDelivery[] = [];
 
   for (const row of rows) {
+    const noticeNumber = noticeNumbers?.get(row.id) ?? "";
     const values = valuesForRecipient(row, bankName);
-    const messageText = noticePlainText(fillNotice(templateBody, values));
+    if (noticeNumber) {
+      values.notice_number = noticeNumber;
+      values.notice_link = noticePublicUrl(noticeNumber);
+    }
+    const filled = noticePlainText(fillNotice(templateBody, values));
     const mobile = values.mobile ?? "";
     const email = values.email?.trim() ?? "";
 
@@ -56,12 +65,36 @@ export function planDeliveries(
             ? "No email on this row."
             : "No mobile number on this row."
           : "",
-        messageText: missing ? "" : messageText,
+        messageText: missing
+          ? ""
+          : messageForChannel(channel, filled, row, bankName, noticeNumber),
+        noticeNumber,
       });
     }
   }
 
   return planned;
+}
+
+function messageForChannel(
+  channel: SendChannel,
+  filled: string,
+  row: PlanRow,
+  bankName: string,
+  noticeNumber: string,
+): string {
+  if (channel === "SMS" && noticeNumber) {
+    return smsNoticeText({ customerName: row.customerName, bankName, noticeNumber });
+  }
+  if (channel === "EMAIL" && noticeNumber) {
+    return emailNoticeText({
+      customerName: row.customerName,
+      bankName,
+      noticeNumber,
+      dated: new Date(),
+    });
+  }
+  return withNoticeLink(filled, noticeNumber);
 }
 
 export function isSendChannel(value: string): value is SendChannel {

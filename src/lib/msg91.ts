@@ -1,6 +1,8 @@
 // MSG91 access. The auth key is read from the environment on the server.
 // Never put it in a NEXT_PUBLIC_ variable, and never send it to the browser.
 
+import { emailNoticeHtml } from "./email-notice";
+import { noticePublicBaseUrl, type SmsNoticeVars } from "./notice-link";
 import { toMsg91Mobile } from "./phone";
 
 const OTP_SEND_URL = "https://control.msg91.com/api/v5/otp";
@@ -11,12 +13,23 @@ const WHATSAPP_SEND_URL = "https://api.msg91.com/api/v5/whatsapp/whatsapp-outbou
 
 export type SendChannel = "SMS" | "EMAIL" | "WHATSAPP";
 
+export type WhatsAppNoticeVars = {
+  customer_name: string;
+  bank_name: string;
+};
+
 export type DeliveryRequest = {
   channel: SendChannel;
   to: string;
   body: string;
   dltTemplateId: string;
+  sms?: SmsNoticeVars;
+  whatsapp?: WhatsAppNoticeVars;
 };
+
+// Approved MSG91 WhatsApp template. It has two body variables and no notice number.
+export const WHATSAPP_TEMPLATE_NAME = "legal_notice";
+export const WHATSAPP_LANGUAGE = "en_US";
 
 export type DeliveryResult = { ok: true; providerId: string } | { ok: false; error: string };
 
@@ -113,15 +126,24 @@ async function deliverSms(authKey: string, request: DeliveryRequest): Promise<De
     };
   }
 
-  // The flow in MSG91 must accept a variable named message, or map this body itself.
-  // DLT still has to match the template registered for that flow.
+  // Legal_Notice_12092026 reads customer_name, bank_name, and notice_number.
+  // message is the same wording kept for a flow that still expects one body variable.
+  const recipient: Record<string, string> = {
+    mobiles: mobile,
+    message: request.body,
+  };
+  if (request.sms) {
+    recipient.customer_name = request.sms.customer_name;
+    recipient.bank_name = request.sms.bank_name;
+    recipient.notice_number = request.sms.notice_number;
+  }
   const result = await postMsg91(
     SMS_FLOW_URL,
     authKey,
     {
       flow_id: flowId,
       sender: senderId,
-      recipients: [{ mobiles: mobile, message: request.body }],
+      recipients: [recipient],
     },
     "MSG91 did not accept the SMS.",
   );
@@ -148,7 +170,7 @@ async function deliverEmail(authKey: string, request: DeliveryRequest): Promise<
       recipients: [
         {
           to: [{ email: request.to, name: request.to }],
-          variables: { message: request.body },
+          variables: { message: emailNoticeHtml(request.body, noticePublicBaseUrl()) },
         },
       ],
       from: { email: from, name: "Notice Desk" },
@@ -160,43 +182,62 @@ async function deliverEmail(authKey: string, request: DeliveryRequest): Promise<
   return result.ok ? { ok: true, providerId: result.providerId } : result;
 }
 
+export function whatsappTemplatePayload(input: {
+  integratedNumber: string;
+  mobile: string;
+  customerName: string;
+  bankName: string;
+}) {
+  return {
+    integrated_number: input.integratedNumber,
+    content_type: "template" as const,
+    payload: {
+      messaging_product: "whatsapp" as const,
+      type: "template" as const,
+      template: {
+        name: WHATSAPP_TEMPLATE_NAME,
+        language: { code: WHATSAPP_LANGUAGE, policy: "deterministic" as const },
+        to_and_components: [
+          {
+            to: [input.mobile],
+            components: {
+              body_1: { type: "text" as const, value: input.customerName },
+              body_2: { type: "text" as const, value: input.bankName },
+            },
+          },
+        ],
+      },
+    },
+  };
+}
+
 async function deliverWhatsApp(authKey: string, request: DeliveryRequest): Promise<DeliveryResult> {
   const integratedNumber = envValue("MSG91_WHATSAPP_INTEGRATED_NUMBER");
-  const templateName = envValue("MSG91_WHATSAPP_TEMPLATE");
   const mobile = toMsg91Mobile(request.to);
-  if (!integratedNumber || !templateName || !mobile) {
-    // TODO: WhatsApp needs an integrated number and a template approved in MSG91.
-    // The template must have one body variable for the notice text. Nothing is sent until those are set.
+  const customerName = request.whatsapp?.customer_name.trim() ?? "";
+  const bankName = request.whatsapp?.bank_name.trim() ?? "";
+  if (!integratedNumber || !mobile) {
     return {
       ok: false,
-      error:
-        "TODO: set MSG91_WHATSAPP_INTEGRATED_NUMBER and MSG91_WHATSAPP_TEMPLATE. Nothing was sent.",
+      error: "Set MSG91_WHATSAPP_INTEGRATED_NUMBER before a live WhatsApp. Nothing was sent.",
+    };
+  }
+  if (!customerName || !bankName) {
+    return {
+      ok: false,
+      error: "WhatsApp needs the customer name and the bank name. Nothing was sent.",
     };
   }
 
   const result = await postMsg91(
     WHATSAPP_SEND_URL,
     authKey,
-    {
-      integrated_number: integratedNumber,
-      content_type: "template",
-      payload: {
-        messaging_product: "whatsapp",
-        type: "template",
-        template: {
-          name: templateName,
-          language: { code: "en", policy: "deterministic" },
-          to_and_components: [
-            {
-              to: [mobile],
-              components: {
-                body_1: { type: "text", value: request.body },
-              },
-            },
-          ],
-        },
-      },
-    },
+    whatsappTemplatePayload({
+      integratedNumber,
+      mobile,
+      customerName,
+      bankName,
+    }),
     "MSG91 did not accept the WhatsApp message.",
   );
   return result.ok ? { ok: true, providerId: result.providerId } : result;

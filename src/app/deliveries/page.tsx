@@ -5,6 +5,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AppHeader } from "@/components/app-header";
 import { DeliveryFiltersForm } from "@/components/delivery-filters";
+import { NoticeOpenLink } from "@/components/notice-open-link";
 import { buttonVariants } from "@/components/ui/button";
 import { getCurrentUser } from "@/lib/auth";
 import { workingBank } from "@/lib/bank-context";
@@ -151,6 +152,7 @@ async function Results({
                     <td className="px-3 py-2">
                       <p className="font-medium">{row.customerName}</p>
                       <p className="text-muted-foreground">{row.mobile || row.email || "—"}</p>
+                      <NoticeOpenLink noticeNumber={row.noticeNumber} />
                     </td>
                     <td className="px-3 py-2">
                       <p>{row.loanNumber || "—"}</p>

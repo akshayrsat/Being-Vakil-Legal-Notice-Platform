@@ -245,6 +245,11 @@ function previewValues(row: {
   customerId: string;
   loanAmount: string;
   outstandingAmount: string;
+  loanType: string;
+  referenceNumber: string;
+  collectionManager: string;
+  collectionManagerMobile: string;
+  bankWebsite: string;
   coBorrowerName: string;
   coBorrowerMobile: string;
   coBorrowerEmail: string;
@@ -263,6 +268,11 @@ function previewValues(row: {
     customerId: row.customerId,
     loanAmount: row.loanAmount,
     outstandingAmount: row.outstandingAmount,
+    loanType: row.loanType,
+    referenceNumber: row.referenceNumber,
+    collectionManager: row.collectionManager,
+    collectionManagerMobile: row.collectionManagerMobile,
+    bankWebsite: row.bankWebsite,
     coBorrowerName: row.coBorrowerName,
     coBorrowerMobile: row.coBorrowerMobile,
     coBorrowerEmail: row.coBorrowerEmail,

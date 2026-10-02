@@ -1,7 +1,8 @@
 // The words a notice template can fill from a saved spreadsheet row.
 // Write them in the template as {{customer_name}}. A blank value is allowed.
+// notice_number and notice_link are filled when a send is prepared. They are not spreadsheet columns.
 
-export type PlaceholderGroup = "Customer" | "Loan" | "Co-borrower" | "Guarantor" | "Bank";
+export type PlaceholderGroup = "Customer" | "Loan" | "Co-borrower" | "Guarantor" | "Bank" | "Notice";
 
 export type NoticePlaceholder = {
   token: string;
@@ -15,6 +16,7 @@ export const PLACEHOLDER_GROUPS: PlaceholderGroup[] = [
   "Co-borrower",
   "Guarantor",
   "Bank",
+  "Notice",
 ];
 
 export const NOTICE_PLACEHOLDERS: NoticePlaceholder[] = [
@@ -29,6 +31,11 @@ export const NOTICE_PLACEHOLDERS: NoticePlaceholder[] = [
   { token: "customer_id", label: "Customer id", group: "Loan" },
   { token: "loan_amount", label: "Loan amount", group: "Loan" },
   { token: "outstanding_amount", label: "Outstanding amount", group: "Loan" },
+  { token: "loan_type", label: "Loan type", group: "Loan" },
+  { token: "reference_number", label: "Reference number", group: "Loan" },
+  { token: "collection_manager", label: "Collection manager", group: "Loan" },
+  { token: "collection_manager_mobile", label: "Collection manager mobile", group: "Loan" },
+  { token: "bank_website", label: "Bank website", group: "Loan" },
   { token: "co_borrower_name", label: "Co-borrower name", group: "Co-borrower" },
   { token: "co_borrower_mobile", label: "Co-borrower mobile", group: "Co-borrower" },
   { token: "co_borrower_email", label: "Co-borrower email", group: "Co-borrower" },
@@ -36,6 +43,8 @@ export const NOTICE_PLACEHOLDERS: NoticePlaceholder[] = [
   { token: "guarantor_mobile", label: "Guarantor mobile", group: "Guarantor" },
   { token: "guarantor_email", label: "Guarantor email", group: "Guarantor" },
   { token: "bank_name", label: "Bank name", group: "Bank" },
+  { token: "notice_number", label: "Notice number", group: "Notice" },
+  { token: "notice_link", label: "Notice link", group: "Notice" },
 ];
 
 const byToken = new Map(NOTICE_PLACEHOLDERS.map((item) => [item.token, item]));
