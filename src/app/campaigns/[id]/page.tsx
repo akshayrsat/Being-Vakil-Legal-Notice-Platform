@@ -5,6 +5,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AppHeader } from "@/components/app-header";
+import { BackLinks } from "@/components/back-link";
 import { CampaignSpeedPost } from "@/components/campaign-speed-post";
 import { ConfirmCampaign } from "@/components/confirm-campaign";
 import { MessageOpened, NoticeLinkOpened } from "@/components/notice-link-opened";
@@ -19,6 +20,7 @@ import {
 } from "@/components/ui/card";
 import { getCurrentUser } from "@/lib/auth";
 import { workingBank } from "@/lib/bank-context";
+import { backToCampaigns, backToSpreadsheet } from "@/lib/desk-back";
 import { isSendChannel, parseSendChannels, SEND_CHANNELS } from "@/lib/campaign-plan";
 import {
   campaignStatusLabel,
@@ -91,16 +93,11 @@ export default async function CampaignPage({
       <div className="flex min-h-full flex-col">
         <AppHeader user={user} />
         <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-4 px-4 py-8 sm:px-6">
+          <BackLinks links={[backToCampaigns()]} />
           <h1 className="font-serif text-3xl">Send not found</h1>
           <p className="leading-7 text-muted-foreground">
             That send is not under a bank this login can see.
           </p>
-          <Link
-            href="/campaigns"
-            className={buttonVariants({ variant: "outline", className: "h-11 w-fit px-4" })}
-          >
-            Back to campaigns
-          </Link>
         </main>
       </div>
     );
@@ -141,6 +138,7 @@ export default async function CampaignPage({
     <div className="flex min-h-full flex-col">
       <AppHeader user={user} />
       <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 px-4 py-8 sm:px-6">
+        <BackLinks links={[backToCampaigns(), backToSpreadsheet(campaign.batchId)]} />
         <div>
           <p className="text-sm text-muted-foreground">{campaign.bank.name}</p>
           <h1 className="mt-1 font-serif text-4xl tracking-tight">Review send</h1>
@@ -422,12 +420,7 @@ export default async function CampaignPage({
           </CardContent>
         </Card>
 
-        <Link
-          href="/campaigns"
-          className={buttonVariants({ variant: "outline", className: "h-11 w-fit px-4" })}
-        >
-          Back to campaigns
-        </Link>
+        <BackLinks links={[backToCampaigns(), backToSpreadsheet(campaign.batchId)]} />
       </main>
     </div>
   );

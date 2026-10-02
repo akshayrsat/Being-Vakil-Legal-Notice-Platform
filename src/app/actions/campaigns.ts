@@ -17,7 +17,7 @@ import { noticePdfDataUri, noticePdfFileName, renderNoticePdf } from "@/lib/noti
 import { writePreparedDeliveries } from "@/lib/prepare-send";
 import { tooManyAttempts } from "@/lib/rate-limit";
 import { ROLE_ADMIN } from "@/lib/roles";
-import { TEMPLATE_APPROVED } from "@/lib/templates";
+import { isApprovedTemplateStatus } from "@/lib/templates";
 
 export type CampaignFormState = { error: string } | null;
 
@@ -66,10 +66,10 @@ export async function createCampaign(
   }
 
   const template = await prisma.noticeTemplate.findFirst({
-    where: { id: templateId, bankId: scope.bank.id, status: TEMPLATE_APPROVED },
+    where: { id: templateId, bankId: scope.bank.id },
   });
-  if (!template) {
-    return { error: "Choose an approved template. Drafts cannot be sent." };
+  if (!template || !isApprovedTemplateStatus(template.status)) {
+    return { error: "Choose an approved template for this bank. Drafts cannot be sent." };
   }
 
   const rows = await prisma.recipientRow.findMany({

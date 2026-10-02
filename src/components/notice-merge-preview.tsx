@@ -32,6 +32,7 @@ export function NoticeMergePreview({
   templates,
   selectedId,
   canEdit,
+  libraryNotes = [],
 }: {
   batchId: string;
   bankName: string;
@@ -41,6 +42,7 @@ export function NoticeMergePreview({
   templates: ApprovedTemplate[];
   selectedId: string;
   canEdit: boolean;
+  libraryNotes?: string[];
 }) {
   const selected = templates.find((template) => template.id === selectedId) ?? null;
   const sample = rows.slice(0, SAMPLE_COUNT);
@@ -57,23 +59,47 @@ export function NoticeMergePreview({
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         {!saved ? (
-          <p className="text-sm leading-6 text-muted-foreground">
-            Save a column match before previewing a notice. There are no people to fill in yet.
-          </p>
-        ) : templates.length === 0 ? (
           <div className="flex flex-col gap-3">
             <p className="text-sm leading-6 text-muted-foreground">
-              {canEdit
-                ? "No approved template for this bank yet. Write one, mark it Approved, then come back."
-                : "The firm has not approved a template for this bank yet."}
+              Save a column match before previewing a notice. There are no people to fill in yet.
             </p>
+            {templates.length === 0
+              ? (libraryNotes.length > 0
+                  ? libraryNotes
+                  : [`No approved template for ${bankName} yet.`]
+                ).map((note) => (
+                  <p key={note} className="text-sm leading-6 text-muted-foreground">
+                    {note}
+                  </p>
+                ))
+              : null}
+          </div>
+        ) : templates.length === 0 ? (
+          <div className="flex flex-col gap-3">
+            {(libraryNotes.length > 0
+              ? libraryNotes
+              : [
+                  canEdit
+                    ? `No approved template for ${bankName} yet. Write one, mark it Approved, then come back.`
+                    : `The firm has not approved a template for ${bankName} yet.`,
+                ]
+            ).map((note) => (
+              <p key={note} className="text-sm leading-6 text-muted-foreground">
+                {note}
+              </p>
+            ))}
             {canEdit ? (
-              <Link
-                href="/templates/new"
-                className={buttonVariants({ variant: "outline", className: "h-11 w-fit px-4" })}
-              >
-                New template
-              </Link>
+              <div className="flex flex-wrap gap-2">
+                <Link href="/templates" className={buttonVariants({ className: "h-11 w-fit px-4" })}>
+                  Go to templates
+                </Link>
+                <Link
+                  href="/templates/new"
+                  className={buttonVariants({ variant: "outline", className: "h-11 w-fit px-4" })}
+                >
+                  New template
+                </Link>
+              </div>
             ) : null}
           </div>
         ) : selected ? (

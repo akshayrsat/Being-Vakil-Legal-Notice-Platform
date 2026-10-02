@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { BackLinks } from "@/components/back-link";
 import { DeskShell } from "@/components/desk-shell";
 import { PostalStatus } from "@/components/postal-status";
 import { ArticleForm, RefreshSpeedPostForm, StatusForm } from "@/components/speed-post-forms";
@@ -13,6 +14,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { getCurrentUser } from "@/lib/auth";
+import { backToSpeedPost } from "@/lib/desk-back";
 import { prisma } from "@/lib/db";
 import { loanSearchHref } from "@/lib/loan-timeline";
 import { indiaPostConfigured, postalStatusLabel } from "@/lib/postal";
@@ -47,11 +49,9 @@ export default async function SpeedPostDetailPage({
   if (!consignment) {
     return (
       <DeskShell user={user}>
+        <BackLinks links={[backToSpeedPost("")]} />
         <h1 className="font-serif text-3xl">Consignment not found</h1>
         <p className="text-muted-foreground">That Speed Post record is not under a bank this login can see.</p>
-        <Link href="/speed-post" className={buttonVariants({ variant: "outline", className: "h-11 w-fit px-4" })}>
-          Back to Speed Post
-        </Link>
       </DeskShell>
     );
   }
@@ -61,6 +61,7 @@ export default async function SpeedPostDetailPage({
 
   return (
     <DeskShell user={user}>
+      <BackLinks links={[backToSpeedPost(consignment.bankId)]} />
       <div>
         <p className="text-sm text-muted-foreground">{consignment.bank.name}</p>
         <h1 className="mt-1 font-serif text-4xl tracking-tight">{consignment.customerName || "Speed Post"}</h1>
@@ -145,12 +146,7 @@ export default async function SpeedPostDetailPage({
         )}
       </section>
 
-      <Link
-        href={`/speed-post?bank=${consignment.bankId}`}
-        className={buttonVariants({ variant: "outline", className: "h-11 w-fit px-4" })}
-      >
-        Back to Speed Post
-      </Link>
+      <BackLinks links={[backToSpeedPost(consignment.bankId)]} />
     </DeskShell>
   );
 }

@@ -1,12 +1,11 @@
 // Read or edit one notice template. It must belong to the bank currently in use.
 
 import type { Metadata } from "next";
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AppHeader } from "@/components/app-header";
+import { BackLinks } from "@/components/back-link";
 import { TemplateForm } from "@/components/template-form";
 import { TemplateReadout } from "@/components/template-readout";
-import { buttonVariants } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -16,6 +15,7 @@ import {
 } from "@/components/ui/card";
 import { getCurrentUser } from "@/lib/auth";
 import { workingBank } from "@/lib/bank-context";
+import { backToTemplates } from "@/lib/desk-back";
 import { prisma } from "@/lib/db";
 import { ROLE_ADMIN } from "@/lib/roles";
 import { parseChannels, type TemplateStatusValue } from "@/lib/templates";
@@ -51,16 +51,11 @@ export default async function TemplatePage({
       <div className="flex min-h-full flex-col">
         <AppHeader user={user} />
         <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-4 px-4 py-8 sm:px-6">
+          <BackLinks links={[backToTemplates()]} />
           <h1 className="font-serif text-3xl">Template not found</h1>
           <p className="leading-7 text-muted-foreground">
-            That template is not under the bank you are working on.
+            That template is not under the bank you are working on. Switch bank if it was saved on another one.
           </p>
-          <Link
-            href="/templates"
-            className={buttonVariants({ variant: "outline", className: "h-11 w-fit px-4" })}
-          >
-            Back to templates
-          </Link>
         </main>
       </div>
     );
@@ -72,6 +67,7 @@ export default async function TemplatePage({
     <div className="flex min-h-full flex-col">
       <AppHeader user={user} />
       <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 px-4 py-8 sm:px-6">
+        <BackLinks links={[backToTemplates()]} />
         <div>
           <p className="text-sm text-muted-foreground">{bank.name}</p>
           <h1 className="mt-1 font-serif text-4xl tracking-tight">{template.name}</h1>
@@ -122,12 +118,7 @@ export default async function TemplatePage({
           </CardContent>
         </Card>
 
-        <Link
-          href="/templates"
-          className={buttonVariants({ variant: "outline", className: "h-11 w-fit px-4" })}
-        >
-          Back to templates
-        </Link>
+        <BackLinks links={[backToTemplates()]} />
       </main>
     </div>
   );
