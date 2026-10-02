@@ -71,7 +71,7 @@ test("fifteen approved templates all remain selectable, sorted A to Z", () => {
 test("other banks keep their approved names, and this bank is left out of that note", () => {
   const elsewhere = otherBankApprovedSummary(
     [
-      { bankId: "nwh", status: "APPROVED", name: "Loan recall notice (SMS)" },
+      { bankId: "nwh", status: "APPROVED", name: "Legal notice (SMS)" },
       { bankId: "nwh", status: "DRAFT", name: "Hidden draft" },
       { bankId: "test-bank", status: "APPROVED", name: "Test Bank notice" },
       { bankId: "mcb", status: "APPROVED", name: "Meridian notice" },
@@ -88,7 +88,7 @@ test("other banks keep their approved names, and this bank is left out of that n
     elsewhere.map((bank) => bank.bankCode),
     ["MCB", "NWH"],
   );
-  assert.deepEqual(elsewhere[1]?.names, ["Loan recall notice (SMS)"]);
+  assert.deepEqual(elsewhere[1]?.names, ["Legal notice (SMS)"]);
   assert.equal(
     elsewhere.some((bank) => bank.names.includes("Test Bank notice")),
     false,
@@ -107,7 +107,7 @@ test("an empty working bank explains the upload and lists approved wording from 
         bankName: "Northwind Housing Finance",
         bankCode: "NWH",
         count: 1,
-        names: ["Loan recall notice (SMS)"],
+        names: ["Legal notice (SMS)"],
       },
     ],
   });
@@ -115,7 +115,7 @@ test("an empty working bank explains the upload and lists approved wording from 
   assert.match(text, /does not save notice wording/);
   assert.match(text, /Test Bank \(MH\)/);
   assert.match(text, /Northwind Housing Finance \(NWH\)/);
-  assert.match(text, /Loan recall notice \(SMS\)/);
+  assert.match(text, /Legal notice \(SMS\)/);
   assert.match(text, /already listed/);
   assert.doesNotMatch(text, /Switch to that bank/);
 });

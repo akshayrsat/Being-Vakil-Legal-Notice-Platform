@@ -87,7 +87,7 @@ export function CampaignForm({
           ))}
         </select>
         <p className="text-sm font-normal text-muted-foreground">
-          Approved templates saved for this bank, A to Z. Drafts are not listed. The same list is on Templates.
+          Approved templates, A to Z, for every bank. Drafts are not listed. The same list is on Templates.
         </p>
       </div>
 

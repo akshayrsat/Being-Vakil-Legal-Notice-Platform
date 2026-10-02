@@ -67,7 +67,7 @@ export function TemplateForm({
           required
           maxLength={80}
           defaultValue={initial.name}
-          placeholder="Example: Loan recall notice"
+          placeholder="Example: Legal notice (SMS)"
           className="h-11 px-3 text-base md:text-base"
         />
       </div>
@@ -81,7 +81,7 @@ export function TemplateForm({
             maxLength={64}
             defaultValue={initial.dltTemplateId}
             spellCheck={false}
-            placeholder="Example: 1107165400000000001"
+            placeholder="Example: 6abf5af2e9226c340a0548e2"
             className="h-11 px-3 text-base md:text-base"
           />
         </div>

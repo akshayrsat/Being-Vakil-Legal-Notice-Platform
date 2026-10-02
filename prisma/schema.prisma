@@ -54,7 +54,7 @@ model Bank {
 // A draft is listed only for that bank. Approved wording is the firm library:
 // every bank can select it. That share is the template text only.
 // Spreadsheets, people, sends, deliveries, and notices stay on one bank.
-// channels is a JSON list such as ["SMS","EMAIL"]. seedKey is set only for the practice templates.
+// channels is a JSON list such as ["SMS","EMAIL"]. seedKey is set only for the MSG91 library templates.
 model NoticeTemplate {
   id            String         @id @default(cuid())
   bankId        String
