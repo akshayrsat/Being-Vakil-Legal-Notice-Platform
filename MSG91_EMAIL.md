@@ -59,15 +59,15 @@ Reference: [Unsubscribe link in the Emails](https://msg91.com/help/unsubscribe-l
 2. Enable **Open Tracking**
 3. Apply Changes
 
-**Webhook (Opened events)**
+**Webhooks (panel only — not creatable via MSG91 API)**
 
-1. MSG91 → **Email** → **Webhook (New)** → Create Webhook
-2. Event: **Opened** (create separate webhooks for Delivered / Failed if you want those too)
-3. Callback URL: `https://www.notice.beingvakil.in/api/msg91/webhook?secret=YOUR_MSG91_WEBHOOK_SECRET`  
-   (or set header `x-notice-desk-secret: YOUR_MSG91_WEBHOOK_SECRET`)
-4. Include at least: `requestId`, `recipient`, `eventId`, `eventName`, `statusUpdatedAt`, `subject`, `variables`
+Full copy-paste steps for Email **On Report Received** + **Opened**, plus SMS and WhatsApp delivery/read webhooks: see **`MSG91_WEBHOOKS.md`**.
 
-Notice Desk stores the first open on `CampaignDelivery.openedAt` and marks status **Read**. Dry runs are never updated. Set `MSG91_WEBHOOK_SECRET` (8+ characters) in `.env` on the server.
+Shared callback URL:
+
+`https://www.notice.beingvakil.in/api/msg91/webhook?secret=YOUR_MSG91_WEBHOOK_SECRET`
+
+(or header `x-notice-desk-secret`). `MSG91_WEBHOOK_SECRET` is already set on Cloud Run. Notice Desk stores the first open on `CampaignDelivery.openedAt` and marks status **Read**. Dry runs are never updated.
 
 ## One-person test resend
 

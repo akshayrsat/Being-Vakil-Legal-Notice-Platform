@@ -136,21 +136,34 @@ function walk(node: unknown, depth: number, hits: StatusHit[]): void {
 function hitFromRecord(record: Record<string, unknown>): StatusHit | null {
   const eventLabel = firstString(record, ["desc", "description", "event", "eventName"]);
   // Email Queued/Accepted must not fall through to numeric eventId 1 (SMS delivered).
-  if (/^(queued|accepted|enqueued)$/i.test(eventLabel.trim())) return null;
+  if (/^(queued|accepted|enqueued|sent)$/i.test(eventLabel.trim())) return null;
   const described = mapStatus(eventLabel);
-  const coded = mapStatus(firstString(record, ["status", "eventId"]));
-  const status = described ?? coded;
-  if (!status) return null;
   const mobile = firstString(record, ["mobile", "telNum", "number", "customerNumber", "phone"]);
   const email = emailFromRecord(record);
+  const codedRaw = firstString(record, ["status", "eventId"]);
+  // Email eventId 1/2 = Queued/Accepted. SMS status 1 = delivered. Prefer labels when present.
+  let coded = mapStatus(codedRaw);
+  if (email && (codedRaw === "1" || codedRaw === "2")) coded = null;
+  const status = described ?? coded;
+  if (!status) return null;
   const requestId = firstString(record, ["requestId", "request_id"]);
-  const channel = normalizeChannel(firstString(record, ["channel"])) || (email && !mobile ? "EMAIL" : "");
+  const channel = inferChannel(record, email, mobile);
   if (!mobile && !email && !requestId) return null;
   const openedAt =
     status === "READ"
-      ? parseDate(firstString(record, ["statusUpdatedAt", "requestedAt", "openedAt", "opened_at"]))
+      ? parseDate(firstString(record, ["statusUpdatedAt", "ts", "deliveryTime", "requestedAt", "openedAt", "opened_at"]))
       : null;
   return { status, mobile, email, requestId, channel, openedAt };
+}
+
+function inferChannel(record: Record<string, unknown>, email: string, mobile: string): string {
+  const explicit = normalizeChannel(firstString(record, ["channel"]));
+  if (explicit) return explicit;
+  if (firstString(record, ["customerNumber", "integratedNumber"])) return "WHATSAPP";
+  if (firstString(record, ["telNum", "DLT_TE_ID", "senderId"]) && !email) return "SMS";
+  if (email && !mobile) return "EMAIL";
+  if (email) return "EMAIL";
+  return "";
 }
 
 function emailFromRecord(record: Record<string, unknown>): string {
