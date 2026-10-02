@@ -162,6 +162,9 @@ async function Results({
                     <td className="px-3 py-2">
                       <p>{deliveryStatusLabel(row.status)}</p>
                       <p className="text-muted-foreground">{row.detail}</p>
+                      {row.openedAt ? (
+                        <p className="text-muted-foreground">Opened {formatWhen(row.openedAt)}</p>
+                      ) : null}
                     </td>
                     <td className="px-3 py-2">
                       <Link href={`/campaigns/${row.campaign.id}`} className="font-medium underline">

@@ -10,7 +10,7 @@ import { workingBank } from "@/lib/bank-context";
 import { isSendChannel, type SendChannel } from "@/lib/campaign-plan";
 import { prisma } from "@/lib/db";
 import { deliverNotice, dryRunReason, isLiveSendEnabled } from "@/lib/msg91";
-import { smsNoticeVars } from "@/lib/notice-link";
+import { emailNoticeVars, smsNoticeVars } from "@/lib/notice-link";
 import { writePreparedDeliveries } from "@/lib/prepare-send";
 import { ROLE_ADMIN } from "@/lib/roles";
 import { TEMPLATE_APPROVED } from "@/lib/templates";
@@ -309,11 +309,11 @@ async function finishLiveSend(
           : undefined,
       email:
         channel === "EMAIL" && row.noticeNumber
-          ? {
-              contact_name: row.customerName.trim(),
-              loan_account: row.loanNumber.trim() || row.noticeNumber,
-              notice_id: row.noticeNumber,
-            }
+          ? emailNoticeVars({
+              customerName: row.customerName,
+              loanAccount: row.loanNumber,
+              noticeNumber: row.noticeNumber,
+            })
           : undefined,
       whatsapp:
         channel === "WHATSAPP"

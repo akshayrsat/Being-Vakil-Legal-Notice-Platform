@@ -55,6 +55,7 @@ export async function GET(request: Request) {
     rowNumber: row.rowNumber,
     noticeNumber: row.noticeNumber,
     noticeUrl: row.noticeNumber ? noticePublicUrl(row.noticeNumber) : "",
+    openedAt: row.openedAt,
   }));
 
   const matched = filters.text ? ` matching “${filters.text}”` : "";

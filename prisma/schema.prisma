@@ -233,6 +233,8 @@ model CampaignDelivery {
   messageText    String         @default("")
   providerId     String         @default("")
   noticeNumber   String         @default("")
+  // First MSG91 email open (or WhatsApp read). Null until the webhook reports it.
+  openedAt       DateTime?
 
   @@index([campaignId])
   @@index([providerId])

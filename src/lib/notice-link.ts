@@ -59,3 +59,29 @@ export function withNoticeLink(body: string, noticeNumber: string): string {
   if (body.includes(url)) return body;
   return `${body}\n\nRead the notice: ${url}`;
 }
+
+export type EmailNoticeVars = {
+  contact_name: string;
+  loan_account: string;
+  // Full HTTPS URL so the current MSG91 template {{notice_id}} prints a clickable link.
+  notice_id: string;
+  notice_link: string;
+  // Bare notice code for a future template that shows the code as link text.
+  notice_code: string;
+};
+
+export function emailNoticeVars(input: {
+  customerName: string;
+  loanAccount: string;
+  noticeNumber: string;
+}): EmailNoticeVars {
+  const notice_code = input.noticeNumber.trim();
+  const notice_link = noticePublicUrl(notice_code);
+  return {
+    contact_name: input.customerName.trim(),
+    loan_account: input.loanAccount.trim() || notice_code,
+    notice_id: notice_link,
+    notice_link,
+    notice_code,
+  };
+}
