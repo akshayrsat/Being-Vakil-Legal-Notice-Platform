@@ -130,7 +130,11 @@ export async function verifyLoginOtp(otp: string): Promise<{ ok: true } | { ok: 
 }
 
 // Called only when live send is switched on. A dry run must not call this.
+// The flag is checked here as well as by the caller, so a missed check cannot send.
 export async function deliverNotice(request: DeliveryRequest): Promise<DeliveryResult> {
+  if (!isLiveSendEnabled()) {
+    return { ok: false, error: "Live send is off. Nothing was sent." };
+  }
   const authKey = msg91AuthKey();
   if (!authKey) {
     return { ok: false, error: "MSG91 is not set up, so nothing was sent." };

@@ -34,7 +34,7 @@ import { prisma } from "@/lib/db";
 import { personHistoryHref } from "@/lib/delivery-report";
 import { loanSearchHref } from "@/lib/loan-timeline";
 import { noticeLinkOpensByNumber } from "@/lib/public-notice";
-import { canReadBank } from "@/lib/report-bank";
+import { scopedBankId, withBank } from "@/lib/report-bank";
 import { ROLE_ADMIN } from "@/lib/roles";
 
 export const metadata: Metadata = {
@@ -49,7 +49,7 @@ export default async function CampaignPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ done?: string; channel?: string; status?: string }>;
+  searchParams: Promise<{ done?: string; channel?: string; status?: string; bank?: string }>;
 }) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
@@ -58,6 +58,7 @@ export default async function CampaignPage({
   const { id } = await params;
   const query = await searchParams;
   const isAdmin = user.role === ROLE_ADMIN;
+  const scope = scopedBankId(user, query.bank);
   const channelFilter = isSendChannel((query.channel ?? "").toUpperCase())
     ? (query.channel ?? "").toUpperCase()
     : "";
@@ -65,21 +66,27 @@ export default async function CampaignPage({
     ? (query.status ?? "").toUpperCase()
     : "";
 
-  const campaign = await prisma.campaign.findFirst({
-    where: { id },
-    include: {
-      bank: { select: { id: true, name: true, code: true, active: true, attachNoticePdf: true } },
-      batch: { select: { fileName: true, rowCount: true } },
-      followsCampaign: { select: { id: true, templateName: true } },
-      followUps: {
-        select: { id: true, templateName: true, status: true, mode: true },
-        orderBy: { createdAt: "desc" },
-      },
-      deliveries: { orderBy: [{ rowNumber: "asc" }, { channel: "asc" }] },
-    },
-  });
+  const campaign = scope
+    ? await prisma.campaign.findFirst({
+        where: { id, bankId: scope },
+        include: {
+          bank: { select: { id: true, name: true, code: true, active: true, attachNoticePdf: true } },
+          batch: { select: { fileName: true, rowCount: true } },
+          followsCampaign: { select: { id: true, templateName: true, bankId: true } },
+          followUps: {
+            where: { bankId: scope },
+            select: { id: true, templateName: true, status: true, mode: true },
+            orderBy: { createdAt: "desc" },
+          },
+          deliveries: {
+            where: { bankId: scope },
+            orderBy: [{ rowNumber: "asc" }, { channel: "asc" }],
+          },
+        },
+      })
+    : null;
 
-  if (!campaign || !canReadBank(user, campaign.bankId)) {
+  if (!campaign) {
     return (
       <div className="flex min-h-full flex-col">
         <AppHeader user={user} />
@@ -119,11 +126,16 @@ export default async function CampaignPage({
     return true;
   });
   const shown = matching.slice(0, TABLE_LIMIT);
-  const linkOpens = await noticeLinkOpensByNumber(shown.map((row) => row.noticeNumber));
+  const linkOpens = await noticeLinkOpensByNumber(
+    shown.map((row) => row.noticeNumber),
+    campaign.bankId,
+  );
   const exportQuery = new URLSearchParams();
+  exportQuery.set("bank", campaign.bankId);
   if (channelFilter) exportQuery.set("channel", channelFilter);
   if (statusFilter) exportQuery.set("status", statusFilter);
-  const exportHref = `/campaigns/${campaign.id}/export${exportQuery.size ? `?${exportQuery}` : ""}`;
+  const exportHref = `/campaigns/${campaign.id}/export?${exportQuery.toString()}`;
+  const sameBank = (bankId: string) => bankId === campaign.bankId;
 
   return (
     <div className="flex min-h-full flex-col">
@@ -157,9 +169,13 @@ export default async function CampaignPage({
         {campaign.followsCampaign ? (
           <p className="text-sm">
             Follow-up to{" "}
-            <Link href={`/campaigns/${campaign.followsCampaign.id}`} className="underline">
-              {campaign.followsCampaign.templateName}
-            </Link>
+            {sameBank(campaign.followsCampaign.bankId) ? (
+              <Link href={withBank(`/campaigns/${campaign.followsCampaign.id}`, campaign.bankId)} className="underline">
+                {campaign.followsCampaign.templateName}
+              </Link>
+            ) : (
+              campaign.followsCampaign.templateName
+            )}
             . The same loan number, customer id, or mobile ties these sends together.
           </p>
         ) : null}
@@ -176,7 +192,7 @@ export default async function CampaignPage({
               <ul className="flex flex-col gap-2 text-sm">
                 {campaign.followUps.map((followUp) => (
                   <li key={followUp.id}>
-                    <Link href={`/campaigns/${followUp.id}`} className="font-medium underline">
+                    <Link href={withBank(`/campaigns/${followUp.id}`, campaign.bankId)} className="font-medium underline">
                       {followUp.templateName}
                     </Link>
                     <span className="text-muted-foreground">
@@ -219,7 +235,7 @@ export default async function CampaignPage({
             </p>
             <div className="flex flex-wrap gap-2">
               <Link
-                href={`/campaigns/${campaign.id}/reminders`}
+                href={withBank(`/campaigns/${campaign.id}/reminders`, campaign.bankId)}
                 className={buttonVariants({ variant: "outline", className: "h-11 px-4" })}
               >
                 Reminders
@@ -308,6 +324,7 @@ export default async function CampaignPage({
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
             <form action={`/campaigns/${campaign.id}`} method="get" className="grid gap-3 sm:grid-cols-2">
+              <input type="hidden" name="bank" value={campaign.bankId} />
               <label className="flex flex-col gap-1 text-sm font-medium">
                 Channel
                 <select

@@ -68,8 +68,8 @@ export async function markCampaignSpeedPost(
     });
     if (existing) continue;
     const notice = row.noticeNumber
-      ? await prisma.publicNotice.findUnique({
-          where: { noticeNumber: row.noticeNumber },
+      ? await prisma.publicNotice.findFirst({
+          where: { noticeNumber: row.noticeNumber, bankId: scope.bank.id },
           select: { id: true },
         })
       : null;
@@ -200,18 +200,31 @@ export async function refreshSpeedPost(
   if (!result.ok) return { error: result.error };
 
   const latest = result.snapshot.events[result.snapshot.events.length - 1];
+  const fresh = await eventsNotYetStored(
+    id,
+    result.snapshot.events.map((event) => ({
+      status: event.status,
+      note: event.note,
+      occurredAt: event.occurredAt,
+      source: provider.id,
+    })),
+  );
   await prisma.$transaction([
-    prisma.speedPostEvent.createMany({
-      data: result.snapshot.events.map((event) => ({
-        consignmentId: id,
-        status: event.status,
-        note: event.note,
-        occurredAt: event.occurredAt,
-        source: provider.id,
-      })),
-    }),
+    ...(fresh.length
+      ? [
+          prisma.speedPostEvent.createMany({
+            data: fresh.map((event) => ({
+              consignmentId: id,
+              status: event.status,
+              note: event.note,
+              occurredAt: event.occurredAt,
+              source: event.source,
+            })),
+          }),
+        ]
+      : []),
     prisma.speedPostConsignment.update({
-      where: { id },
+      where: { id: consignment.id },
       data: {
         status: result.snapshot.status,
         note: latest?.note || consignment.note,
@@ -265,6 +278,28 @@ export async function importSpeedPostCsv(
   const problem = issues[0] ? ` ${issues.length} ${issues.length === 1 ? "row needs" : "rows need"} a look: ${issues[0].message}` : "";
   if (applied === 0) return { error: problem.trim() || "Nothing was imported." };
   return { error: "", saved: `Imported ${applied} ${applied === 1 ? "row" : "rows"}.${problem}` };
+}
+
+function postalEventKey(event: { status: string; occurredAt: Date; source: string }): string {
+  return `${event.status}|${event.source}|${event.occurredAt.toISOString()}`;
+}
+
+async function eventsNotYetStored<T extends { status: string; occurredAt: Date; source: string }>(
+  consignmentId: string,
+  events: T[],
+): Promise<T[]> {
+  if (events.length === 0) return [];
+  const existing = await prisma.speedPostEvent.findMany({
+    where: { consignmentId },
+    select: { status: true, occurredAt: true, source: true },
+  });
+  const seen = new Set(existing.map((row) => postalEventKey(row)));
+  return events.filter((event) => {
+    const key = postalEventKey(event);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 async function applyImportRow(
@@ -342,16 +377,23 @@ async function applyImportRow(
   if (row.articleNumber && consignment.articleNumber && consignment.articleNumber !== row.articleNumber) {
     return false;
   }
+  const fresh = await eventsNotYetStored(consignment.id, [
+    { status, note: row.note, occurredAt, source: "csv" },
+  ]);
   await prisma.$transaction([
-    prisma.speedPostEvent.create({
-      data: {
-        consignmentId: consignment.id,
-        status,
-        note: row.note,
-        occurredAt,
-        source: "csv",
-      },
-    }),
+    ...(fresh.length
+      ? [
+          prisma.speedPostEvent.create({
+            data: {
+              consignmentId: consignment.id,
+              status,
+              note: row.note,
+              occurredAt,
+              source: "csv",
+            },
+          }),
+        ]
+      : []),
     prisma.speedPostConsignment.update({
       where: { id: consignment.id },
       data: {

@@ -32,10 +32,12 @@ export function secretMatches(provided: string, expected: string): boolean {
   return timingSafeEqual(left, right);
 }
 
+export const MAX_STATUS_HITS = 100;
+
 export function collectStatusHits(body: unknown): StatusHit[] {
   const hits: StatusHit[] = [];
   walk(body, 0, hits);
-  return hits;
+  return hits.slice(0, MAX_STATUS_HITS);
 }
 
 export async function applyStatusHits(hits: StatusHit[]): Promise<number> {
@@ -87,7 +89,7 @@ async function findLiveRow(hit: StatusHit) {
   if (!mobile && !email) return null;
 
   if (email && (!channel || channel === "EMAIL")) {
-    const byEmail = await prisma.campaignDelivery.findFirst({
+    const byEmail = await prisma.campaignDelivery.findMany({
       where: {
         email: { contains: email },
         channel: "EMAIL",
@@ -95,13 +97,15 @@ async function findLiveRow(hit: StatusHit) {
         campaign: { mode: "LIVE" },
       },
       orderBy: { campaign: { createdAt: "desc" } },
+      take: 20,
     });
-    if (byEmail) return byEmail;
+    const exact = byEmail.find((row) => row.email.trim().toLowerCase() === email);
+    if (exact) return exact;
   }
 
   if (!mobile) return null;
   const mobileChannel = channel === "EMAIL" ? "" : channel;
-  return prisma.campaignDelivery.findFirst({
+  const byMobile = await prisma.campaignDelivery.findMany({
     where: {
       mobile: { contains: mobile },
       status: { in: UPDATABLE },
@@ -109,7 +113,9 @@ async function findLiveRow(hit: StatusHit) {
       channel: mobileChannel ? mobileChannel : { in: ["SMS", "WHATSAPP"] },
     },
     orderBy: { campaign: { createdAt: "desc" } },
+    take: 20,
   });
+  return byMobile.find((row) => lastTenDigits(row.mobile) === mobile) ?? null;
 }
 
 function detailFor(status: StatusHit["status"]): string {
@@ -144,6 +150,10 @@ function hitFromRecord(record: Record<string, unknown>): StatusHit | null {
   // Email eventId 1/2 = Queued/Accepted. SMS status 1 = delivered. Prefer labels when present.
   let coded = mapStatus(codedRaw);
   if (email && (codedRaw === "1" || codedRaw === "2")) coded = null;
+  // SMS status 2 is failed. Email eventId 2 is Accepted and is cleared above.
+  if (!email && codedRaw === "2" && !described) {
+    coded = "FAILED";
+  }
   const status = described ?? coded;
   if (!status) return null;
   const requestId = firstString(record, ["requestId", "request_id"]);
@@ -207,9 +217,14 @@ function mapStatus(raw: string): StatusHit["status"] | null {
     value === "fail" ||
     value === "undelivered" ||
     value === "rejected" ||
-    value === "expired"
+    value === "expired" ||
+    value === "not delivered" ||
+    value === "not_delivered"
   ) {
     return "FAILED";
+  }
+  if (value === "unread" || value.includes("not read") || value.includes("not open") || value.includes("not delivered")) {
+    return null;
   }
   if (value.includes("undeliver") || value.includes("fail") || value.includes("reject")) return "FAILED";
   if (value.includes("open") || value.includes("read")) return "READ";

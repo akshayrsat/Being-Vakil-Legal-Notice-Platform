@@ -32,6 +32,16 @@ export function codesMatch(input: string): boolean {
   return Boolean(expected) && timingSafeEqual(left, right);
 }
 
+export function staffGateCookieOptions(maxAge: number) {
+  return {
+    httpOnly: true as const,
+    sameSite: "lax" as const,
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    maxAge,
+  };
+}
+
 export function createStaffGateToken(now = Date.now()): string | null {
   const code = entryCode();
   if (!code) return null;

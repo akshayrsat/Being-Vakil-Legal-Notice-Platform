@@ -10,7 +10,7 @@ import { reportCsv, type ReportRow } from "@/lib/delivery-report";
 import { noticePublicUrl } from "@/lib/notice-link";
 import { postalStatusLabel } from "@/lib/postal";
 import { noticeLinkOpensByNumber } from "@/lib/public-notice";
-import { canReadBank } from "@/lib/report-bank";
+import { scopedBankId } from "@/lib/report-bank";
 
 export const dynamic = "force-dynamic";
 
@@ -26,21 +26,24 @@ export async function GET(
   }
 
   const { id } = await context.params;
-  const campaign = await prisma.campaign.findFirst({
-    where: { id },
-    select: {
-      id: true,
-      bankId: true,
-      templateName: true,
-      createdAt: true,
-      bank: { select: { name: true, code: true } },
-    },
-  });
-  if (!campaign || !canReadBank(user, campaign.bankId)) {
+  const url = new URL(request.url);
+  const scope = scopedBankId(user, url.searchParams.get("bank"));
+  const campaign = scope
+    ? await prisma.campaign.findFirst({
+        where: { id, bankId: scope },
+        select: {
+          id: true,
+          bankId: true,
+          templateName: true,
+          createdAt: true,
+          bank: { select: { name: true, code: true } },
+        },
+      })
+    : null;
+  if (!campaign) {
     return new NextResponse("That send was not found.\n", { status: 404 });
   }
 
-  const url = new URL(request.url);
   const channel = (url.searchParams.get("channel") ?? "").trim().toUpperCase();
   const status = (url.searchParams.get("status") ?? "").trim().toUpperCase();
 
@@ -55,9 +58,12 @@ export async function GET(
     take: EXPORT_LIMIT,
   });
 
-  const linkOpens = await noticeLinkOpensByNumber(rows.map((row) => row.noticeNumber));
+  const linkOpens = await noticeLinkOpensByNumber(
+    rows.map((row) => row.noticeNumber),
+    campaign.bankId,
+  );
   const consignments = await prisma.speedPostConsignment.findMany({
-    where: { campaignId: campaign.id },
+    where: { campaignId: campaign.id, bankId: campaign.bankId },
     select: { recipientRowId: true, articleNumber: true, status: true },
   });
   const postalByRecipient = new Map(consignments.map((item) => [item.recipientRowId, item]));

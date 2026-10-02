@@ -4,6 +4,7 @@
 import type { Prisma } from "@prisma/client";
 import { getSessionContext } from "./auth";
 import { prisma } from "./db";
+import { indiaDayRange } from "./india-day";
 
 export const AUDIT_ACTIONS = [
   { id: "login", label: "Signed in" },
@@ -95,15 +96,7 @@ export function auditWhere(filters: {
   if (text) {
     where.OR = [{ actorName: { contains: text } }, { summary: { contains: text } }];
   }
-  const createdAt: { gte?: Date; lte?: Date } = {};
-  if (/^\d{4}-\d{2}-\d{2}$/.test(filters.from)) {
-    const start = new Date(`${filters.from}T00:00:00`);
-    if (!Number.isNaN(start.getTime())) createdAt.gte = start;
-  }
-  if (/^\d{4}-\d{2}-\d{2}$/.test(filters.to)) {
-    const end = new Date(`${filters.to}T23:59:59.999`);
-    if (!Number.isNaN(end.getTime())) createdAt.lte = end;
-  }
-  if (createdAt.gte || createdAt.lte) where.createdAt = createdAt;
+  const createdAt = indiaDayRange(filters.from, filters.to);
+  if (createdAt) where.createdAt = createdAt;
   return where;
 }

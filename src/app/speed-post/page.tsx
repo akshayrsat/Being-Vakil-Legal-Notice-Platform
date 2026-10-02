@@ -169,7 +169,7 @@ async function ConsignmentList({
           {rows.map((row) => (
             <tr key={row.id} className="border-t border-border">
               <td className="px-3 py-2">
-                <Link href={`/speed-post/${row.id}`} className="font-medium underline">
+                <Link href={`/speed-post/${row.id}?bank=${encodeURIComponent(bankId)}`} className="font-medium underline">
                   {row.customerName || "Unnamed"}
                 </Link>
                 <p className="text-muted-foreground">{row.loanNumber || row.noticeNumber || "—"}</p>

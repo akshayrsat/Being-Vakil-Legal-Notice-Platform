@@ -17,6 +17,8 @@ import { PRODUCT_NAME, PRODUCT_TAGLINE } from "@/lib/brand";
 import { isOtpEnabled } from "@/lib/msg91";
 import { staffGateIsOpen } from "@/lib/staff-gate-session";
 
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   title: "Sign in",
 };

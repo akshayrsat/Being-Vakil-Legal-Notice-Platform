@@ -7,6 +7,7 @@ import { AppHeader } from "@/components/app-header";
 import { buttonVariants } from "@/components/ui/button";
 import { AUDIT_ACTIONS, auditActionLabel, auditWhere, isAuditAction } from "@/lib/audit";
 import { getCurrentUser } from "@/lib/auth";
+import { workingBank } from "@/lib/bank-context";
 import { prisma } from "@/lib/db";
 import { isWebhookConfigured } from "@/lib/msg91-webhook";
 import { ROLE_ADMIN, roleTitle } from "@/lib/roles";
@@ -46,19 +47,24 @@ export default async function AuditPage({
   }
 
   const raw = await searchParams;
+  const requestedBank = one(raw.bank);
+  const explicitAll = requestedBank === "all";
   const filters = {
     action: one(raw.action).toLowerCase(),
-    bankId: one(raw.bank),
+    bankId: explicitAll ? "" : requestedBank || workingBank(user)?.id || "",
     text: one(raw.q).slice(0, 80),
     from: dateOnly(one(raw.from)),
     to: dateOnly(one(raw.to)),
   };
   const banks = await prisma.bank.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } });
-  const events = await prisma.auditEvent.findMany({
-    where: auditWhere(filters),
-    orderBy: { createdAt: "desc" },
-    take: PAGE_LIMIT,
-  });
+  const events =
+    !explicitAll && !filters.bankId
+      ? []
+      : await prisma.auditEvent.findMany({
+          where: auditWhere(filters),
+          orderBy: { createdAt: "desc" },
+          take: PAGE_LIMIT,
+        });
   const webhookOn = isWebhookConfigured();
 
   return (
@@ -109,10 +115,10 @@ export default async function AuditPage({
             Bank
             <select
               name="bank"
-              defaultValue={filters.bankId}
+              defaultValue={explicitAll ? "all" : filters.bankId}
               className="h-11 rounded-lg border border-input bg-card px-3 text-sm font-normal"
             >
-              <option value="">All banks</option>
+              <option value="all">All banks</option>
               {banks.map((bank) => (
                 <option key={bank.id} value={bank.id}>
                   {bank.name}

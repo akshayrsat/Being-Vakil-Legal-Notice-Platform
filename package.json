@@ -7,7 +7,8 @@
     "setup": "prisma db push && prisma db seed",
     "build": "prisma generate && next build",
     "start": "next start --port 4317",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "tsx --test src/lib/*.test.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",

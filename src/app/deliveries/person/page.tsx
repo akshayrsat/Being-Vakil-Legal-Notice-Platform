@@ -64,7 +64,10 @@ export default async function PersonHistoryPage({
         });
 
   const name = rows[0]?.customerName ?? "This person";
-  const linkOpens = await noticeLinkOpensByNumber(rows.map((row) => row.noticeNumber));
+  const linkOpens = await noticeLinkOpensByNumber(
+    rows.map((row) => row.noticeNumber),
+    bank.id,
+  );
   const timeline = await loadAccountTimeline({
     bankId: bank.id,
     loan,
@@ -104,7 +107,7 @@ export default async function PersonHistoryPage({
             {rows.map((row) => (
               <li key={row.id} className="rounded-xl bg-card px-4 py-4 ring-1 ring-foreground/10">
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
-                  <Link href={`/campaigns/${row.campaign.id}`} className="font-medium underline">
+                  <Link href={`/campaigns/${row.campaign.id}?bank=${encodeURIComponent(bank.id)}`} className="font-medium underline">
                     {row.campaign.templateName}
                   </Link>
                   <p className="text-sm text-muted-foreground">{formatWhen(row.campaign.createdAt)}</p>
@@ -132,7 +135,10 @@ export default async function PersonHistoryPage({
                 {row.campaign.followsCampaign ? (
                   <p className="mt-2 text-sm">
                     Follow-up to{" "}
-                    <Link href={`/campaigns/${row.campaign.followsCampaign.id}`} className="underline">
+                    <Link
+                      href={`/campaigns/${row.campaign.followsCampaign.id}?bank=${encodeURIComponent(bank.id)}`}
+                      className="underline"
+                    >
                       {row.campaign.followsCampaign.templateName}
                     </Link>
                   </p>

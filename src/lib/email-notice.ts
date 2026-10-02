@@ -112,9 +112,10 @@ function escapeHtml(value: string): string {
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }
 
 function linkify(escaped: string): string {
-  return escaped.replace(/https?:\/\/[^\s<]+/g, (url) => `<a href="${url}">${url}</a>`);
+  return escaped.replace(/https?:\/\/[^\s<>"'&]+/g, (url) => `<a href="${url}">${url}</a>`);
 }
