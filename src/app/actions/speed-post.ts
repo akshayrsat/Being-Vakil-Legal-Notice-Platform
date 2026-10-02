@@ -5,6 +5,7 @@
 import { redirect } from "next/navigation";
 import { auditCurrentUser } from "@/lib/audit";
 import { getSessionContext } from "@/lib/auth";
+import { requiredBankId } from "@/lib/bank-data";
 import { workingBank } from "@/lib/bank-context";
 import { logDesk } from "@/lib/desk-log";
 import { prisma } from "@/lib/db";
@@ -53,6 +54,7 @@ export async function markCampaignSpeedPost(
   const deliveries = await prisma.campaignDelivery.findMany({
     where: {
       campaignId: campaign.id,
+      bankId: requiredBankId(scope.bank.id),
       ...(onlyRecipient ? { recipientRowId: onlyRecipient } : {}),
     },
     orderBy: { rowNumber: "asc" },

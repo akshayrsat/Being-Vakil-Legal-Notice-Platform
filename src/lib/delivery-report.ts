@@ -2,9 +2,10 @@
 // A Bank Viewer is always limited to their own bank. An Admin can pick a bank.
 
 import type { Prisma } from "@prisma/client";
+import { requiredBankId } from "./bank-data";
 import { isSendChannel } from "./campaign-plan";
 import { deliveryStatusLabel, isDeliveryStatus, sendChannelLabel, statusesForFilter } from "./campaigns";
-import { csvCell, indiaDayRange } from "./india-day";
+import { csvCell, formatIndiaDateTime, indiaDayRange } from "./india-day";
 
 export type DeliveryFilters = {
   text: string;
@@ -39,7 +40,16 @@ export function filtersToSearch(filters: DeliveryFilters, bankId: string): strin
 }
 
 export function deliveryWhere(bankId: string, filters: DeliveryFilters): Prisma.CampaignDeliveryWhereInput {
-  const where: Prisma.CampaignDeliveryWhereInput = { bankId };
+  const scope = requiredBankId(bankId);
+  const createdAt = createdAtRange(filters.from, filters.to);
+  const where: Prisma.CampaignDeliveryWhereInput = {
+    bankId: scope,
+    campaign: {
+      bankId: scope,
+      ...(filters.campaignId ? { id: filters.campaignId } : {}),
+      ...(createdAt ? { createdAt } : {}),
+    },
+  };
   const text = filters.text;
   if (text) {
     const or: Prisma.CampaignDeliveryWhereInput[] = [
@@ -58,13 +68,6 @@ export function deliveryWhere(bankId: string, filters: DeliveryFilters): Prisma.
   if (isSendChannel(filters.channel)) where.channel = filters.channel;
   if (isDeliveryStatus(filters.status)) where.status = { in: statusesForFilter(filters.status) };
 
-  const createdAt = createdAtRange(filters.from, filters.to);
-  if (filters.campaignId || createdAt) {
-    where.campaign = {
-      ...(filters.campaignId ? { id: filters.campaignId } : {}),
-      ...(createdAt ? { createdAt } : {}),
-    };
-  }
   return where;
 }
 
@@ -166,5 +169,5 @@ function createdAtRange(from: string, to: string): { gte?: Date; lte?: Date } | 
 }
 
 function formatReportDate(date: Date): string {
-  return new Intl.DateTimeFormat("en-IN", { dateStyle: "medium", timeStyle: "short" }).format(date);
+  return formatIndiaDateTime(date);
 }

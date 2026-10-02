@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { formatIndiaDateTime } from "@/lib/india-day";
 import type { AccountTimeline } from "@/lib/loan-timeline";
 
 const kindLabel = {
@@ -27,7 +28,7 @@ export function LoanTimelineList({ timeline }: { timeline: AccountTimeline }) {
           </div>
           <div className="pb-5">
             <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-              {kindLabel[event.kind]} · {formatWhen(event.at)}
+              {kindLabel[event.kind]} · {formatIndiaDateTime(event.at)}
             </p>
             <p className="mt-1 font-medium">{event.title}</p>
             {event.detail ? <p className="mt-1 text-sm leading-6 text-muted-foreground">{event.detail}</p> : null}
@@ -41,8 +42,4 @@ export function LoanTimelineList({ timeline }: { timeline: AccountTimeline }) {
       ))}
     </ol>
   );
-}
-
-function formatWhen(date: Date): string {
-  return new Intl.DateTimeFormat("en-IN", { dateStyle: "medium", timeStyle: "short" }).format(date);
 }

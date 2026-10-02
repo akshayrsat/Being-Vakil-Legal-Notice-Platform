@@ -7,6 +7,7 @@ import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { auditCurrentUser } from "@/lib/audit";
 import { getSessionContext } from "@/lib/auth";
+import { campaignWhere, recipientRowWhere, uploadBatchWhere } from "@/lib/bank-data";
 import { workingBank } from "@/lib/bank-context";
 import { isSendChannel, type SendChannel } from "@/lib/campaign-plan";
 import { logDesk } from "@/lib/desk-log";
@@ -59,7 +60,7 @@ export async function createCampaign(
   }
 
   const batch = await prisma.uploadBatch.findFirst({
-    where: { id: batchId, bankId: scope.bank.id, saved: true },
+    where: { id: batchId, ...uploadBatchWhere(scope.bank.id), saved: true },
   });
   if (!batch) {
     return { error: "Choose a spreadsheet that already has a saved column match." };
@@ -73,7 +74,7 @@ export async function createCampaign(
   }
 
   const rows = await prisma.recipientRow.findMany({
-    where: { batchId: batch.id },
+    where: recipientRowWhere(scope.bank.id, batch.id),
     orderBy: { rowNumber: "asc" },
   });
   if (rows.length === 0) {
@@ -123,8 +124,8 @@ export async function startFollowUp(
 
   const parentId = String(formData.get("campaignId") ?? "");
   const parent = await prisma.campaign.findFirst({
-    where: { id: parentId, bankId: scope.bank.id },
-    include: { deliveries: true },
+    where: campaignWhere(scope.bank.id, parentId),
+    include: { deliveries: { where: { bankId: scope.bank.id } } },
   });
   if (!parent) {
     return { error: "That send was not found for the bank you are working on." };
@@ -149,7 +150,7 @@ export async function startFollowUp(
   const channels = [...new Set(missed.map((row) => row.channel))].filter(isSendChannel);
   const rowIds = [...new Set(missed.map((row) => row.recipientRowId))];
   const rows = await prisma.recipientRow.findMany({
-    where: { id: { in: rowIds }, bankId: scope.bank.id },
+    where: { ...recipientRowWhere(scope.bank.id), id: { in: rowIds } },
     orderBy: { rowNumber: "asc" },
   });
   if (rows.length === 0) {

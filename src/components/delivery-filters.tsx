@@ -9,20 +9,16 @@ export function DeliveryFiltersForm({
   action,
   filters,
   bankId,
-  banks,
   campaigns,
-  showBank,
 }: {
   action: string;
   filters: DeliveryFilters;
   bankId: string;
-  banks: Array<{ id: string; name: string }>;
   campaigns: Array<{ id: string; name: string }>;
-  showBank: boolean;
 }) {
   return (
     <form action={action} method="get" className="grid gap-3 sm:grid-cols-2">
-      {showBank ? null : <input type="hidden" name="bank" value={bankId} />}
+      <input type="hidden" name="bank" value={bankId} />
       <label className="flex flex-col gap-1 text-sm font-medium sm:col-span-2">
         Name, mobile, loan number, or customer id
         <input
@@ -32,22 +28,6 @@ export function DeliveryFiltersForm({
           className="h-11 rounded-lg border border-input bg-card px-3 text-sm font-normal"
         />
       </label>
-      {showBank ? (
-        <label className="flex flex-col gap-1 text-sm font-medium">
-          Bank
-          <select
-            name="bank"
-            defaultValue={bankId}
-            className="h-11 rounded-lg border border-input bg-card px-3 text-sm font-normal"
-          >
-            {banks.map((bank) => (
-              <option key={bank.id} value={bank.id}>
-                {bank.name}
-              </option>
-            ))}
-          </select>
-        </label>
-      ) : null}
       <label className="flex flex-col gap-1 text-sm font-medium">
         Campaign
         <select

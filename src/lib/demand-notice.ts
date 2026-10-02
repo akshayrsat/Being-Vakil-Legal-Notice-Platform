@@ -1,6 +1,7 @@
 // The SPEED POST demand notice, filled from one recipient record.
 // Every bank name in the letter is the record's bank. "Axis Bank" is not used.
 
+import { INDIA_TIME_ZONE } from "./india-day";
 import { FIRM_NAME, FIRM_PHONE } from "./letterhead";
 
 export type DemandNoticeInput = {
@@ -32,6 +33,7 @@ export function formatDemandAmount(raw: string): string {
 export function noticeDateLabel(date: Date): string {
   if (!(date instanceof Date) || Number.isNaN(date.getTime())) return "Date not on file";
   return new Intl.DateTimeFormat("en-GB", {
+    timeZone: INDIA_TIME_ZONE,
     day: "2-digit",
     month: "2-digit",
     year: "numeric",

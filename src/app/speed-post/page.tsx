@@ -14,8 +14,10 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { getCurrentUser } from "@/lib/auth";
+import { requiredBankId } from "@/lib/bank-data";
 import { workingBank } from "@/lib/bank-context";
 import { prisma } from "@/lib/db";
+import { formatIndiaDateTime } from "@/lib/india-day";
 import { indiaPostConfigured, isPostalStatus, POSTAL_STATUS_OPTIONS } from "@/lib/postal";
 import { resolveReportBank } from "@/lib/report-bank";
 import { ROLE_ADMIN } from "@/lib/roles";
@@ -127,7 +129,7 @@ async function ConsignmentList({
 }) {
   const rows = await prisma.speedPostConsignment.findMany({
     where: {
-      bankId,
+      bankId: requiredBankId(bankId),
       ...(status ? { status } : {}),
       ...(campaignId ? { campaignId } : {}),
       ...(text
@@ -179,7 +181,7 @@ async function ConsignmentList({
                 <PostalStatus status={row.status} />
               </td>
               <td className="px-3 py-2 text-muted-foreground">
-                {new Intl.DateTimeFormat("en-IN", { dateStyle: "medium", timeStyle: "short" }).format(row.updatedAt)}
+                {formatIndiaDateTime(row.updatedAt)}
               </td>
             </tr>
           ))}

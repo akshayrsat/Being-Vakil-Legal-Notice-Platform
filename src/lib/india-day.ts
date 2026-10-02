@@ -1,7 +1,17 @@
 // Report and postal dates are India business days (IST, UTC+05:30).
-// A server in UTC must not treat "2026-10-02" as UTC midnight.
+// A server in UTC must not treat "2026-10-02" as UTC midnight, and must not
+// print a stored instant in the server's zone.
 
+export const INDIA_TIME_ZONE = "Asia/Kolkata";
 const INDIA_OFFSET = "+05:30";
+
+export function formatIndiaDateTime(date: Date): string {
+  return new Intl.DateTimeFormat("en-IN", {
+    timeZone: INDIA_TIME_ZONE,
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(date);
+}
 
 export function indiaDayRange(from: string, to: string): { gte?: Date; lte?: Date } | undefined {
   const range: { gte?: Date; lte?: Date } = {};

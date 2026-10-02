@@ -3,6 +3,7 @@
 "use server";
 
 import { Prisma } from "@prisma/client";
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { auditCurrentUser } from "@/lib/audit";
 import { getSessionContext } from "@/lib/auth";
@@ -73,6 +74,7 @@ export async function selectBank(formData: FormData): Promise<void> {
     where: { id: current.user.id },
     data: { selectedBankId: bank.id },
   });
+  revalidatePath("/", "layout");
 
   await auditCurrentUser({
     action: "bank.select",
