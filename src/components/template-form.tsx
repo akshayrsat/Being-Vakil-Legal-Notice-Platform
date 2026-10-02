@@ -116,7 +116,7 @@ export function TemplateForm({
                 name="channel"
                 value={channel.id}
                 defaultChecked={initial.channels.includes(channel.id)}
-                className="size-4 accent-[#1b3048]"
+                className="size-4 accent-primary"
               />
               {channel.label}
             </label>

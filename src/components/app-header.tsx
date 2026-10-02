@@ -4,13 +4,14 @@ import Link from "next/link";
 import { signOut } from "@/app/actions/auth";
 import { SignOutButton } from "@/components/sign-out-button";
 import { buttonVariants } from "@/components/ui/button";
+import { BrandLogo } from "@/components/brand-logo";
 import type { SignedInUser } from "@/lib/auth";
 import { workingBank } from "@/lib/bank-context";
 import { PRODUCT_NAME, PRODUCT_TAGLINE } from "@/lib/brand";
 import { ROLE_ADMIN, roleAccent } from "@/lib/roles";
 
 const barClass = {
-  admin: "bg-[#1b3048]",
+  admin: "bg-primary",
   viewer: "bg-[#1a4a42]",
   unknown: "bg-[#8a6232]",
 } as const;
@@ -33,10 +34,15 @@ export function AppHeader({ user }: { user: SignedInUser }) {
       <div className={`h-2 ${barClass[accent]}`} />
       <header className="border-b border-border bg-card">
         <div className="mx-auto flex w-full max-w-3xl flex-wrap items-center justify-between gap-4 px-4 py-4 sm:px-6">
-          <div>
-            <p className="font-serif text-2xl leading-none text-primary">{PRODUCT_NAME}</p>
-            <p className="mt-1 text-sm text-muted-foreground">{PRODUCT_TAGLINE}</p>
-            <p className="mt-2 text-sm font-medium text-foreground">{bankLine(user)}</p>
+          <div className="flex items-center gap-4">
+            <Link href="/dashboard" className="shrink-0">
+              <BrandLogo size="header" />
+            </Link>
+            <div>
+              <p className="font-serif text-2xl leading-none text-primary">{PRODUCT_NAME}</p>
+              <p className="mt-1 text-sm text-muted-foreground">{PRODUCT_TAGLINE}</p>
+              <p className="mt-2 text-sm font-medium text-foreground">{bankLine(user)}</p>
+            </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Link
