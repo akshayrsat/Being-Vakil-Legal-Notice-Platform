@@ -132,12 +132,17 @@ async function deliverSms(authKey: string, request: DeliveryRequest): Promise<De
   if (!flowId || !senderId || !mobile) {
     return {
       ok: false,
-      error: "TODO: set MSG91_SMS_FLOW_ID and MSG91_SENDER_ID before a live SMS. Nothing was sent.",
+      error: "Set MSG91_SMS_FLOW_ID and MSG91_SENDER_ID before a live SMS. Nothing was sent.",
     };
   }
 
-  // Legal_Notice_12092026 reads customer_name, bank_name, and notice_number.
-  // message is the same wording kept for a flow that still expects one body variable.
+  // MSG91's flow API can return type=success for unknown string flow ids without sending.
+  // Confirm the Template ID exists and has versions before calling flow.
+  const flowCheck = await verifySmsFlowId(authKey, flowId);
+  if (!flowCheck.ok) return flowCheck;
+
+  // DLT Legal_Notice_12092026 reads customer_name, bank_name, and notice_number.
+  // message is kept for a flow that still expects one body variable.
   const recipient: Record<string, string> = {
     mobiles: mobile,
     message: request.body,
@@ -158,6 +163,58 @@ async function deliverSms(authKey: string, request: DeliveryRequest): Promise<De
     "MSG91 did not accept the SMS.",
   );
   return result.ok ? { ok: true, providerId: result.providerId } : result;
+}
+
+async function verifySmsFlowId(
+  authKey: string,
+  flowId: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  try {
+    const response = await fetch("https://control.msg91.com/api/v5/sms/getTemplateVersions", {
+      method: "POST",
+      headers: {
+        authkey: authKey,
+        accept: "application/json",
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ template_id: flowId }),
+      signal: AbortSignal.timeout(15000),
+    });
+    const payload = (await response.json().catch(() => null)) as {
+      status?: string;
+      hasError?: boolean;
+      errors?: unknown;
+      data?: unknown;
+    } | null;
+    const errors = payload?.errors;
+    const errorText = Array.isArray(errors)
+      ? errors.map(String).join("; ")
+      : typeof errors === "string"
+        ? errors
+        : "";
+    if (!response.ok || payload?.hasError || payload?.status === "error") {
+      return {
+        ok: false,
+        error:
+          "MSG91 SMS flow/template id is invalid or unreadable" +
+          (errorText ? ": " + errorText : ".") +
+          " Copy the Template ID from MSG91 SMS > Templates. Nothing was sent.",
+      };
+    }
+    if (!Array.isArray(payload?.data) || payload.data.length === 0) {
+      return {
+        ok: false,
+        error:
+          "MSG91 SMS flow/template id has no versions. Copy the Template ID from MSG91 SMS > Templates (sender BVAKIL / Legal_Notice_12092026). Nothing was sent.",
+      };
+    }
+    return { ok: true };
+  } catch {
+    return {
+      ok: false,
+      error: "MSG91 SMS template could not be checked. Nothing was sent.",
+    };
+  }
 }
 
 async function deliverEmail(authKey: string, request: DeliveryRequest): Promise<DeliveryResult> {
