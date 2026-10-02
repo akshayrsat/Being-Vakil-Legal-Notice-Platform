@@ -27,7 +27,9 @@ These practice passwords are for your own computer. Do not put this site on the 
 
 ## Bank isolation
 
-Each spreadsheet, template, send, delivery, public-notice record, Speed Post consignment, loan timeline, and report belongs to one bank.
+Spreadsheets, the people in them, sends, delivery rows, public notices, Speed Post consignments, loan history, and reports belong to one bank. They are never listed for another bank.
+
+Approved notice wording is the firm library. Any bank can select an Approved template, including a bank you just added. A draft stays on the bank it was written for. Selecting a template does not open another bank’s spreadsheet or people.
 
 - A Bank Viewer can read only the bank on their login. A `?bank=` parameter does not change that.
 - An Admin’s pages use the bank chosen with **Use this bank** (`selectedBankId`). Uploads, recipient rows, campaigns, tracking, bank-owned templates, Speed Post, loans, and reports stay on that bank. A `?bank=` address cannot open a different bank. Switch on the Banks page first.

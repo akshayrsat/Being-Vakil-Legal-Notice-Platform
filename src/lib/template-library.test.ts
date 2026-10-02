@@ -30,9 +30,9 @@ test("approved templates for the working bank stay listed in name order", () => 
   const approved = approvedTemplatesForBank(saved, "test-bank");
   assert.deepEqual(
     approved.map((template) => template.id),
-    ["b", "old", "a", "z"],
+    ["b", "old", "a", "other", "z"],
   );
-  assert.equal(approved.length, 4);
+  assert.equal(approved.length, 5);
   assert.equal(saved.length, 6);
 });
 
@@ -59,15 +59,13 @@ test("fifteen approved templates all remain selectable, sorted A to Z", () => {
   saved.push(row({ id: "else", name: "Other bank", bankId: "other" }));
 
   const approved = approvedTemplatesForBank(saved, "test-bank");
-  assert.equal(approved.length, 15);
+  assert.equal(approved.length, 16);
   assert.deepEqual(
     approved.map((template) => template.name),
-    sortTemplatesByName(saved.filter((template) => template.id !== "draft" && template.id !== "else")).map(
-      (template) => template.name,
-    ),
+    sortTemplatesByName(saved.filter((template) => template.id !== "draft")).map((template) => template.name),
   );
   assert.equal(approved[0]?.name.toLowerCase(), "alpha");
-  assert.equal(approved.at(-1)?.name, "Notice 2");
+  assert.equal(approved.at(-1)?.name, "Other bank");
 });
 
 test("other banks keep their approved names, and this bank is left out of that note", () => {
@@ -97,7 +95,7 @@ test("other banks keep their approved names, and this bank is left out of that n
   );
 });
 
-test("an empty working bank explains the upload and names approved templates on another bank", () => {
+test("an empty working bank explains the upload and lists approved wording from another bank", () => {
   const notes = templateLibraryNotes({
     bankName: "Test Bank (MH)",
     savedCount: 0,
@@ -118,7 +116,8 @@ test("an empty working bank explains the upload and names approved templates on 
   assert.match(text, /Test Bank \(MH\)/);
   assert.match(text, /Northwind Housing Finance \(NWH\)/);
   assert.match(text, /Loan recall notice \(SMS\)/);
-  assert.match(text, /Switch to that bank/);
+  assert.match(text, /already listed/);
+  assert.doesNotMatch(text, /Switch to that bank/);
 });
 
 test("drafts on this bank are called out when nothing is approved yet", () => {

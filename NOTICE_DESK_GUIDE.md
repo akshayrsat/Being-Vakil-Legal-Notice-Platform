@@ -66,7 +66,7 @@ Leave the terminal window open while you use the site. Closing it, or pressing C
 
 The site uses port **4317** (not the usual 3000) so it is less likely to clash with another program.
 
-Each time you run `npm run dev`, the two practice passwords are set back to the ones in this guide, and the three practice banks are reset. A bank you added yourself, with a different short code, stays. The bank an Admin last chose also stays. The two practice notice templates for Northwind are put back to the wording in this guide. A template you added yourself stays. A spreadsheet you uploaded stays. A send you confirmed stays. The three practice public notices are put back.
+Each time you run `npm run dev`, the two practice passwords are set back to the ones in this guide, and the three practice banks are reset. A bank you added yourself, with a different short code, stays. The bank an Admin last chose also stays. The two practice notice templates are stored on Northwind and marked Approved, so every bank can select that wording. Restarting puts the wording back. A template you added yourself stays. A spreadsheet you uploaded stays. A send you confirmed stays. The three practice public notices are put back.
 
 ## Open a practice notice
 
@@ -163,9 +163,13 @@ A spreadsheet you upload is kept when you restart the site. It is wiped only if 
 
 ## Notice templates
 
-A template belongs to one bank. Northwind’s templates do not appear when you are working on Meridian, and the other way around. There is no firm-wide template list.
+Approved notice wording is shared by the firm. While you work on any bank, including a bank you just added, **Select approved template** lists every Approved template. The two practice templates are stored for **Northwind Housing Finance** and marked Approved, so they also appear for Meridian and for a new bank. Select them on the bank you are working on. Adding a bank lists them immediately.
 
-Two practice templates are already approved for **Northwind Housing Finance**:
+A draft stays on the bank it was written for. Only that bank lists the draft.
+
+A spreadsheet, the people in it, a send, a delivery row, and a notice stay on one bank. Sharing a template shares the wording only. People, spreadsheets, sends, and notices remain on their own bank.
+
+The two practice templates are:
 
 - **Loan recall notice (SMS)** — an SMS, with the customer’s name, the amount outstanding, and the loan number.
 - **Borrower email notice** — tagged Email and WhatsApp, with the name, email, address, and mobile.
@@ -181,16 +185,16 @@ They are practice wording, not real DLT registrations.
 5. Tick **SMS**, **Email**, or **WhatsApp**. You can tick more than one. Tick at least one.
 6. Write the notice. Press a placeholder button, such as **Customer name**, to insert `{{customer_name}}` where that person’s detail should go. Other placeholders include `{{loan_number}}`, `{{outstanding_amount}}`, `{{mobile}}`, and `{{email}}`.
 7. Leave the status on **Draft** while you are still writing. A draft is saved, but it cannot be used to fill a notice.
-8. When the wording is ready, set the status to **Approved**. Approved needs a DLT template id.
+8. When the wording is ready, set the status to **Approved**. Approved needs a DLT template id. That wording can then be selected for every bank.
 9. Press **Save template**.
 
-To change one, press **Edit** on its row. An inactive bank can still show its templates, but you cannot save changes until you mark the bank active.
+To change one, press **Edit** on its row, or choose it under **Select approved template**. An inactive bank can still show templates, but you cannot save changes until the bank you are working on is active.
 
 ### See the notice filled in
 
 1. Upload a spreadsheet for that same bank and save the column match, if you have not already.
 2. Open the file from **Uploads**.
-3. Under **Filled notice**, choose an approved template.
+3. Under **Filled notice**, choose an approved template. The list includes Approved wording written for this bank and for any other bank. The people filled in are only the people saved on this spreadsheet.
 4. The first three people are shown with their details dropped into the wording. An empty detail shows as **[not provided]**.
 5. Nothing is sent.
 
@@ -198,9 +202,9 @@ Upload the practice file, save the column match, and choose **Borrower email not
 
 ## Prepare a send (dry run)
 
-A send belongs to the bank you are working on. It uses one saved spreadsheet and one **Approved** template. Draft templates are not listed.
+A send belongs to the bank you are working on. It uses one saved spreadsheet for that bank and one **Approved** template. The template may have been written for another bank. Draft templates are not listed. The people on the send are only the people in that spreadsheet.
 
-1. Sign in as Admin and choose a bank that already has a saved spreadsheet and an approved template. Northwind does, after you have uploaded the practice file.
+1. Sign in as Admin and choose a bank that already has a saved spreadsheet. The practice templates are already Approved, so you do not need a template saved on that same bank.
 2. Press **Campaigns**, then **Prepare a send**. You can also press **Prepare a send** on an open spreadsheet.
 3. Choose the spreadsheet and the template.
 4. Tick **SMS**, **Email**, or **WhatsApp**. They start from the template, and you can change them. **Speed Post** is shown but cannot be ticked. It says **Coming soon**.
@@ -297,7 +301,7 @@ Copy the email and password from this page. Capitals matter in the password. `ad
 In the terminal, press Ctrl+C to stop the site, then run `npm run dev` again.
 
 **You changed a practice password, a practice bank, or a practice template and it came back**  
-That is expected. Starting the site again resets the two practice passwords, the three practice banks (NWH, MCB, and HCR), and the two Northwind practice templates. A template you created yourself stays.
+That is expected. Starting the site again resets the two practice passwords, the three practice banks (NWH, MCB, and HCR), and the two practice templates. Those templates stay Approved, so every bank can select them. A template you created yourself stays.
 
 **“A bank with the short code … already exists”**  
 Pick a different short code. NWH, MCB, and HCR are already used.

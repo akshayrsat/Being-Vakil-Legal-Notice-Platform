@@ -3,7 +3,9 @@
 // Running this again sets the practice passwords back, and resets the practice banks.
 // Banks you add yourself, with a different short code, are left alone.
 // The bank viewer is always tied to the practice bank marked forViewer.
-// The practice templates are always put back on that same bank. Templates you add stay.
+// The practice templates are stored on the bank viewer’s bank and marked Approved,
+// so every bank can select that wording. They are not copied onto other banks.
+// Templates you add stay.
 
 import bcrypt from "bcryptjs";
 import { PrismaClient } from "@prisma/client";
@@ -93,7 +95,7 @@ async function main() {
     const viewer = bank.forViewer ? " (bank viewer)" : "";
     console.log(`  ${bank.code}: ${bank.name} — ${status}${viewer}`);
   }
-  console.log("Practice templates are ready for the bank viewer’s bank.");
+  console.log("Practice templates are Approved, so every bank can select them.");
   for (const template of DEMO_TEMPLATES) {
     console.log(`  ${template.name}`);
   }

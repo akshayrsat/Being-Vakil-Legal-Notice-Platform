@@ -1,4 +1,4 @@
-// Opens one Approved template for the bank currently in use. Drafts are not listed.
+// Opens one Approved template. The options are wording names, not people or files.
 
 "use client";
 
@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 export function ApprovedTemplateSelect({
   templates,
 }: {
-  templates: Array<{ id: string; name: string }>;
+  templates: Array<{ id: string; label: string }>;
 }) {
   const router = useRouter();
   const empty = templates.length === 0;
@@ -26,11 +26,11 @@ export function ApprovedTemplateSelect({
         className="h-11 w-full rounded-lg border border-input bg-card px-3 text-sm font-normal disabled:opacity-60"
       >
         <option value="">
-          {empty ? "No approved template for this bank" : "Choose an approved template"}
+          {empty ? "No approved template yet" : "Choose an approved template"}
         </option>
         {templates.map((template) => (
           <option key={template.id} value={template.id}>
-            {template.name}
+            {template.label}
           </option>
         ))}
       </select>

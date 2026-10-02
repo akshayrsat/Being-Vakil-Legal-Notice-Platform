@@ -1,4 +1,5 @@
-// Saves a notice template under the bank the Admin is working on.
+// Saves notice wording. A draft stays on the working bank.
+// Approved wording can be edited from any bank. People and spreadsheets are not saved here.
 
 "use server";
 
@@ -9,9 +10,12 @@ import { workingBank } from "@/lib/bank-context";
 import { prisma } from "@/lib/db";
 import { ROLE_ADMIN } from "@/lib/roles";
 import {
+  approvedNameTaken,
   channelsFromForm,
+  draftNameTaken,
   statusFromForm,
   TEMPLATE_APPROVED,
+  TEMPLATE_DRAFT,
   type TemplateChannel,
 } from "@/lib/templates";
 
@@ -58,20 +62,38 @@ export async function saveTemplate(
   if (problem) return { error: problem };
 
   let previousStatus = "";
+  let homeBank = { id: scope.bank.id, name: scope.bank.name };
   if (templateId) {
     const existing = await prisma.noticeTemplate.findFirst({
-      where: { id: templateId, bankId: scope.bank.id },
-      select: { id: true, status: true },
+      where: {
+        id: templateId,
+        OR: [{ status: TEMPLATE_APPROVED }, { bankId: scope.bank.id, status: TEMPLATE_DRAFT }],
+      },
+      select: {
+        id: true,
+        status: true,
+        bankId: true,
+        bank: { select: { name: true } },
+      },
     });
     if (!existing) {
-      return { error: "That template was not found for the bank you are working on." };
+      return { error: "That template is not available for the bank you are working on." };
     }
     previousStatus = existing.status;
+    homeBank = { id: existing.bankId, name: existing.bank.name };
   }
 
-  const duplicate = await nameTaken(scope.bank.id, name, templateId);
-  if (duplicate) {
+  const peers = await prisma.noticeTemplate.findMany({
+    select: { id: true, bankId: true, name: true, status: true },
+  });
+  if (draftNameTaken(peers, homeBank.id, name, templateId)) {
     return { error: "This bank already has a template with that name." };
+  }
+  if (status === TEMPLATE_APPROVED && approvedNameTaken(peers, name, templateId)) {
+    return {
+      error:
+        "An approved template already uses that name. Approved wording is shared by every bank, so choose a different name.",
+    };
   }
 
   const data = {
@@ -82,11 +104,14 @@ export async function saveTemplate(
     status,
   };
 
-  const bankNote = { bankId: scope.bank.id, bankName: scope.bank.name };
+  const bankNote = { bankId: homeBank.id, bankName: homeBank.name };
 
   if (templateId) {
     const updated = await prisma.noticeTemplate.updateMany({
-      where: { id: templateId, bankId: scope.bank.id },
+      where: {
+        id: templateId,
+        OR: [{ status: TEMPLATE_APPROVED }, { bankId: scope.bank.id, status: TEMPLATE_DRAFT }],
+      },
       data,
     });
     if (updated.count !== 1) {
@@ -95,14 +120,17 @@ export async function saveTemplate(
     if (status === TEMPLATE_APPROVED && previousStatus !== TEMPLATE_APPROVED) {
       await auditCurrentUser({
         action: "template.approve",
-        summary: `Approved the template ${name}.`,
+        summary: `Approved the template ${name}. Every bank can select this wording.`,
         ...bankNote,
         targetId: templateId,
       });
     } else {
       await auditCurrentUser({
         action: "template.update",
-        summary: `Edited the template ${name}.`,
+        summary:
+          status === TEMPLATE_APPROVED
+            ? `Edited the approved template ${name}. The wording is shared. Spreadsheets were not changed.`
+            : `Edited the draft template ${name}.`,
         ...bankNote,
         targetId: templateId,
       });
@@ -122,7 +150,7 @@ export async function saveTemplate(
   if (status === TEMPLATE_APPROVED) {
     await auditCurrentUser({
       action: "template.approve",
-      summary: `Approved the template ${name}.`,
+      summary: `Approved the template ${name}. Every bank can select this wording.`,
       ...bankNote,
       targetId: created.id,
     });
@@ -158,11 +186,3 @@ function validateTemplate(input: {
   return null;
 }
 
-async function nameTaken(bankId: string, name: string, templateId: string): Promise<boolean> {
-  const others = await prisma.noticeTemplate.findMany({
-    where: templateId ? { bankId, NOT: { id: templateId } } : { bankId },
-    select: { name: true },
-  });
-  const wanted = name.toLowerCase();
-  return others.some((template) => template.name.toLowerCase() === wanted);
-}

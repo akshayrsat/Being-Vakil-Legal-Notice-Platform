@@ -23,7 +23,7 @@ import { loadTemplateLibrary } from "@/lib/load-template-library";
 import { prisma } from "@/lib/db";
 import { ROLE_ADMIN } from "@/lib/roles";
 import { templateLibraryNotes } from "@/lib/template-library";
-import { parseChannels } from "@/lib/templates";
+import { parseChannels, templateChoiceLabel } from "@/lib/templates";
 
 export const metadata: Metadata = {
   title: "Prepare a send",
@@ -89,7 +89,7 @@ export default async function NewCampaignPage({
                 <p className="text-sm leading-6 text-muted-foreground">
                   Upload a spreadsheet and save the column match first.
                   {templates.length > 0
-                    ? ` ${templates.length === 1 ? "1 Approved template is" : `${templates.length} Approved templates are`} already saved for ${bank.name} and will be listed here once the file is saved.`
+                    ? ` ${templates.length === 1 ? "1 Approved template is" : `${templates.length} Approved templates are`} already available and will be listed here once the file is saved.`
                     : ""}
                 </p>
                 {templates.length === 0
@@ -136,7 +136,14 @@ export default async function NewCampaignPage({
                 batches={batches}
                 templates={templates.map((template) => ({
                   id: template.id,
-                  name: template.name,
+                  name: templateChoiceLabel(
+                    {
+                      name: template.name,
+                      bankId: template.bankId,
+                      bankName: template.bank.name,
+                    },
+                    bank.id,
+                  ),
                   channels: parseChannels(template.channels).filter(isSendChannel),
                 }))}
                 initialBatchId={query.batch ?? ""}

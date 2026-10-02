@@ -18,7 +18,13 @@ import { noticePdfDataUri, noticePdfFileName, renderNoticePdf } from "@/lib/noti
 import { writePreparedDeliveries } from "@/lib/prepare-send";
 import { tooManyAttempts } from "@/lib/rate-limit";
 import { ROLE_ADMIN } from "@/lib/roles";
-import { isApprovedTemplateStatus } from "@/lib/templates";
+import {
+  isApprovedTemplateStatus,
+  sendScope,
+  TEMPLATE_APPROVED,
+  templateWording,
+  templateWordingSelect,
+} from "@/lib/templates";
 
 export type CampaignFormState = { error: string } | null;
 
@@ -66,20 +72,32 @@ export async function createCampaign(
     return { error: "Choose a spreadsheet that already has a saved column match." };
   }
 
+  // Approved wording may have been written for another bank. Only those text fields are read.
+  // The spreadsheet and its people must belong to the bank we are working on.
   const template = await prisma.noticeTemplate.findFirst({
-    where: { id: templateId, bankId: scope.bank.id },
+    where: { id: templateId, status: TEMPLATE_APPROVED },
+    select: templateWordingSelect,
   });
-  if (!template || !isApprovedTemplateStatus(template.status)) {
-    return { error: "Choose an approved template for this bank. Drafts cannot be sent." };
-  }
-
   const rows = await prisma.recipientRow.findMany({
     where: recipientRowWhere(scope.bank.id, batch.id),
     orderBy: { rowNumber: "asc" },
   });
-  if (rows.length === 0) {
-    return { error: "That spreadsheet has no saved people." };
+  const decision = sendScope({
+    workingBankId: scope.bank.id,
+    template: template && isApprovedTemplateStatus(template.status) ? template : null,
+    batch,
+    rows,
+  });
+  if (!decision.ok || !template || !batch) {
+    if (decision.ok === false && decision.reason === "batch") {
+      return { error: "Choose a spreadsheet that already has a saved column match." };
+    }
+    if (decision.ok === false && decision.reason === "rows") {
+      return { error: "That spreadsheet has no saved people for this bank." };
+    }
+    return { error: "Choose an approved template. Drafts cannot be sent." };
   }
+  const wording = templateWording(template);
 
   const live = isLiveSendEnabled();
   const campaign = await prisma.$transaction(
@@ -88,10 +106,10 @@ export async function createCampaign(
         data: {
           bankId: scope.bank.id,
           batchId: batch.id,
-          templateId: template.id,
-          templateName: template.name,
-          templateBody: template.body,
-          dltTemplateId: template.dltTemplateId,
+          templateId: wording.id,
+          templateName: wording.name,
+          templateBody: wording.body,
+          dltTemplateId: wording.dltTemplateId,
           channels: JSON.stringify(channels),
           mode: live ? "LIVE" : "DRY_RUN",
           status: "REVIEW",
@@ -103,7 +121,7 @@ export async function createCampaign(
         campaignId: created.id,
         bankId: scope.bank.id,
         bankName: scope.bank.name,
-        templateBody: template.body,
+        templateBody: wording.body,
         rows,
         channels,
       });

@@ -65,7 +65,7 @@ export function DashboardHome({ user }: { user: SignedInUser }) {
             <CardTitle>{isAdmin ? "Bank you are working on" : "Your bank"}</CardTitle>
             <CardDescription>
               {isAdmin
-                ? "Spreadsheets and notice templates are filed under this bank."
+                ? "Spreadsheets and the people in them stay on this bank. Approved notice wording can be selected for any bank."
                 : "This login can see only this bank."}
             </CardDescription>
           </CardHeader>

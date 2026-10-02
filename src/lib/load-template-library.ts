@@ -1,35 +1,45 @@
-// Loads the working bank's saved templates, then the Approved ones in name order.
-// Other banks are counted only for an Admin, so a viewer never sees another client's wording.
+// Loads Approved wording from every bank, plus drafts written for the working bank.
+// Other banks' drafts are not loaded. Spreadsheets and people are not loaded.
 
 import { requiredBankId } from "./bank-data";
 import { prisma } from "./db";
+import { TEMPLATE_APPROVED } from "./templates";
 import {
   approvedTemplatesForBank,
   otherBankApprovedSummary,
   type OtherBankApproved,
 } from "./template-library";
 
+const bankLabel = { select: { name: true, code: true } } as const;
+
 export async function loadTemplateLibrary(bankId: string, includeOtherBanks: boolean) {
-  const templates = await prisma.noticeTemplate.findMany({
-    where: { bankId: requiredBankId(bankId) },
-    orderBy: [{ name: "asc" }, { id: "asc" }],
-  });
-  const approved = approvedTemplatesForBank(templates, bankId);
+  const id = requiredBankId(bankId);
+  const [own, approvedElsewhere] = await Promise.all([
+    prisma.noticeTemplate.findMany({
+      where: { bankId: id },
+      orderBy: [{ name: "asc" }, { id: "asc" }],
+      include: { bank: bankLabel },
+    }),
+    prisma.noticeTemplate.findMany({
+      where: { status: TEMPLATE_APPROVED, NOT: { bankId: id } },
+      orderBy: [{ name: "asc" }, { id: "asc" }],
+      include: { bank: bankLabel },
+    }),
+  ]);
+  const templates = [...own, ...approvedElsewhere];
+  const approved = approvedTemplatesForBank(templates, id);
   let elsewhere: OtherBankApproved[] = [];
 
   if (includeOtherBanks) {
-    const [rows, banks] = await Promise.all([
-      prisma.noticeTemplate.findMany({
-        where: { bankId: { not: bankId } },
-        select: { bankId: true, status: true, name: true },
-        orderBy: { name: "asc" },
-      }),
-      prisma.bank.findMany({
-        select: { id: true, name: true, code: true },
-        orderBy: { name: "asc" },
-      }),
-    ]);
-    elsewhere = otherBankApprovedSummary(rows, banks, bankId);
+    elsewhere = otherBankApprovedSummary(
+      approvedElsewhere.map((row) => ({ bankId: row.bankId, status: row.status, name: row.name })),
+      approvedElsewhere.map((row) => ({
+        id: row.bankId,
+        name: row.bank.name,
+        code: row.bank.code,
+      })),
+      id,
+    );
   }
 
   return { templates, approved, elsewhere };
