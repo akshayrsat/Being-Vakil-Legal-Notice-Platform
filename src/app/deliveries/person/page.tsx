@@ -97,6 +97,9 @@ export default async function PersonHistoryPage({
                   {campaignStatusLabel(row.campaign.status, row.campaign.mode)}
                 </p>
                 {row.detail ? <p className="mt-1 text-sm text-muted-foreground">{row.detail}</p> : null}
+                {row.openedAt ? (
+                  <p className="mt-1 text-sm text-muted-foreground">Opened {formatWhen(row.openedAt)}</p>
+                ) : null}
                 {row.noticeNumber ? (
                   <p className="mt-2 text-sm">
                     Notice {row.noticeNumber}

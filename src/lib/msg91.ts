@@ -1,8 +1,10 @@
 // MSG91 access. The auth key is read from the environment on the server.
 // Never put it in a NEXT_PUBLIC_ variable, and never send it to the browser.
 
-import type { SmsNoticeVars } from "./notice-link";
+import type { EmailNoticeVars, SmsNoticeVars } from "./notice-link";
 import { toMsg91Mobile } from "./phone";
+
+export type { EmailNoticeVars } from "./notice-link";
 
 const OTP_SEND_URL = "https://control.msg91.com/api/v5/otp";
 const OTP_VERIFY_URL = "https://control.msg91.com/api/v5/otp/verify";
@@ -19,12 +21,8 @@ export type WhatsAppNoticeVars = {
 
 // Approved MSG91 email template legal_notice_non_payment (id 64975).
 // API template_id must be the slug, not the numeric id.
-export type EmailNoticeVars = {
-  contact_name: string;
-  loan_account: string;
-  notice_id: string;
-};
-
+// Vars: contact_name, loan_account, notice_id (full URL for current template),
+// notice_link (same URL), notice_code (bare id for a future template edit).
 export const EMAIL_TEMPLATE_SLUG = "legal_notice_non_payment";
 
 export type DeliveryRequest = {
@@ -232,16 +230,20 @@ async function deliverEmail(authKey: string, request: DeliveryRequest): Promise<
   }
   const contactName = request.email?.contact_name.trim() ?? "";
   const loanAccount = request.email?.loan_account.trim() ?? "";
-  const noticeId = request.email?.notice_id.trim() ?? "";
-  if (!contactName || !loanAccount || !noticeId) {
+  const noticeLink = (request.email?.notice_link ?? request.email?.notice_id ?? "").trim();
+  const noticeCode = (request.email?.notice_code ?? "").trim();
+  if (!contactName || !loanAccount || !noticeLink) {
     return {
       ok: false,
-      error: "Email needs contact_name, loan_account, and notice_id. Nothing was sent.",
+      error: "Email needs contact_name, loan_account, and notice_link. Nothing was sent.",
     };
   }
 
   // HTML letterhead body lives in email-notice.ts for previews/public pages.
   // Live MSG91 send uses the approved template variables only.
+  // Unsubscribe footer and open tracking are domain settings in MSG91
+  // (Email > Domain Settings > Domain Configuration). There is no send-API flag.
+  // notice_id is the full HTTPS URL so the current template prints a clickable link.
   const result = await postMsg91(
     EMAIL_SEND_URL,
     authKey,
@@ -252,7 +254,9 @@ async function deliverEmail(authKey: string, request: DeliveryRequest): Promise<
           variables: {
             contact_name: contactName,
             loan_account: loanAccount,
-            notice_id: noticeId,
+            notice_id: noticeLink,
+            notice_link: noticeLink,
+            notice_code: noticeCode || noticeLink,
           },
         },
       ],

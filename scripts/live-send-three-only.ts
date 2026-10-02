@@ -17,7 +17,7 @@ import {
   dryRunReason,
   type SendChannel,
 } from "../src/lib/msg91";
-import { smsNoticeVars, noticePublicUrl } from "../src/lib/notice-link";
+import { emailNoticeVars, smsNoticeVars, noticePublicUrl } from "../src/lib/notice-link";
 import { toMsg91Mobile } from "../src/lib/phone";
 
 const ALLOWED = [
@@ -257,11 +257,11 @@ async function main() {
             : undefined,
         email:
           channel === "EMAIL" && row.noticeNumber
-            ? {
-                contact_name: row.customerName.trim(),
-                loan_account: row.loanNumber.trim() || row.noticeNumber,
-                notice_id: row.noticeNumber,
-              }
+            ? emailNoticeVars({
+                customerName: row.customerName,
+                loanAccount: row.loanNumber,
+                noticeNumber: row.noticeNumber,
+              })
             : undefined,
         whatsapp:
           channel === "WHATSAPP"

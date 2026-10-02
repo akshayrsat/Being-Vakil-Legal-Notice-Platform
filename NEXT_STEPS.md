@@ -17,7 +17,8 @@ Before anyone sets `MSG91_LIVE_SEND=true`:
 - Put `MSG91_AUTH_KEY` only in `.env` on the server, never in the browser and never in a public copy of the project.
 - Fill the SMS, email, or WhatsApp settings for the channels you will actually use. A missing setting fails that channel and sends nothing.
 - Set `MSG91_WEBHOOK_SECRET` (at least 8 characters) and point MSG91 at `/api/msg91/webhook` with the header `x-notice-desk-secret`.
-- Send one notice to a mobile the firm controls, then check the audit log and the person’s status.
+- For email: follow `MSG91_EMAIL.md` (clickable `notice_link`, turn off domain Unsubscribe, enable Open Tracking + Opened webhook).
+- Send one notice to a mobile/email the firm controls, then check the audit log and the person’s status (including Opened at).
 - Leave live send off for practice files such as `samples/notice-recipients.xlsx`.
 
 ### Putting the site on a real server

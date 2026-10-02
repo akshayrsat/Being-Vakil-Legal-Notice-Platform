@@ -1,4 +1,4 @@
-// MSG91 calls this address when a live message is delivered, read, or fails.
+// MSG91 calls this address when a live message is delivered, opened/read, or fails.
 // The call is refused unless MSG91_WEBHOOK_SECRET is set. A dry run is never updated.
 
 import { NextResponse } from "next/server";

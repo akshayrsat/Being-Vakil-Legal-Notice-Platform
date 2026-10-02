@@ -1,5 +1,6 @@
 // Turns an MSG91 delivery callback into a status on a live send.
 // A dry-run row is never changed. If the webhook secret is missing, the route rejects the call.
+// Email open events (eventName Opened / eventId 5) set status READ and openedAt.
 
 import { timingSafeEqual } from "node:crypto";
 import type { DeliveryStatus } from "@prisma/client";
@@ -13,6 +14,7 @@ export type StatusHit = {
   email: string;
   channel: string;
   status: "DELIVERED" | "READ" | "FAILED";
+  openedAt: Date | null;
 };
 
 export function webhookSecret(): string {
@@ -41,16 +43,24 @@ export async function applyStatusHits(hits: StatusHit[]): Promise<number> {
   for (const hit of hits) {
     const row = await findLiveRow(hit);
     if (!row) continue;
+    const data: {
+      status: StatusHit["status"];
+      detail: string;
+      openedAt?: Date;
+    } = {
+      status: hit.status,
+      detail: detailFor(hit.status),
+    };
+    if (hit.status === "READ") {
+      data.openedAt = hit.openedAt ?? new Date();
+    }
     const result = await prisma.campaignDelivery.updateMany({
       where: {
         id: row.id,
         status: { in: UPDATABLE },
         campaign: { mode: "LIVE" },
       },
-      data: {
-        status: hit.status,
-        detail: detailFor(hit.status),
-      },
+      data,
     });
     updated += result.count;
   }
@@ -103,7 +113,7 @@ async function findLiveRow(hit: StatusHit) {
 }
 
 function detailFor(status: StatusHit["status"]): string {
-  if (status === "READ") return "MSG91 reported this as read.";
+  if (status === "READ") return "MSG91 reported this as opened/read.";
   if (status === "FAILED") return "MSG91 reported this as failed.";
   return "MSG91 reported this as delivered.";
 }
@@ -124,25 +134,62 @@ function walk(node: unknown, depth: number, hits: StatusHit[]): void {
 }
 
 function hitFromRecord(record: Record<string, unknown>): StatusHit | null {
-  const described = mapStatus(firstString(record, ["desc", "description", "event", "eventName"]));
-  const coded = mapStatus(firstString(record, ["status"]));
+  const eventLabel = firstString(record, ["desc", "description", "event", "eventName"]);
+  // Email Queued/Accepted must not fall through to numeric eventId 1 (SMS delivered).
+  if (/^(queued|accepted|enqueued)$/i.test(eventLabel.trim())) return null;
+  const described = mapStatus(eventLabel);
+  const coded = mapStatus(firstString(record, ["status", "eventId"]));
   const status = described ?? coded;
   if (!status) return null;
   const mobile = firstString(record, ["mobile", "telNum", "number", "customerNumber", "phone"]);
-  const email = firstString(record, ["email"]);
+  const email = emailFromRecord(record);
   const requestId = firstString(record, ["requestId", "request_id"]);
-  const channel = normalizeChannel(firstString(record, ["channel"]));
+  const channel = normalizeChannel(firstString(record, ["channel"])) || (email && !mobile ? "EMAIL" : "");
   if (!mobile && !email && !requestId) return null;
-  return { status, mobile, email: email.toLowerCase(), requestId, channel };
+  const openedAt =
+    status === "READ"
+      ? parseDate(firstString(record, ["statusUpdatedAt", "requestedAt", "openedAt", "opened_at"]))
+      : null;
+  return { status, mobile, email, requestId, channel, openedAt };
+}
+
+function emailFromRecord(record: Record<string, unknown>): string {
+  const direct = firstString(record, ["email", "recipient"]).toLowerCase();
+  if (direct.includes("@")) return direct.replace(/\s+/g, "");
+  const sendTo = firstString(record, ["sendTo"]);
+  if (sendTo) {
+    try {
+      const parsed = JSON.parse(sendTo) as { email?: string } | Array<{ email?: string }>;
+      if (Array.isArray(parsed)) {
+        const first = parsed.find((item) => typeof item?.email === "string" && item.email.includes("@"));
+        if (first?.email) return first.email.trim().toLowerCase().replace(/\s+/g, "");
+      } else if (typeof parsed?.email === "string" && parsed.email.includes("@")) {
+        return parsed.email.trim().toLowerCase().replace(/\s+/g, "");
+      }
+    } catch {
+      const match = sendTo.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i);
+      if (match) return match[0].toLowerCase();
+    }
+  }
+  return direct.includes("@") ? direct.replace(/\s+/g, "") : "";
 }
 
 function mapStatus(raw: string): StatusHit["status"] | null {
   const value = raw.trim().toLowerCase();
   if (!value || value.length > 40) return null;
-  if (value === "1" || value === "delivered" || value === "delivery" || value === "delivrd") return "DELIVERED";
-  if (value === "read" || value === "seen") return "READ";
+  // MSG91 email eventId: 1 Queued, 2 Accepted, 4 Delivered, 5 Opened, 9 Failed.
+  // Prefer eventName when present. "1" is kept as DELIVERED for SMS-style callbacks.
+  if (value === "2" || value === "queued" || value === "accepted" || value === "enqueued") {
+    return null;
+  }
+  if (value === "1" || value === "4" || value === "delivered" || value === "delivery" || value === "delivrd") {
+    return "DELIVERED";
+  }
+  if (value === "5" || value === "read" || value === "seen" || value === "opened" || value === "open") {
+    return "READ";
+  }
   if (
-    value === "2" ||
+    value === "9" ||
     value === "failed" ||
     value === "fail" ||
     value === "undelivered" ||
@@ -152,7 +199,7 @@ function mapStatus(raw: string): StatusHit["status"] | null {
     return "FAILED";
   }
   if (value.includes("undeliver") || value.includes("fail") || value.includes("reject")) return "FAILED";
-  if (value.includes("read")) return "READ";
+  if (value.includes("open") || value.includes("read")) return "READ";
   if (value.includes("deliver")) return "DELIVERED";
   return null;
 }
@@ -170,6 +217,13 @@ function firstString(record: Record<string, unknown>, keys: string[]): string {
     if (typeof value === "number" && Number.isFinite(value)) return String(value);
   }
   return "";
+}
+
+function parseDate(raw: string): Date | null {
+  if (!raw) return null;
+  const date = new Date(raw);
+  if (Number.isNaN(date.getTime())) return null;
+  return date;
 }
 
 function lastTenDigits(value: string): string {

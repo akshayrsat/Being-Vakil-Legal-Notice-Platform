@@ -68,6 +68,7 @@ export async function GET(
     rowNumber: row.rowNumber,
     noticeNumber: row.noticeNumber,
     noticeUrl: row.noticeNumber ? noticePublicUrl(row.noticeNumber) : "",
+    openedAt: row.openedAt,
   }));
 
   await auditCurrentUser({

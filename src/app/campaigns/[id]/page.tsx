@@ -353,7 +353,12 @@ export default async function CampaignPage({
                             <p className="text-muted-foreground">{row.customerId}</p>
                           </td>
                           <td className="px-2 py-2">{sendChannelLabel(row.channel)}</td>
-                          <td className="px-2 py-2">{deliveryStatusLabel(row.status)}</td>
+                          <td className="px-2 py-2">
+                            <p>{deliveryStatusLabel(row.status)}</p>
+                            {row.openedAt ? (
+                              <p className="text-muted-foreground">Opened {formatWhen(row.openedAt)}</p>
+                            ) : null}
+                          </td>
                           <td className="px-2 py-2 text-muted-foreground">
                             <p>{row.detail || "—"}</p>
                             {history ? (
@@ -381,4 +386,8 @@ export default async function CampaignPage({
       </main>
     </div>
   );
+}
+
+function formatWhen(date: Date): string {
+  return new Intl.DateTimeFormat("en-IN", { dateStyle: "medium", timeStyle: "short" }).format(date);
 }
