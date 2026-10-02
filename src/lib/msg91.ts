@@ -1,8 +1,7 @@
 // MSG91 access. The auth key is read from the environment on the server.
 // Never put it in a NEXT_PUBLIC_ variable, and never send it to the browser.
 
-import { emailNoticeHtml } from "./email-notice";
-import { noticePublicBaseUrl, type SmsNoticeVars } from "./notice-link";
+import type { SmsNoticeVars } from "./notice-link";
 import { toMsg91Mobile } from "./phone";
 
 const OTP_SEND_URL = "https://control.msg91.com/api/v5/otp";
@@ -18,12 +17,23 @@ export type WhatsAppNoticeVars = {
   bank_name: string;
 };
 
+// Approved MSG91 email template legal_notice_non_payment (id 64975).
+// API template_id must be the slug, not the numeric id.
+export type EmailNoticeVars = {
+  contact_name: string;
+  loan_account: string;
+  notice_id: string;
+};
+
+export const EMAIL_TEMPLATE_SLUG = "legal_notice_non_payment";
+
 export type DeliveryRequest = {
   channel: SendChannel;
   to: string;
   body: string;
   dltTemplateId: string;
   sms?: SmsNoticeVars;
+  email?: EmailNoticeVars;
   whatsapp?: WhatsAppNoticeVars;
 };
 
@@ -153,27 +163,43 @@ async function deliverSms(authKey: string, request: DeliveryRequest): Promise<De
 async function deliverEmail(authKey: string, request: DeliveryRequest): Promise<DeliveryResult> {
   const from = envValue("MSG91_EMAIL_FROM");
   const domain = envValue("MSG91_EMAIL_DOMAIN");
-  const templateId = envValue("MSG91_EMAIL_TEMPLATE_ID");
+  const configured = envValue("MSG91_EMAIL_TEMPLATE_ID");
+  // MSG91 email API expects the template slug (legal_notice_non_payment), not numeric id 64975.
+  const templateId =
+    !configured || configured === "64975" ? EMAIL_TEMPLATE_SLUG : configured;
   if (!from || !domain || !templateId) {
-    // TODO: MSG91 email will not send a free-form body. It needs a verified domain
-    // and a template whose variables match this payload. Do not call the API until those exist.
     return {
       ok: false,
-      error: "TODO: set MSG91_EMAIL_FROM, MSG91_EMAIL_DOMAIN, and MSG91_EMAIL_TEMPLATE_ID. Nothing was sent.",
+      error: "Set MSG91_EMAIL_FROM, MSG91_EMAIL_DOMAIN, and MSG91_EMAIL_TEMPLATE_ID. Nothing was sent.",
+    };
+  }
+  const contactName = request.email?.contact_name.trim() ?? "";
+  const loanAccount = request.email?.loan_account.trim() ?? "";
+  const noticeId = request.email?.notice_id.trim() ?? "";
+  if (!contactName || !loanAccount || !noticeId) {
+    return {
+      ok: false,
+      error: "Email needs contact_name, loan_account, and notice_id. Nothing was sent.",
     };
   }
 
+  // HTML letterhead body lives in email-notice.ts for previews/public pages.
+  // Live MSG91 send uses the approved template variables only.
   const result = await postMsg91(
     EMAIL_SEND_URL,
     authKey,
     {
       recipients: [
         {
-          to: [{ email: request.to, name: request.to }],
-          variables: { message: emailNoticeHtml(request.body, noticePublicBaseUrl()) },
+          to: [{ email: request.to, name: contactName }],
+          variables: {
+            contact_name: contactName,
+            loan_account: loanAccount,
+            notice_id: noticeId,
+          },
         },
       ],
-      from: { email: from, name: "Notice Desk" },
+      from: { email: from, name: "Being Vakil Associates" },
       domain,
       template_id: templateId,
     },
@@ -270,9 +296,20 @@ async function postMsg91(
       body: body === undefined ? undefined : JSON.stringify(body),
       signal: AbortSignal.timeout(15000),
     });
-    const payload = (await response.json().catch(() => null)) as { type?: string } | null;
+    const payload = (await response.json().catch(() => null)) as {
+      type?: string;
+      message?: string | { message?: string };
+    } | null;
     if (!response.ok || payload?.type === "error") {
-      return { ok: false, error: failure };
+      const detail =
+        typeof payload?.message === "string"
+          ? payload.message.trim()
+          : typeof payload?.message === "object" &&
+              payload?.message &&
+              typeof payload.message.message === "string"
+            ? payload.message.message.trim()
+            : "";
+      return { ok: false, error: detail ? failure + " " + detail : failure };
     }
     return { ok: true, providerId: readProviderId(payload) };
   } catch {

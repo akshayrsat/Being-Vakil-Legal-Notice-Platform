@@ -212,7 +212,7 @@ The page then says **Dry run finished. Nothing was sent.** Each person who could
 
 Leave the MSG91 lines in `.env` commented out to stay on the dry run. That is the right setup for practice.
 
-To allow a live send later, fill in `MSG91_AUTH_KEY` and set `MSG91_LIVE_SEND=true`. A key on its own does not send anything. SMS also needs `MSG91_SMS_FLOW_ID` and `MSG91_SENDER_ID`. Email needs `MSG91_EMAIL_FROM`, `MSG91_EMAIL_DOMAIN`, and `MSG91_EMAIL_TEMPLATE_ID`. WhatsApp needs `MSG91_WHATSAPP_INTEGRATED_NUMBER`. It sends the template `legal_notice` in `en_US`, with the customer name and the bank name. If one of those is missing, that channel is not sent and the row is marked failed. Do not put a real key in a copy of this project that other people can download.
+To allow a live send later, fill in `MSG91_AUTH_KEY` and set `MSG91_LIVE_SEND=true`. A key on its own does not send anything. SMS also needs `MSG91_SMS_FLOW_ID` and `MSG91_SENDER_ID`. Email needs `MSG91_EMAIL_FROM`, `MSG91_EMAIL_DOMAIN`, and `MSG91_EMAIL_TEMPLATE_ID` set to the template slug `legal_notice_non_payment` (not the numeric id). SMS needs `MSG91_SMS_FLOW_ID` set to `Legal_Notice_12092026` with sender `BVAKIL`. WhatsApp needs `MSG91_WHATSAPP_INTEGRATED_NUMBER`. It sends the template `legal_notice` in `en_US`, with the customer name and the bank name. If one of those is missing, that channel is not sent and the row is marked failed. Do not put a real key in a copy of this project that other people can download.
 
 ## What a Bank Viewer can see
 

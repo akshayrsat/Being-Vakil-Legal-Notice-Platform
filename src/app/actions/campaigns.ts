@@ -307,6 +307,14 @@ async function finishLiveSend(
               noticeNumber: row.noticeNumber,
             })
           : undefined,
+      email:
+        channel === "EMAIL" && row.noticeNumber
+          ? {
+              contact_name: row.customerName.trim(),
+              loan_account: row.loanNumber.trim() || row.noticeNumber,
+              notice_id: row.noticeNumber,
+            }
+          : undefined,
       whatsapp:
         channel === "WHATSAPP"
           ? { customer_name: row.customerName.trim(), bank_name: bankName.trim() }
