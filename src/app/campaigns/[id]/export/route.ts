@@ -8,6 +8,7 @@ import { isDeliveryStatus, statusesForFilter } from "@/lib/campaigns";
 import { prisma } from "@/lib/db";
 import { reportCsv, type ReportRow } from "@/lib/delivery-report";
 import { noticePublicUrl } from "@/lib/notice-link";
+import { noticeLinkOpensByNumber } from "@/lib/public-notice";
 import { canReadBank } from "@/lib/report-bank";
 
 export const dynamic = "force-dynamic";
@@ -53,23 +54,29 @@ export async function GET(
     take: EXPORT_LIMIT,
   });
 
-  const report: ReportRow[] = rows.map((row) => ({
-    bankName: campaign.bank.name,
-    campaignName: campaign.templateName,
-    when: campaign.createdAt,
-    customerName: row.customerName,
-    mobile: row.mobile,
-    email: row.email,
-    loanNumber: row.loanNumber,
-    customerId: row.customerId,
-    channel: row.channel,
-    status: row.status,
-    detail: row.detail,
-    rowNumber: row.rowNumber,
-    noticeNumber: row.noticeNumber,
-    noticeUrl: row.noticeNumber ? noticePublicUrl(row.noticeNumber) : "",
-    openedAt: row.openedAt,
-  }));
+  const linkOpens = await noticeLinkOpensByNumber(rows.map((row) => row.noticeNumber));
+  const report: ReportRow[] = rows.map((row) => {
+    const linkOpen = row.noticeNumber ? linkOpens.get(row.noticeNumber) : undefined;
+    return {
+      bankName: campaign.bank.name,
+      campaignName: campaign.templateName,
+      when: campaign.createdAt,
+      customerName: row.customerName,
+      mobile: row.mobile,
+      email: row.email,
+      loanNumber: row.loanNumber,
+      customerId: row.customerId,
+      channel: row.channel,
+      status: row.status,
+      detail: row.detail,
+      rowNumber: row.rowNumber,
+      noticeNumber: row.noticeNumber,
+      noticeUrl: row.noticeNumber ? noticePublicUrl(row.noticeNumber) : "",
+      openedAt: row.openedAt,
+      linkOpenedAt: linkOpen?.linkOpenedAt ?? null,
+      linkViewCount: linkOpen?.linkViewCount ?? 0,
+    };
+  });
 
   await auditCurrentUser({
     action: "export",

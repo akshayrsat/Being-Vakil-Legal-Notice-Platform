@@ -4,11 +4,13 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AppHeader } from "@/components/app-header";
+import { MessageOpened, NoticeLinkOpened } from "@/components/notice-link-opened";
 import { NoticeOpenLink } from "@/components/notice-open-link";
 import { buttonVariants } from "@/components/ui/button";
 import { getCurrentUser } from "@/lib/auth";
 import { campaignStatusLabel, deliveryStatusLabel, sendChannelLabel } from "@/lib/campaigns";
 import { prisma } from "@/lib/db";
+import { noticeLinkOpensByNumber } from "@/lib/public-notice";
 import { resolveReportBank } from "@/lib/report-bank";
 
 export const metadata: Metadata = {
@@ -60,6 +62,7 @@ export default async function PersonHistoryPage({
         });
 
   const name = rows[0]?.customerName ?? "This person";
+  const linkOpens = await noticeLinkOpensByNumber(rows.map((row) => row.noticeNumber));
 
   return (
     <div className="flex min-h-full flex-col">
@@ -97,9 +100,11 @@ export default async function PersonHistoryPage({
                   {campaignStatusLabel(row.campaign.status, row.campaign.mode)}
                 </p>
                 {row.detail ? <p className="mt-1 text-sm text-muted-foreground">{row.detail}</p> : null}
-                {row.openedAt ? (
-                  <p className="mt-1 text-sm text-muted-foreground">Opened {formatWhen(row.openedAt)}</p>
-                ) : null}
+                <MessageOpened openedAt={row.openedAt} className="mt-1 text-sm text-muted-foreground" />
+                <NoticeLinkOpened
+                  open={linkOpens.get(row.noticeNumber)}
+                  className="mt-1 text-sm text-muted-foreground"
+                />
                 {row.noticeNumber ? (
                   <p className="mt-2 text-sm">
                     Notice {row.noticeNumber}

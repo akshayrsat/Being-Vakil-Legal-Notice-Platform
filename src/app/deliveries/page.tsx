@@ -5,6 +5,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AppHeader } from "@/components/app-header";
 import { DeliveryFiltersForm } from "@/components/delivery-filters";
+import { MessageOpened, NoticeLinkOpened } from "@/components/notice-link-opened";
 import { NoticeOpenLink } from "@/components/notice-open-link";
 import { buttonVariants } from "@/components/ui/button";
 import { getCurrentUser } from "@/lib/auth";
@@ -17,6 +18,7 @@ import {
   personHistoryHref,
   readDeliveryFilters,
 } from "@/lib/delivery-report";
+import { noticeLinkOpensByNumber } from "@/lib/public-notice";
 import { resolveReportBank } from "@/lib/report-bank";
 import { ROLE_ADMIN } from "@/lib/roles";
 
@@ -113,6 +115,7 @@ async function Results({
     orderBy: [{ campaign: { createdAt: "desc" } }, { rowNumber: "asc" }],
     take: PAGE_LIMIT,
   });
+  const linkOpens = await noticeLinkOpensByNumber(rows.map((row) => row.noticeNumber));
   const exportHref = `/deliveries/export?${filtersToSearch(filters, bankId)}`;
 
   return (
@@ -162,9 +165,8 @@ async function Results({
                     <td className="px-3 py-2">
                       <p>{deliveryStatusLabel(row.status)}</p>
                       <p className="text-muted-foreground">{row.detail}</p>
-                      {row.openedAt ? (
-                        <p className="text-muted-foreground">Opened {formatWhen(row.openedAt)}</p>
-                      ) : null}
+                      <MessageOpened openedAt={row.openedAt} />
+                      <NoticeLinkOpened open={linkOpens.get(row.noticeNumber)} />
                     </td>
                     <td className="px-3 py-2">
                       <Link href={`/campaigns/${row.campaign.id}`} className="font-medium underline">

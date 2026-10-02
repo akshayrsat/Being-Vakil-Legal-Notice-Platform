@@ -270,6 +270,11 @@ model PublicNotice {
   bankName          String
   body              String
   seedKey           String?   @unique
+  // First time the public notice page was opened (/notice-<id> and the other public routes).
+  // This is the webpage view. It is not CampaignDelivery.openedAt (MSG91 email open or WhatsApp read).
+  linkOpenedAt      DateTime?
+  linkLastViewedAt  DateTime?
+  linkViewCount     Int       @default(0)
   createdAt         DateTime  @default(now())
 
   @@index([bankId])

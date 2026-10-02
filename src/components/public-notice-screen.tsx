@@ -1,15 +1,25 @@
 // The page a recipient opens from an SMS link. It shows one notice, or a not-found message.
 
+import { headers } from "next/headers";
 import { NoticeLetterfoot, NoticeLetterhead, NoticeSignature } from "@/components/notice-letter";
 import { PrintLetterButton } from "@/components/print-letter-button";
 import { buildDemandNotice } from "@/lib/demand-notice";
-import { findPublicNotice, normalizeNoticeNumber, type PublicNoticeView } from "@/lib/public-notice";
+import {
+  findPublicNotice,
+  normalizeNoticeNumber,
+  recordPublicNoticeOpen,
+  shouldRecordNoticeView,
+  type PublicNoticeView,
+} from "@/lib/public-notice";
 
 export async function PublicNoticeScreen({ noticeNumber }: { noticeNumber: string }) {
   const normalized = normalizeNoticeNumber(noticeNumber);
   if (!normalized) return <NoticeMissing kind="empty" />;
   const notice = await findPublicNotice(normalized);
   if (!notice) return <NoticeMissing kind="missing" />;
+  if (shouldRecordNoticeView(await headers())) {
+    await recordPublicNoticeOpen(normalized);
+  }
   return <PublicNoticeDocument notice={notice} />;
 }
 

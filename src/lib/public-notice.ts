@@ -146,6 +146,76 @@ async function freshNoticeNumber(db: Prisma.TransactionClient, seen: Set<string>
   throw new Error("Could not assign a notice number.");
 }
 
+export type NoticeLinkOpen = {
+  linkOpenedAt: Date | null;
+  linkLastViewedAt: Date | null;
+  linkViewCount: number;
+};
+
+// Obvious crawlers, link-preview fetchers, and health checks. A normal browser,
+// including the WhatsApp in-app browser, does not match.
+const NOTICE_VIEW_BOT =
+  /(?:^whatsapp\/\d|facebookexternalhit|telegrambot|slackbot|twitterbot|linkedinbot|discordbot|googlehc|kube-probe|googlebot|bingbot|duckduckbot|baiduspider|yandexbot|applebot|petalbot|bytespider|ahrefsbot|semrushbot|dotbot|embedly|pinterest|vkshare|iframely|skypeuripreview|bingpreview)|bot\b|crawler|spider|slurp|headless|phantomjs|curl\/|wget\/|python-requests|go-http-client|scrapy|pingdom|statuscake|uptimerobot|health[- ]?check|monitoring/i;
+
+export function shouldRecordNoticeView(headerList: { get(name: string): string | null }): boolean {
+  // Next.js hides next-router-prefetch from headers(). In-app notice links set prefetch={false}.
+  // Purpose / Sec-Purpose still catches browser speculative prefetches.
+  if (headerList.get("next-router-prefetch") || headerList.get("next-router-segment-prefetch")) {
+    return false;
+  }
+  const purpose = `${headerList.get("purpose") ?? ""} ${headerList.get("sec-purpose") ?? ""}`.toLowerCase();
+  if (purpose.includes("prefetch")) return false;
+  const userAgent = (headerList.get("user-agent") ?? "").trim();
+  if (!userAgent) return false;
+  if (NOTICE_VIEW_BOT.test(userAgent)) return false;
+  return true;
+}
+
+// Keeps the first open, and counts later views of the same notice page.
+export async function recordPublicNoticeOpen(noticeNumber: string): Promise<void> {
+  const now = new Date();
+  try {
+    await prisma.$transaction([
+      prisma.publicNotice.updateMany({
+        where: { noticeNumber, linkOpenedAt: null },
+        data: { linkOpenedAt: now },
+      }),
+      prisma.publicNotice.updateMany({
+        where: { noticeNumber },
+        data: { linkLastViewedAt: now, linkViewCount: { increment: 1 } },
+      }),
+    ]);
+  } catch (error) {
+    console.error("Could not record a notice link open.", error);
+  }
+}
+
+export async function noticeLinkOpensByNumber(
+  noticeNumbers: Iterable<string>,
+): Promise<Map<string, NoticeLinkOpen>> {
+  const unique = [...new Set([...noticeNumbers].map((value) => value.trim()).filter(Boolean))];
+  if (unique.length === 0) return new Map();
+  const rows = await prisma.publicNotice.findMany({
+    where: { noticeNumber: { in: unique } },
+    select: {
+      noticeNumber: true,
+      linkOpenedAt: true,
+      linkLastViewedAt: true,
+      linkViewCount: true,
+    },
+  });
+  return new Map(
+    rows.map((row) => [
+      row.noticeNumber,
+      {
+        linkOpenedAt: row.linkOpenedAt,
+        linkLastViewedAt: row.linkLastViewedAt,
+        linkViewCount: row.linkViewCount,
+      },
+    ]),
+  );
+}
+
 export async function findPublicNotice(raw: string | undefined | null): Promise<PublicNoticeView | null> {
   const noticeNumber = normalizeNoticeNumber(raw);
   if (!noticeNumber) return null;
