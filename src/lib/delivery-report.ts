@@ -4,6 +4,7 @@
 import type { Prisma } from "@prisma/client";
 import { isSendChannel } from "./campaign-plan";
 import { deliveryStatusLabel, isDeliveryStatus, sendChannelLabel, statusesForFilter } from "./campaigns";
+import { csvCell, indiaDayRange } from "./india-day";
 
 export type DeliveryFilters = {
   text: string;
@@ -161,21 +162,7 @@ function dateOnly(value: string | null): string {
 }
 
 function createdAtRange(from: string, to: string): { gte?: Date; lte?: Date } | undefined {
-  const range: { gte?: Date; lte?: Date } = {};
-  if (from) {
-    const start = new Date(`${from}T00:00:00`);
-    if (!Number.isNaN(start.getTime())) range.gte = start;
-  }
-  if (to) {
-    const end = new Date(`${to}T23:59:59.999`);
-    if (!Number.isNaN(end.getTime())) range.lte = end;
-  }
-  return range.gte || range.lte ? range : undefined;
-}
-
-function csvCell(value: string): string {
-  if (/[",\r\n]/.test(value)) return `"${value.replace(/"/g, '""')}"`;
-  return value;
+  return indiaDayRange(from, to);
 }
 
 function formatReportDate(date: Date): string {

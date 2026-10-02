@@ -16,25 +16,35 @@ import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { loanSearchHref } from "@/lib/loan-timeline";
 import { indiaPostConfigured, postalStatusLabel } from "@/lib/postal";
-import { canReadBank } from "@/lib/report-bank";
+import { scopedBankId } from "@/lib/report-bank";
 import { ROLE_ADMIN } from "@/lib/roles";
 
 export const metadata: Metadata = {
   title: "Consignment",
 };
 
-export default async function SpeedPostDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function SpeedPostDetailPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ bank?: string }>;
+}) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
   const { id } = await params;
-  const consignment = await prisma.speedPostConsignment.findUnique({
-    where: { id },
-    include: {
-      bank: { select: { name: true } },
-      events: { orderBy: { occurredAt: "asc" } },
-    },
-  });
-  if (!consignment || !canReadBank(user, consignment.bankId)) {
+  const query = await searchParams;
+  const scope = scopedBankId(user, query.bank);
+  const consignment = scope
+    ? await prisma.speedPostConsignment.findFirst({
+        where: { id, bankId: scope },
+        include: {
+          bank: { select: { name: true } },
+          events: { orderBy: { occurredAt: "asc" } },
+        },
+      })
+    : null;
+  if (!consignment) {
     return (
       <DeskShell user={user}>
         <h1 className="font-serif text-3xl">Consignment not found</h1>
@@ -72,7 +82,7 @@ export default async function SpeedPostDetailPage({ params }: { params: Promise<
         ) : null}
         {consignment.campaignId ? (
           <Link
-            href={`/campaigns/${consignment.campaignId}`}
+            href={`/campaigns/${consignment.campaignId}?bank=${encodeURIComponent(consignment.bankId)}`}
             className={buttonVariants({ variant: "outline", className: "h-11 px-4" })}
           >
             Open send

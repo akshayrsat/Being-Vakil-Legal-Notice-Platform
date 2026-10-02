@@ -71,7 +71,7 @@ export async function CampaignSpeedPost({
                     <p className="mt-2 text-sm">
                       {consignment.articleNumber || "Article number not entered"}
                       <span className="mx-2 text-muted-foreground">·</span>
-                      <Link href={`/speed-post/${consignment.id}`} className="underline">
+                      <Link href={`/speed-post/${consignment.id}?bank=${encodeURIComponent(bankId)}`} className="underline">
                         Open consignment
                       </Link>
                     </p>

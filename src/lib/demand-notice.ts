@@ -30,6 +30,7 @@ export function formatDemandAmount(raw: string): string {
 }
 
 export function noticeDateLabel(date: Date): string {
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) return "Date not on file";
   return new Intl.DateTimeFormat("en-GB", {
     day: "2-digit",
     month: "2-digit",

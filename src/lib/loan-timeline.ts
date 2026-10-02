@@ -116,17 +116,22 @@ export async function loadAccountTimeline(input: {
         include: { events: { orderBy: { occurredAt: "asc" } } },
       }),
     ]);
-    return assembleTimeline({ loan, account, notices, deliveries, consignments });
+    return assembleTimeline({ bankId: input.bankId, loan, account, notices, deliveries, consignments });
   }
 
-  const deliveries = await prisma.campaignDelivery.findMany({
-    where: { bankId: input.bankId, mobile: { contains: mobile.replace(/\D/g, "").slice(-10) || mobile } },
+  const tail = mobile.replace(/\D/g, "").slice(-10);
+  if (tail.length < 10) {
+    return assembleTimeline({ bankId: input.bankId, loan: "", account: "", notices: [], deliveries: [], consignments: [] });
+  }
+  const candidates = await prisma.campaignDelivery.findMany({
+    where: { bankId: input.bankId, mobile: { contains: tail } },
     include: {
       campaign: { select: { id: true, templateName: true, createdAt: true, confirmedAt: true, mode: true } },
     },
     orderBy: { campaign: { createdAt: "asc" } },
     take: 200,
   });
+  const deliveries = candidates.filter((row) => row.mobile.replace(/\D/g, "").slice(-10) === tail);
   const noticeNumbers = [...new Set(deliveries.map((row) => row.noticeNumber).filter(Boolean))];
   const loans = [...new Set(deliveries.map((row) => row.loanNumber).filter(Boolean))];
   const postalOr = [
@@ -145,6 +150,7 @@ export async function loadAccountTimeline(input: {
       : Promise.resolve([]),
   ]);
   return assembleTimeline({
+    bankId: input.bankId,
     loan: loans.length === 1 ? loans[0] : "",
     account: "",
     notices,
@@ -195,6 +201,7 @@ type ConsignmentRow = {
 };
 
 export function assembleTimeline(input: {
+  bankId: string;
   loan: string;
   account: string;
   notices: NoticeRow[];
@@ -249,7 +256,7 @@ export function assembleTimeline(input: {
       kind: "channel",
       title: `${channel} · ${deliveryStatusLabel(row.status)}`,
       detail: [row.campaign.templateName, row.detail].filter(Boolean).join(" · "),
-      href: `/campaigns/${row.campaign.id}`,
+      href: `/campaigns/${row.campaign.id}?bank=${encodeURIComponent(input.bankId)}`,
       hrefLabel: "Open send",
     });
     if (row.openedAt) {
@@ -259,7 +266,7 @@ export function assembleTimeline(input: {
         kind: "channel",
         title: `${channel} opened`,
         detail: row.campaign.mode === "DRY_RUN" ? "Recorded on a dry run." : "MSG91 reported this as opened or read.",
-        href: `/campaigns/${row.campaign.id}`,
+        href: `/campaigns/${row.campaign.id}?bank=${encodeURIComponent(input.bankId)}`,
         hrefLabel: "Open send",
       });
     }
@@ -274,7 +281,7 @@ export function assembleTimeline(input: {
         kind: "speed-post",
         title: `Speed Post · ${postalStatusLabel(event.status)}`,
         detail: [article, event.note, sourceLabel(event.source)].filter(Boolean).join(" · "),
-        href: `/speed-post/${consignment.id}`,
+        href: `/speed-post/${consignment.id}?bank=${encodeURIComponent(input.bankId)}`,
         hrefLabel: "Open consignment",
       });
     }

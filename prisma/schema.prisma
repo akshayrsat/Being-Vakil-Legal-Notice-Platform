@@ -10,6 +10,10 @@ generator client {
   provider = "prisma-client-js"
 }
 
+// Local practice uses SQLite and `prisma db push` (see npm run dev).
+// Files under prisma/migrations are PostgreSQL for Cloud SQL. Do not run them
+// on the SQLite file: they use BOOLEAN and TIMESTAMP(3). The generated client
+// follows this provider. Pointing a SQLite client at Postgres will not work.
 datasource db {
   provider = "sqlite"
   url      = env("DATABASE_URL")

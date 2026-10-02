@@ -197,11 +197,12 @@ export async function recordPublicNoticeOpen(noticeNumber: string): Promise<void
 
 export async function noticeLinkOpensByNumber(
   noticeNumbers: Iterable<string>,
+  bankId: string,
 ): Promise<Map<string, NoticeLinkOpen>> {
   const unique = [...new Set([...noticeNumbers].map((value) => value.trim()).filter(Boolean))];
-  if (unique.length === 0) return new Map();
+  if (!bankId || unique.length === 0) return new Map();
   const rows = await prisma.publicNotice.findMany({
-    where: { noticeNumber: { in: unique } },
+    where: { bankId, noticeNumber: { in: unique } },
     select: {
       noticeNumber: true,
       linkOpenedAt: true,

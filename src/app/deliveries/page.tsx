@@ -117,7 +117,10 @@ async function Results({
     orderBy: [{ campaign: { createdAt: "desc" } }, { rowNumber: "asc" }],
     take: PAGE_LIMIT,
   });
-  const linkOpens = await noticeLinkOpensByNumber(rows.map((row) => row.noticeNumber));
+  const linkOpens = await noticeLinkOpensByNumber(
+    rows.map((row) => row.noticeNumber),
+    bankId,
+  );
   const exportHref = `/deliveries/export?${filtersToSearch(filters, bankId)}`;
 
   return (
@@ -172,7 +175,7 @@ async function Results({
                       <NoticeLinkOpened open={linkOpens.get(row.noticeNumber)} />
                     </td>
                     <td className="px-3 py-2">
-                      <Link href={`/campaigns/${row.campaign.id}`} className="font-medium underline">
+                      <Link href={`/campaigns/${row.campaign.id}?bank=${encodeURIComponent(bankId)}`} className="font-medium underline">
                         {row.campaign.templateName}
                       </Link>
                       <p className="text-muted-foreground">{formatWhen(row.campaign.createdAt)}</p>

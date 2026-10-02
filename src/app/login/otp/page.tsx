@@ -16,6 +16,8 @@ import {
 import { OTP_COOKIE, getCurrentUser } from "@/lib/auth";
 import { staffGateIsOpen } from "@/lib/staff-gate-session";
 
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   title: "One-time code",
 };

@@ -19,6 +19,7 @@ import {
 import { prisma } from "@/lib/db";
 import { isOtpEnabled, sendLoginOtp, verifyLoginOtp } from "@/lib/msg91";
 import { isAppRole, ROLE_ADMIN } from "@/lib/roles";
+import { STAFF_GATE_COOKIE, staffGateCookieOptions } from "@/lib/staff-gate";
 import { staffGateIsOpen } from "@/lib/staff-gate-session";
 
 export type SignInState = { error: string } | null;
@@ -206,7 +207,18 @@ export async function signOut(): Promise<void> {
     await prisma.session.deleteMany({ where: { token } });
   }
 
-  cookieStore.delete(SESSION_COOKIE);
-  cookieStore.delete(OTP_COOKIE);
-  redirect("/login");
+  // Session and OTP cookies are set with secure:false. Clear them the same way.
+  const sessionCookie = {
+    httpOnly: true,
+    sameSite: "lax" as const,
+    secure: false,
+    path: "/",
+    maxAge: 0,
+  };
+  cookieStore.set(SESSION_COOKIE, "", sessionCookie);
+  cookieStore.set(OTP_COOKIE, "", sessionCookie);
+  // Production sets the staff door cookie with Secure. A delete that omits Secure
+  // does not remove it, so /login would stay open after sign-out.
+  cookieStore.set(STAFF_GATE_COOKIE, "", staffGateCookieOptions(0));
+  redirect("/?staff=1");
 }

@@ -22,33 +22,43 @@ import { deliveryStatusLabel, sendChannelLabel } from "@/lib/campaigns";
 import { prisma } from "@/lib/db";
 import { personHistoryHref } from "@/lib/delivery-report";
 import { noticeLinkOpensByNumber } from "@/lib/public-notice";
-import { canReadBank } from "@/lib/report-bank";
+import { scopedBankId, withBank } from "@/lib/report-bank";
 import { ROLE_ADMIN } from "@/lib/roles";
 
 export const metadata: Metadata = {
   title: "Reminders",
 };
 
-export default async function RemindersPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function RemindersPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ bank?: string }>;
+}) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
   const { id } = await params;
+  const query = await searchParams;
   const isAdmin = user.role === ROLE_ADMIN;
   const working = workingBank(user);
+  const scope = scopedBankId(user, query.bank);
 
-  const campaign = await prisma.campaign.findFirst({
-    where: { id },
-    include: {
-      bank: { select: { id: true, name: true, active: true } },
-      deliveries: {
-        where: { status: { in: ["SKIPPED", "FAILED"] } },
-        orderBy: [{ rowNumber: "asc" }, { channel: "asc" }],
-      },
-    },
-  });
+  const campaign = scope
+    ? await prisma.campaign.findFirst({
+        where: { id, bankId: scope },
+        include: {
+          bank: { select: { id: true, name: true, active: true } },
+          deliveries: {
+            where: { bankId: scope, status: { in: ["SKIPPED", "FAILED"] } },
+            orderBy: [{ rowNumber: "asc" }, { channel: "asc" }],
+          },
+        },
+      })
+    : null;
 
-  if (!campaign || !canReadBank(user, campaign.bankId)) {
+  if (!campaign) {
     return (
       <div className="flex min-h-full flex-col">
         <AppHeader user={user} />
@@ -65,7 +75,10 @@ export default async function RemindersPage({ params }: { params: Promise<{ id: 
     );
   }
 
-  const linkOpens = await noticeLinkOpensByNumber(campaign.deliveries.map((row) => row.noticeNumber));
+  const linkOpens = await noticeLinkOpensByNumber(
+    campaign.deliveries.map((row) => row.noticeNumber),
+    campaign.bankId,
+  );
 
   const canFollowUp =
     isAdmin && working?.id === campaign.bankId && campaign.bank.active && campaign.status !== "REVIEW";
@@ -156,7 +169,7 @@ export default async function RemindersPage({ params }: { params: Promise<{ id: 
         </Card>
 
         <Link
-          href={`/campaigns/${campaign.id}`}
+          href={withBank(`/campaigns/${campaign.id}`, campaign.bankId)}
           className={buttonVariants({ variant: "outline", className: "h-11 w-fit px-4" })}
         >
           Back to this send

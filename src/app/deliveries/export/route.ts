@@ -5,6 +5,7 @@ import { auditCurrentUser } from "@/lib/audit";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { deliveryWhere, filtersToSearch, readDeliveryFilters, reportCsv, type ReportRow } from "@/lib/delivery-report";
+import { csvCell, indiaDayRange } from "@/lib/india-day";
 import { noticePublicUrl } from "@/lib/notice-link";
 import { postalStatusLabel } from "@/lib/postal";
 import { noticeLinkOpensByNumber } from "@/lib/public-notice";
@@ -27,6 +28,10 @@ export async function GET(request: Request) {
     return new NextResponse("Choose a bank first.\n", { status: 400 });
   }
 
+  if (filters.channel === "SPEED_POST") {
+    return exportSpeedPost(bank, filters);
+  }
+
   const rows = await prisma.campaignDelivery.findMany({
     where: deliveryWhere(bank.id, filters),
     include: {
@@ -42,7 +47,10 @@ export async function GET(request: Request) {
     take: EXPORT_LIMIT,
   });
 
-  const linkOpens = await noticeLinkOpensByNumber(rows.map((row) => row.noticeNumber));
+  const linkOpens = await noticeLinkOpensByNumber(
+    rows.map((row) => row.noticeNumber),
+    bank.id,
+  );
   const noticeNumbers = [...new Set(rows.map((row) => row.noticeNumber).filter(Boolean))];
   const consignments = noticeNumbers.length
     ? await prisma.speedPostConsignment.findMany({
@@ -97,6 +105,53 @@ export async function GET(request: Request) {
       "Content-Type": "text/csv; charset=utf-8",
       "Content-Disposition": `attachment; filename="notice-status-${bank.code}.csv"`,
       "X-Report-Query": filtersToSearch(filters, bank.id),
+    },
+  });
+}
+
+async function exportSpeedPost(
+  bank: { id: string; name: string; code: string },
+  filters: { from: string; to: string },
+) {
+  const range = indiaDayRange(filters.from, filters.to);
+  const rows = await prisma.speedPostConsignment.findMany({
+    where: { bankId: bank.id, ...(range ? { updatedAt: range } : {}) },
+    orderBy: { updatedAt: "desc" },
+    take: EXPORT_LIMIT,
+  });
+  const lines = [
+    ["Bank", "Customer", "Loan number", "Customer id", "Notice number", "Article", "Status", "Note", "Updated"]
+      .map(csvCell)
+      .join(","),
+  ];
+  for (const row of rows) {
+    lines.push(
+      [
+        bank.name,
+        row.customerName,
+        row.loanNumber,
+        row.customerId,
+        row.noticeNumber,
+        row.articleNumber,
+        postalStatusLabel(row.status),
+        row.note,
+        row.updatedAt.toISOString(),
+      ]
+        .map(csvCell)
+        .join(","),
+    );
+  }
+  await auditCurrentUser({
+    action: "export",
+    summary: `Downloaded a Speed Post CSV for ${bank.name}.`,
+    bankId: bank.id,
+    bankName: bank.name,
+    targetId: bank.id,
+  });
+  return new NextResponse(`\uFEFF${lines.join("\r\n")}\r\n`, {
+    headers: {
+      "Content-Type": "text/csv; charset=utf-8",
+      "Content-Disposition": `attachment; filename="speed-post-${bank.code}.csv"`,
     },
   });
 }

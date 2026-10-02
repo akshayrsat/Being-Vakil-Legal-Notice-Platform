@@ -259,6 +259,15 @@ export async function confirmCampaign(
   }
 
   const done = await finishLiveSend(campaign.id, scope.bank.id, campaign.dltTemplateId);
+  if (!done) {
+    const current = await prisma.campaign.findFirst({
+      where: { id: campaign.id, bankId: scope.bank.id },
+      select: { status: true },
+    });
+    if (current?.status === "REVIEW") {
+      return { error: "This send is already being confirmed. Wait a moment, then refresh." };
+    }
+  }
   if (done) {
     await auditCurrentUser({
       action: "campaign.confirm",
@@ -309,15 +318,21 @@ async function finishLiveSend(
   const bankName = bank?.name ?? "";
   const attachPdf = bank?.attachNoticePdf === true;
   const pending = await prisma.campaignDelivery.findMany({
-    where: { campaignId, status: "PENDING" },
+    where: { campaignId, bankId, status: "PENDING" },
     orderBy: { rowNumber: "asc" },
   });
+  if (pending.length === 0) {
+    const busy = await prisma.campaignDelivery.count({
+      where: { campaignId, bankId, status: "QUEUED" },
+    });
+    if (busy > 0) return false;
+  }
 
   let attempted = 0;
   let failed = 0;
   for (const row of pending) {
     const claim = await prisma.campaignDelivery.updateMany({
-      where: { id: row.id, campaignId, status: "PENDING" },
+      where: { id: row.id, campaignId, bankId, status: "PENDING" },
       data: { status: "QUEUED", detail: "Claimed for MSG91. A second confirm will not send this row again." },
     });
     if (claim.count !== 1) continue;
@@ -329,7 +344,7 @@ async function finishLiveSend(
     let attachments: EmailAttachment[] | undefined;
     let blocked = "";
     if (attachPdf && channel === "EMAIL") {
-      const pdf = await emailPdfAttachment(row.noticeNumber);
+        const pdf = await emailPdfAttachment(row.noticeNumber, bankId);
       if (!pdf.ok) blocked = pdf.error;
       else attachments = [pdf.attachment];
     }
@@ -384,7 +399,7 @@ async function finishLiveSend(
     }
 
     await prisma.campaignDelivery.updateMany({
-      where: { id: row.id, campaignId, status: "QUEUED" },
+      where: { id: row.id, campaignId, bankId, status: "QUEUED" },
       data: result.ok
         ? { status: "DELIVERED", detail: result.detail, providerId: result.providerId }
         : { status: "FAILED", detail: result.error },
@@ -406,11 +421,12 @@ async function finishLiveSend(
 
 async function emailPdfAttachment(
   noticeNumber: string,
+  bankId: string,
 ): Promise<{ ok: true; attachment: EmailAttachment } | { ok: false; error: string }> {
   if (!noticeNumber) {
     return { ok: false, error: "Notice PDF is on for this bank, but this row has no notice number. Nothing was sent." };
   }
-  const notice = await prisma.publicNotice.findUnique({ where: { noticeNumber } });
+  const notice = await prisma.publicNotice.findFirst({ where: { noticeNumber, bankId } });
   if (!notice) {
     return { ok: false, error: "Notice PDF is on for this bank, but the notice record is missing. Nothing was sent." };
   }
