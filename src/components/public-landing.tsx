@@ -2,14 +2,12 @@
 
 import { BrandLogo } from "@/components/brand-logo";
 import { StaffAccess } from "@/components/staff-access";
-import {
-  FIRM_ADDRESS,
-  FIRM_EMAIL,
-  FIRM_NAME,
-  FIRM_OFFICES,
-  FIRM_PHONE,
-  FIRM_WEBSITE,
-} from "@/lib/letterhead";
+import { FIRM_ADDRESS, FIRM_NAME, FIRM_OFFICES, FIRM_WEBSITE } from "@/lib/letterhead";
+
+// Public desk contacts. Letterhead notices keep the stationery phone and email.
+const PUBLIC_PHONE_DISPLAY = "+91 9653331393";
+const PUBLIC_PHONE_TEL = "+919653331393";
+const PUBLIC_EMAIL = "contact@beingvakil.in";
 
 const STEPS = [
   {
@@ -117,8 +115,8 @@ export function PublicLanding({ askForCode = false }: { askForCode?: boolean }) 
             <div>
               <dt className="text-muted-foreground">Phone</dt>
               <dd className="mt-1">
-                <a className="font-medium text-primary underline-offset-4 hover:underline" href="tel:+919326247985">
-                  {FIRM_PHONE}
+                <a className="font-medium text-primary underline-offset-4 hover:underline" href={`tel:${PUBLIC_PHONE_TEL}`}>
+                  {PUBLIC_PHONE_DISPLAY}
                 </a>
               </dd>
             </div>
@@ -127,9 +125,9 @@ export function PublicLanding({ askForCode = false }: { askForCode?: boolean }) 
               <dd className="mt-1">
                 <a
                   className="font-medium text-primary underline-offset-4 hover:underline"
-                  href={`mailto:${FIRM_EMAIL}`}
+                  href={`mailto:${PUBLIC_EMAIL}`}
                 >
-                  {FIRM_EMAIL}
+                  {PUBLIC_EMAIL}
                 </a>
               </dd>
               <dd className="mt-1">
