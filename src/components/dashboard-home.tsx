@@ -25,7 +25,7 @@ import {
 } from "@/lib/roles";
 
 const accentClass = {
-  admin: "border-[#1b3048] bg-[#1b3048] text-[#f4efe6]",
+  admin: "border-primary bg-primary text-primary-foreground",
   viewer: "border-[#1a4a42] bg-[#1a4a42] text-[#f3f7f4]",
   unknown: "border-[#8a6232] bg-[#8a6232] text-[#fbf6ee]",
 } as const;
@@ -50,7 +50,7 @@ export function DashboardHome({ user }: { user: SignedInUser }) {
         </div>
 
         <Card
-          className={`border-l-4 ${accent === "admin" ? "border-l-[#1b3048]" : accent === "viewer" ? "border-l-[#1a4a42]" : "border-l-[#8a6232]"}`}
+          className={`border-l-4 ${accent === "admin" ? "border-l-primary" : accent === "viewer" ? "border-l-[#1a4a42]" : "border-l-[#8a6232]"}`}
         >
           <CardHeader>
             <CardTitle>{isAdmin ? "Bank you are working on" : "Your bank"}</CardTitle>
@@ -141,7 +141,7 @@ export function DashboardHome({ user }: { user: SignedInUser }) {
           </CardContent>
         </Card>
 
-        <Card className={`border-l-4 ${accent === "admin" ? "border-l-[#1b3048]" : accent === "viewer" ? "border-l-[#1a4a42]" : "border-l-[#8a6232]"}`}>
+        <Card className={`border-l-4 ${accent === "admin" ? "border-l-primary" : accent === "viewer" ? "border-l-[#1a4a42]" : "border-l-[#8a6232]"}`}>
           <CardHeader>
             <CardTitle>Your role</CardTitle>
             <CardDescription>

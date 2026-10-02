@@ -1,14 +1,15 @@
-// The front door. A notice number in the query shows that recipient's public notice.
-// Otherwise a signed-in person goes to the dashboard, and everyone else goes to sign-in.
+// The public front door. A notice number in the query shows that recipient's letter.
+// Signed-in staff go to the dashboard. Everyone else sees the customer page, not sign-in.
 
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
+import { PublicLanding } from "@/components/public-landing";
 import { PublicNoticeScreen } from "@/components/public-notice-screen";
 import { getCurrentUser } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
-type HomeQuery = { notice?: string | string[] };
+type HomeQuery = { notice?: string | string[]; staff?: string | string[] };
 
 export async function generateMetadata({
   searchParams,
@@ -17,7 +18,11 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const query = await searchParams;
   if ("notice" in query) return { title: "Legal notice" };
-  return {};
+  return {
+    title: { absolute: "Being Vakil Associates" },
+    description:
+      "If you received a legal notice from Being Vakil Associates, contact your bank and act within the time stated in the notice.",
+  };
 }
 
 export default async function HomePage({ searchParams }: { searchParams: Promise<HomeQuery> }) {
@@ -26,7 +31,8 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
     return <PublicNoticeScreen noticeNumber={firstQuery(query.notice)} />;
   }
   const user = await getCurrentUser();
-  redirect(user ? "/dashboard" : "/login");
+  if (user) redirect("/dashboard");
+  return <PublicLanding askForCode={"staff" in query} />;
 }
 
 function firstQuery(value: string | string[] | undefined): string {

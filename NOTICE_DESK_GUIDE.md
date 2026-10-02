@@ -60,6 +60,8 @@ The first start creates a small database on your computer, two practice users, t
 
 [http://localhost:4317](http://localhost:4317)
 
+That page is for someone who received a notice. It tells them to contact their bank. It does not show the staff sign-in form. In `.env`, set `NOTICE_DESK_ENTRY_CODE` to a private code of at least 8 characters (the example file shows a placeholder). Restart the site after you change it. At the bottom of the public page, open **Staff access**, enter that code, and press **Continue**. Sign-in then opens for about two hours. A wrong code does not open it. Going straight to [http://localhost:4317/login](http://localhost:4317/login) sends you back to the public page until the code has been accepted.
+
 Leave the terminal window open while you use the site. Closing it, or pressing Ctrl+C in that window, stops the site.
 
 The site uses port **4317** (not the usual 3000) so it is less likely to clash with another program.
@@ -85,7 +87,7 @@ On the sign-in page, either press **Fill in this login** under Admin, or type:
 
 Then press **Sign in**.
 
-You should see the name **Meera Iyer** and the role **Admin · Firm staff**. The bar at the top of the page is navy. Until you choose a bank, the page says **No bank selected**.
+You should see the name **Meera Iyer** and the role **Admin · Firm staff**. The bar at the top of the page is purple, the same purple as the Being Vakil mark. Until you choose a bank, the page says **No bank selected**.
 
 On this computer the sign-in page also says a one-time code is not used. That is the normal practice mode. The password above is enough.
 

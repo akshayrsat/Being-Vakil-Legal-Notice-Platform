@@ -50,15 +50,15 @@
 }
 
 :root {
-  /* Warm paper and navy ink, so the screens read as a law-firm desk rather than a generic app. */
+  /* Warm paper, with the Being Vakil social-logo purple for buttons, links, and accents. */
   --background: oklch(0.965 0.012 85);
   --foreground: oklch(0.28 0.03 255);
   --card: oklch(0.995 0.004 85);
   --card-foreground: oklch(0.28 0.03 255);
   --popover: oklch(0.995 0.004 85);
   --popover-foreground: oklch(0.28 0.03 255);
-  --primary: oklch(0.32 0.05 255);
-  --primary-foreground: oklch(0.97 0.01 85);
+  --primary: #8d4d8c;
+  --primary-foreground: #fff;
   --secondary: oklch(0.94 0.012 85);
   --secondary-foreground: oklch(0.28 0.03 255);
   --muted: oklch(0.94 0.012 85);
@@ -68,7 +68,7 @@
   --destructive: oklch(0.5 0.16 25);
   --border: oklch(0.88 0.015 80);
   --input: oklch(0.86 0.015 80);
-  --ring: oklch(0.32 0.05 255);
+  --ring: #8d4d8c;
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
@@ -128,6 +128,209 @@
   }
   html {
     @apply font-sans;
+  }
+}
+
+/* Public page timeline and sign-in panel. Transform and opacity only. */
+.bv-track {
+  position: relative;
+  display: grid;
+  gap: 1.5rem;
+}
+
+.bv-track::before {
+  content: "";
+  position: absolute;
+  left: 1.05rem;
+  top: 0.35rem;
+  bottom: 0.35rem;
+  width: 2px;
+  background: color-mix(in srgb, var(--primary) 35%, white);
+  transform-origin: top;
+  animation: bv-draw-y 1.6s ease forwards;
+}
+
+.bv-step {
+  position: relative;
+  padding-left: 3.4rem;
+  animation: bv-rise 0.7s ease both;
+}
+
+.bv-step:nth-child(2) {
+  animation-delay: 0.12s;
+}
+
+.bv-step:nth-child(3) {
+  animation-delay: 0.24s;
+}
+
+.bv-step:nth-child(4) {
+  animation-delay: 0.36s;
+}
+
+.bv-node {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: grid;
+  width: 2.25rem;
+  height: 2.25rem;
+  place-items: center;
+  border: 2px solid var(--primary);
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--primary);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.bv-panel {
+  background:
+    radial-gradient(900px 420px at 100% 0%, color-mix(in srgb, #a868a8 55%, transparent), transparent 60%),
+    linear-gradient(165deg, #7a4578 0%, #5c305b 58%, #3f2342 100%);
+}
+
+.bv-orb {
+  position: absolute;
+  top: 2.5rem;
+  right: -2rem;
+  width: 16rem;
+  height: 16rem;
+  pointer-events: none;
+  animation: bv-float 9s ease-in-out infinite;
+}
+
+.bv-orb span {
+  position: absolute;
+  inset: 0;
+  border: 2px solid transparent;
+  border-top-color: rgb(255 255 255 / 80%);
+  border-right-color: rgb(255 255 255 / 28%);
+  border-radius: 999px;
+  animation: bv-spin 16s linear infinite;
+}
+
+.bv-orb span:nth-child(2) {
+  inset: 1.35rem;
+  animation-duration: 11s;
+  animation-direction: reverse;
+}
+
+.bv-orb span:nth-child(3) {
+  inset: 2.7rem;
+  animation-duration: 20s;
+}
+
+.bv-feature {
+  background-color: rgb(255 255 255 / 6%);
+  animation: bv-glow 10s ease-in-out infinite;
+}
+
+.bv-feature:nth-child(2) {
+  animation-delay: -7.5s;
+}
+
+.bv-feature:nth-child(3) {
+  animation-delay: -5s;
+}
+
+.bv-feature:nth-child(4) {
+  animation-delay: -2.5s;
+}
+
+@keyframes bv-draw-y {
+  from {
+    transform: scaleY(0);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+
+@keyframes bv-draw-x {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+@keyframes bv-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes bv-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes bv-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes bv-glow {
+  0%,
+  18%,
+  100% {
+    background-color: rgb(255 255 255 / 6%);
+  }
+  8% {
+    background-color: rgb(255 255 255 / 16%);
+  }
+}
+
+@media (min-width: 768px) {
+  .bv-track {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 1rem;
+  }
+
+  .bv-track::before {
+    top: 1.05rem;
+    right: 8%;
+    bottom: auto;
+    left: 8%;
+    width: auto;
+    height: 2px;
+    transform: scaleX(0);
+    transform-origin: left center;
+    animation-name: bv-draw-x;
+  }
+
+  .bv-step {
+    padding-top: 3.4rem;
+    padding-left: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bv-track::before,
+  .bv-step,
+  .bv-orb,
+  .bv-orb span,
+  .bv-feature {
+    animation: none;
+  }
+
+  .bv-track::before,
+  .bv-step {
+    transform: none;
+    opacity: 1;
   }
 }
 

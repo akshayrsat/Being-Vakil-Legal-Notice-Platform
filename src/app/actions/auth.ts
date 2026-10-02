@@ -17,6 +17,7 @@ import {
 import { prisma } from "@/lib/db";
 import { isOtpEnabled, sendLoginOtp, verifyLoginOtp } from "@/lib/msg91";
 import { isAppRole, ROLE_ADMIN } from "@/lib/roles";
+import { staffGateIsOpen } from "@/lib/staff-gate-session";
 
 export type SignInState = { error: string } | null;
 
@@ -26,6 +27,8 @@ export async function signIn(
   _previous: SignInState,
   formData: FormData,
 ): Promise<SignInState> {
+  if (!(await staffGateIsOpen())) redirect("/?staff=1");
+
   const email = String(formData.get("email") ?? "")
     .trim()
     .toLowerCase();
@@ -91,6 +94,8 @@ export async function verifyOtp(
   _previous: SignInState,
   formData: FormData,
 ): Promise<SignInState> {
+  if (!(await staffGateIsOpen())) redirect("/?staff=1");
+
   const code = String(formData.get("otp") ?? "").replace(/\D/g, "");
   if (code.length < 4 || code.length > 8) {
     return { error: "Enter the one-time code from the text message." };
@@ -122,6 +127,7 @@ export async function verifyOtp(
 }
 
 export async function resendOtp(): Promise<void> {
+  if (!(await staffGateIsOpen())) redirect("/?staff=1");
   const challenge = await currentChallenge();
   if (!challenge) redirect("/login");
   const sent = await sendLoginOtp();
