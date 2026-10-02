@@ -101,12 +101,14 @@ test("practice Northwind templates are no longer treated as Approved", () => {
 });
 
 test("every bank can select the three MSG91 templates, and a draft stays local", () => {
-  const rows = DEMO_TEMPLATES.map((template) => ({
-    id: template.seedKey,
-    bankId: "nwh",
-    name: template.name,
-    status: template.status,
-  }));
+  const rows: Array<{ id: string; bankId: string; name: string; status: string }> = DEMO_TEMPLATES.map(
+    (template) => ({
+      id: template.seedKey,
+      bankId: "nwh",
+      name: template.name,
+      status: template.status,
+    }),
+  );
   rows.push({
     id: "mcb-draft",
     bankId: "mcb",
