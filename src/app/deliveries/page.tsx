@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AppHeader } from "@/components/app-header";
+import { EmptyState } from "@/components/empty-state";
 import { DeliveryFiltersForm } from "@/components/delivery-filters";
 import { MessageOpened, NoticeLinkOpened } from "@/components/notice-link-opened";
 import { NoticeOpenLink } from "@/components/notice-open-link";
@@ -18,6 +19,7 @@ import {
   personHistoryHref,
   readDeliveryFilters,
 } from "@/lib/delivery-report";
+import { loanSearchHref } from "@/lib/loan-timeline";
 import { noticeLinkOpensByNumber } from "@/lib/public-notice";
 import { resolveReportBank } from "@/lib/report-bank";
 import { ROLE_ADMIN } from "@/lib/roles";
@@ -51,7 +53,7 @@ export default async function DeliveriesPage({
   return (
     <div className="flex min-h-full flex-col">
       <AppHeader user={user} />
-      <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 px-4 py-8 sm:px-6">
+      <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 px-4 py-8 sm:px-6">
         <div>
           <h1 className="font-serif text-4xl tracking-tight">Find a person</h1>
           <p className="mt-3 text-base leading-7 text-muted-foreground">
@@ -132,9 +134,9 @@ async function Results({
         </Link>
       </div>
       {rows.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
-          No rows matched. Try a loan number from a dry run, such as LN10021.
-        </p>
+        <EmptyState title="No rows matched">
+          Try a loan number from a dry run, such as LN10021, or clear the filters.
+        </EmptyState>
       ) : (
         <div className="overflow-x-auto rounded-lg ring-1 ring-foreground/10">
           <table className="w-full min-w-[40rem] border-collapse text-left text-sm">
@@ -150,6 +152,7 @@ async function Results({
             <tbody>
               {rows.map((row) => {
                 const history = personHistoryHref(row, bankId);
+                const loanHref = loanSearchHref(bankId, row.loanNumber, row.customerId);
                 return (
                   <tr key={row.id} className="border-t border-border">
                     <td className="px-3 py-2">
@@ -173,9 +176,14 @@ async function Results({
                         {row.campaign.templateName}
                       </Link>
                       <p className="text-muted-foreground">{formatWhen(row.campaign.createdAt)}</p>
+                      {loanHref ? (
+                        <Link href={loanHref} className="underline">
+                          Loan timeline
+                        </Link>
+                      ) : null}
                       {history ? (
-                        <Link href={history} className="text-muted-foreground underline">
-                          History
+                        <Link href={history} className="block text-muted-foreground underline">
+                          Channel history
                         </Link>
                       ) : null}
                     </td>

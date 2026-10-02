@@ -69,6 +69,16 @@ Shared callback URL:
 
 (or header `x-notice-desk-secret`). `MSG91_WEBHOOK_SECRET` is already set on Cloud Run. Notice Desk stores the first open on `CampaignDelivery.openedAt` and marks status **Read**. Dry runs are never updated.
 
+## Optional notice PDF
+
+Default off. On Banks, **Attach notice PDF to email** turns it on for that bank only.
+
+A live email then adds an MSG91 attachment:
+
+`attachments: [{ fileName: "notice-<id>.pdf", file: "data:application/pdf;base64,..." }]`
+
+`notice_link` and `notice_id` are still the clickable notice URL. If the PDF cannot be built, that email is marked failed and is not sent. Turn the bank setting off to send without a file.
+
 ## One-person test resend
 
 Keep `MSG91_LIVE_SEND=false` except for a brief verify. Prefer a single email to `akshayrsat@gmail.com` only. Do not expand recipients.

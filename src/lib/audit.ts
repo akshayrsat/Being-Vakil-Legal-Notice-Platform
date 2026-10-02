@@ -20,6 +20,10 @@ export const AUDIT_ACTIONS = [
   { id: "campaign.follow-up", label: "Prepared a follow-up" },
   { id: "export", label: "Downloaded a CSV" },
   { id: "status.webhook", label: "MSG91 status update" },
+  { id: "speedpost.mark", label: "Marked Speed Post" },
+  { id: "speedpost.update", label: "Updated Speed Post" },
+  { id: "speedpost.import", label: "Imported Speed Post" },
+  { id: "bank.pdf", label: "Changed notice PDF emails" },
 ] as const;
 
 export type AuditActionId = (typeof AUDIT_ACTIONS)[number]["id"];

@@ -5,8 +5,11 @@
 
 import { randomBytes } from "node:crypto";
 import bcrypt from "bcryptjs";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { ENTRY_COOKIE, entryCookieMatches, entryGateEnabled } from "@/lib/entry-gate";
+import { logDesk } from "@/lib/desk-log";
+import { tooManyAttempts } from "@/lib/rate-limit";
 import {
   OTP_COOKIE,
   OTP_MAX_AGE_SECONDS,
@@ -31,6 +34,19 @@ export async function signIn(
     .toLowerCase();
   const password = String(formData.get("password") ?? "");
 
+  if (entryGateEnabled()) {
+    const cookieStore = await cookies();
+    if (!entryCookieMatches(cookieStore.get(ENTRY_COOKIE)?.value)) {
+      return { error: "Enter the office code before signing in." };
+    }
+  }
+
+  const headerList = await headers();
+  const ip = (headerList.get("x-forwarded-for") ?? "local").split(",")[0]?.trim() || "local";
+  if (tooManyAttempts(`signin:${ip}`, 20, 15 * 60 * 1000)) {
+    return { error: "Too many sign-in tries. Wait a few minutes and try again." };
+  }
+
   if (!email || !password) {
     return { error: "Enter both the email and the password." };
   }
@@ -46,6 +62,7 @@ export async function signIn(
   );
 
   if (!user || !passwordMatches) {
+    logDesk("signin.rejected");
     return { error: "That email or password is not correct." };
   }
 

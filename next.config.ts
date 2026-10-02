@@ -11,7 +11,7 @@ const nextConfig: NextConfig = {
     ];
   },
   // Keep the database and spreadsheet libraries out of the browser bundle.
-  serverExternalPackages: ["@prisma/client", "bcryptjs", "exceljs"],
+  serverExternalPackages: ["@prisma/client", "bcryptjs", "exceljs", "pdfkit"],
   experimental: {
     serverActions: {
       bodySizeLimit: "5mb",

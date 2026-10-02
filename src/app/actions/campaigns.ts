@@ -4,14 +4,18 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import { auditCurrentUser } from "@/lib/audit";
 import { getSessionContext } from "@/lib/auth";
 import { workingBank } from "@/lib/bank-context";
 import { isSendChannel, type SendChannel } from "@/lib/campaign-plan";
+import { logDesk } from "@/lib/desk-log";
 import { prisma } from "@/lib/db";
-import { deliverNotice, dryRunReason, isLiveSendEnabled } from "@/lib/msg91";
+import { deliverNotice, dryRunReason, isLiveSendEnabled, type EmailAttachment } from "@/lib/msg91";
 import { emailNoticeVars, whatsappNoticeVars, smsNoticeVars } from "@/lib/notice-link";
+import { noticePdfDataUri, noticePdfFileName, renderNoticePdf } from "@/lib/notice-pdf";
 import { writePreparedDeliveries } from "@/lib/prepare-send";
+import { tooManyAttempts } from "@/lib/rate-limit";
 import { ROLE_ADMIN } from "@/lib/roles";
 import { TEMPLATE_APPROVED } from "@/lib/templates";
 
@@ -227,6 +231,12 @@ export async function confirmCampaign(
     return { error: "This send was already confirmed." };
   }
 
+  const headerList = await headers();
+  const ip = (headerList.get("x-forwarded-for") ?? "local").split(",")[0]?.trim() || "local";
+  if (tooManyAttempts(`confirm:${scope.userId}:${ip}`, 12, 60 * 1000)) {
+    return { error: "Too many confirmations. Wait a minute and try again." };
+  }
+
   if (campaign.mode === "DRY_RUN") {
     const done = await finishDryRun(campaign.id, scope.bank.id);
     if (done) {
@@ -239,6 +249,13 @@ export async function confirmCampaign(
       });
     }
     redirect(`/campaigns/${campaign.id}?done=1`);
+  }
+
+  if (!isLiveSendEnabled()) {
+    return {
+      error:
+        "Live send is off. MSG91_LIVE_SEND must be the exact value true, and an MSG91 key must be set, before a message goes out.",
+    };
   }
 
   const done = await finishLiveSend(campaign.id, scope.bank.id, campaign.dltTemplateId);
@@ -281,67 +298,146 @@ async function finishLiveSend(
   bankId: string,
   dltTemplateId: string,
 ): Promise<boolean> {
-  const campaign = await prisma.campaign.findFirst({
-    where: { id: campaignId, bankId },
-    select: { bank: { select: { name: true } } },
+  // Each pending row is claimed (PENDING -> QUEUED) before MSG91 is called.
+  // A second confirm sees no PENDING row, so the same person is not sent twice.
+  if (!isLiveSendEnabled()) return false;
+
+  const bank = await prisma.bank.findFirst({
+    where: { id: bankId },
+    select: { name: true, attachNoticePdf: true },
   });
-  const bankName = campaign?.bank.name ?? "";
+  const bankName = bank?.name ?? "";
+  const attachPdf = bank?.attachNoticePdf === true;
   const pending = await prisma.campaignDelivery.findMany({
     where: { campaignId, status: "PENDING" },
     orderBy: { rowNumber: "asc" },
   });
 
+  let attempted = 0;
+  let failed = 0;
   for (const row of pending) {
+    const claim = await prisma.campaignDelivery.updateMany({
+      where: { id: row.id, campaignId, status: "PENDING" },
+      data: { status: "QUEUED", detail: "Claimed for MSG91. A second confirm will not send this row again." },
+    });
+    if (claim.count !== 1) continue;
+    attempted += 1;
+    logDesk("send.claim", { campaignId, deliveryId: row.id, channel: row.channel });
+
     const channel = row.channel as SendChannel;
     const to = channel === "EMAIL" ? row.email : row.mobile;
-    const result = await deliverNotice({
-      channel,
-      to,
-      body: row.messageText,
-      dltTemplateId,
-      sms:
-        channel === "SMS" && row.noticeNumber
-          ? smsNoticeVars({
-              customerName: row.customerName,
-              bankName,
-              noticeNumber: row.noticeNumber,
-            })
-          : undefined,
-      email:
-        channel === "EMAIL" && row.noticeNumber
-          ? emailNoticeVars({
-              customerName: row.customerName,
-              loanAccount: row.loanNumber,
-              noticeNumber: row.noticeNumber,
-            })
-          : undefined,
-      whatsapp:
-        channel === "WHATSAPP" && row.noticeNumber
-          ? whatsappNoticeVars({
-              customerName: row.customerName,
-              bankName,
-              noticeNumber: row.noticeNumber,
-            })
-          : undefined,
-    });
+    let attachments: EmailAttachment[] | undefined;
+    let blocked = "";
+    if (attachPdf && channel === "EMAIL") {
+      const pdf = await emailPdfAttachment(row.noticeNumber);
+      if (!pdf.ok) blocked = pdf.error;
+      else attachments = [pdf.attachment];
+    }
+
+    let result: { ok: true; providerId: string; detail: string } | { ok: false; error: string };
+    if (blocked) {
+      result = { ok: false, error: blocked };
+    } else {
+      try {
+        const sent = await deliverNotice({
+          channel,
+          to,
+          body: row.messageText,
+          dltTemplateId,
+          attachments,
+          sms:
+            channel === "SMS" && row.noticeNumber
+              ? smsNoticeVars({
+                  customerName: row.customerName,
+                  bankName,
+                  noticeNumber: row.noticeNumber,
+                })
+              : undefined,
+          email:
+            channel === "EMAIL" && row.noticeNumber
+              ? emailNoticeVars({
+                  customerName: row.customerName,
+                  loanAccount: row.loanNumber,
+                  noticeNumber: row.noticeNumber,
+                })
+              : undefined,
+          whatsapp:
+            channel === "WHATSAPP" && row.noticeNumber
+              ? whatsappNoticeVars({
+                  customerName: row.customerName,
+                  bankName,
+                  noticeNumber: row.noticeNumber,
+                })
+              : undefined,
+        });
+        result = sent.ok
+          ? {
+              ok: true,
+              providerId: sent.providerId,
+              detail: attachments ? "Handed to MSG91 with a notice PDF. The notice link is unchanged." : "Handed to MSG91.",
+            }
+          : sent;
+      } catch (error) {
+        console.error(error instanceof Error ? error.message : "send failed");
+        result = { ok: false, error: "The send stopped before MSG91 accepted it." };
+      }
+    }
+
     await prisma.campaignDelivery.updateMany({
-      where: { id: row.id, campaignId, status: "PENDING" },
+      where: { id: row.id, campaignId, status: "QUEUED" },
       data: result.ok
-        ? { status: "DELIVERED", detail: "Handed to MSG91.", providerId: result.providerId }
+        ? { status: "DELIVERED", detail: result.detail, providerId: result.providerId }
         : { status: "FAILED", detail: result.error },
     });
+    if (!result.ok) failed += 1;
+    logDesk("send.result", { campaignId, deliveryId: row.id, channel: row.channel, ok: result.ok });
   }
 
-  const failed = await prisma.campaignDelivery.count({
-    where: { campaignId, status: "FAILED" },
-  });
   const updated = await prisma.campaign.updateMany({
     where: { id: campaignId, bankId, status: "REVIEW" },
     data: {
-      status: failed > 0 && failed === pending.length ? "FAILED" : "COMPLETED",
+      status: attempted > 0 && failed === attempted ? "FAILED" : "COMPLETED",
       mode: "LIVE",
       confirmedAt: new Date(),
     },
   });
   return updated.count === 1;
+}
+
+async function emailPdfAttachment(
+  noticeNumber: string,
+): Promise<{ ok: true; attachment: EmailAttachment } | { ok: false; error: string }> {
+  if (!noticeNumber) {
+    return { ok: false, error: "Notice PDF is on for this bank, but this row has no notice number. Nothing was sent." };
+  }
+  const notice = await prisma.publicNotice.findUnique({ where: { noticeNumber } });
+  if (!notice) {
+    return { ok: false, error: "Notice PDF is on for this bank, but the notice record is missing. Nothing was sent." };
+  }
+  try {
+    const pdf = await renderNoticePdf({
+      customerName: notice.customerName,
+      address: notice.address,
+      outstandingAmount: notice.outstandingAmount,
+      loanNumber: notice.loanNumber,
+      bankName: notice.bankName,
+      loanType: notice.loanType,
+      referenceNumber: notice.referenceNumber,
+      collectionManager: notice.collectionManager,
+      collectionManagerMobile: notice.collectionManagerMobile,
+      bankWebsite: notice.bankWebsite,
+      noticeNumber: notice.noticeNumber,
+      dated: notice.createdAt,
+    });
+    return {
+      ok: true,
+      attachment: {
+        fileName: noticePdfFileName(notice.noticeNumber),
+        file: noticePdfDataUri(pdf),
+      },
+    };
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : "pdf failed");
+    return { ok: false, error: "The notice PDF could not be prepared. Nothing was sent." };
+  }
 }

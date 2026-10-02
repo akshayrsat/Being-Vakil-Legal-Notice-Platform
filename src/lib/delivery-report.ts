@@ -85,6 +85,8 @@ export type ReportRow = {
   openedAt: Date | null;
   linkOpenedAt: Date | null;
   linkViewCount: number;
+  speedPostArticle: string;
+  speedPostStatus: string;
 };
 
 export function reportCsv(rows: ReportRow[]): string {
@@ -106,6 +108,8 @@ export function reportCsv(rows: ReportRow[]): string {
     "Opened at",
     "Notice link opened at",
     "Notice link views",
+    "Speed Post article",
+    "Speed Post status",
   ];
   const lines = [header.map(csvCell).join(",")];
   for (const row of rows) {
@@ -128,6 +132,8 @@ export function reportCsv(rows: ReportRow[]): string {
         row.openedAt ? formatReportDate(row.openedAt) : "",
         row.linkOpenedAt ? formatReportDate(row.linkOpenedAt) : "",
         row.linkViewCount > 0 ? String(row.linkViewCount) : "",
+        row.speedPostArticle,
+        row.speedPostStatus,
       ]
         .map(csvCell)
         .join(","),

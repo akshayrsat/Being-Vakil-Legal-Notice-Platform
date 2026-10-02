@@ -107,3 +107,28 @@ export async function setBankActive(formData: FormData): Promise<void> {
 
   redirect("/banks");
 }
+
+export async function setAttachNoticePdf(formData: FormData): Promise<void> {
+  await requireAdmin();
+  const bankId = String(formData.get("bankId") ?? "");
+  const attach = String(formData.get("attachNoticePdf") ?? "") === "true";
+  const bank = await prisma.bank.findUnique({ where: { id: bankId } });
+  if (!bank) redirect("/banks");
+
+  await prisma.bank.update({
+    where: { id: bank.id },
+    data: { attachNoticePdf: attach },
+  });
+
+  await auditCurrentUser({
+    action: "bank.pdf",
+    summary: attach
+      ? `Turned on notice PDF attachments for ${bank.name}. The email link is unchanged.`
+      : `Turned off notice PDF attachments for ${bank.name}.`,
+    bankId: bank.id,
+    bankName: bank.name,
+    targetId: bank.id,
+  });
+
+  redirect("/banks");
+}

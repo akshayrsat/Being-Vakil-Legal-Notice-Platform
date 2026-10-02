@@ -27,7 +27,7 @@ These practice passwords are for your own computer. Do not put this site on the 
 
 Leave the `MSG91_*` lines in `.env` unset. No live SMS, email, or WhatsApp goes out until `MSG91_AUTH_KEY` is set and `MSG91_LIVE_SEND=true`. A key on its own does not send.
 
-A longer walkthrough of the screens is in `NOTICE_DESK_GUIDE.md`.
+A longer walkthrough of the screens is in `NOTICE_DESK_GUIDE.md`. Speed Post, loan history, reports, and optional notice PDFs are in `SPEED_POST.md`.
 
 ## Public notice links
 

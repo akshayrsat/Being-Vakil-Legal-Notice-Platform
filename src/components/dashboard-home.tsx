@@ -11,6 +11,9 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { DEMO_NOTICES } from "@/lib/demo-notices";
+import { describeRuntimeGates } from "@/lib/env";
+import { msg91AuthKey } from "@/lib/msg91";
+import { isWebhookConfigured } from "@/lib/msg91-webhook";
 import type { SignedInUser } from "@/lib/auth";
 import { noticePageHref } from "@/lib/notice-link";
 import { workingBank } from "@/lib/bank-context";
@@ -35,12 +38,18 @@ export function DashboardHome({ user }: { user: SignedInUser }) {
   const title = roleTitle(user.role);
   const isAdmin = user.role === ROLE_ADMIN;
   const bank = workingBank(user);
+  const gates = isAdmin
+    ? describeRuntimeGates({
+        authKeySet: Boolean(msg91AuthKey()),
+        webhookConfigured: isWebhookConfigured(),
+      })
+    : null;
 
   return (
     <div className="flex min-h-full flex-col">
       <AppHeader user={user} />
 
-      <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 px-4 py-8 sm:px-6">
+      <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 px-4 py-8 sm:px-6">
         <div>
           <p className="text-sm text-muted-foreground">Signed in as</p>
           <h1 className="mt-1 font-serif text-4xl tracking-tight text-foreground">
@@ -137,6 +146,30 @@ export function DashboardHome({ user }: { user: SignedInUser }) {
                   Find a person
                 </Link>
               ) : null}
+              {bank ? (
+                <Link
+                  href={`/speed-post?bank=${bank.id}`}
+                  className={buttonVariants({ variant: "outline", className: "h-11 w-fit px-4" })}
+                >
+                  Speed Post
+                </Link>
+              ) : null}
+              {bank ? (
+                <Link
+                  href={`/loans?bank=${bank.id}`}
+                  className={buttonVariants({ variant: "outline", className: "h-11 w-fit px-4" })}
+                >
+                  Loan history
+                </Link>
+              ) : null}
+              {bank ? (
+                <Link
+                  href={`/reports?bank=${bank.id}`}
+                  className={buttonVariants({ variant: "outline", className: "h-11 w-fit px-4" })}
+                >
+                  Reports
+                </Link>
+              ) : null}
             </div>
           </CardContent>
         </Card>
@@ -226,10 +259,48 @@ export function DashboardHome({ user }: { user: SignedInUser }) {
           </CardContent>
         </Card>
 
+        {gates ? (
+          <Card>
+            <CardHeader>
+              <CardTitle>Send gates</CardTitle>
+              <CardDescription>
+                These switches live in the server environment. Their values are not shown here.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-2 text-sm leading-6">
+              <p>
+                {gates.liveSend
+                  ? "Live MSG91 send is on. Confirming a live campaign will hand messages to MSG91."
+                  : gates.liveFlag === "other"
+                    ? "Live MSG91 send is off. MSG91_LIVE_SEND must be the exact value true."
+                    : "Live MSG91 send is off. A key on its own does not send."}
+              </p>
+              <p>
+                {gates.webhookConfigured
+                  ? "Delivery webhooks are accepted when the secret matches."
+                  : "Delivery webhooks are refused until MSG91_WEBHOOK_SECRET is set to at least 8 characters."}
+              </p>
+              <p>
+                {gates.indiaPostConfigured
+                  ? "India Post tracking API is configured."
+                  : "India Post tracking API is not configured. Speed Post uses manual status and CSV import."}
+              </p>
+              <p>
+                {gates.entryGate
+                  ? "Staff pages ask for the office entry code."
+                  : "No office entry code is set, so staff sign-in opens directly."}
+              </p>
+              {gates.entryCodeShort ? (
+                <p>The entry code is shorter than 8 characters. Use a longer one before relying on it.</p>
+              ) : null}
+            </CardContent>
+          </Card>
+        ) : null}
+
         <Card>
           <CardHeader>
             <CardTitle>This version</CardTitle>
-            <CardDescription>Sign-in, banks, uploads, templates, a dry-run send, public notice pages, status search, and an audit log are working.</CardDescription>
+            <CardDescription>Sign-in, banks, uploads, templates, sends, public notice pages, Speed Post, loan history, reports, and an audit log are working.</CardDescription>
           </CardHeader>
           <CardContent>
             <p className="leading-7 text-foreground">

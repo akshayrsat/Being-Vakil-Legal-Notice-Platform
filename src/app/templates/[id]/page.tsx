@@ -50,7 +50,7 @@ export default async function TemplatePage({
     return (
       <div className="flex min-h-full flex-col">
         <AppHeader user={user} />
-        <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-4 px-4 py-8 sm:px-6">
+        <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-4 px-4 py-8 sm:px-6">
           <h1 className="font-serif text-3xl">Template not found</h1>
           <p className="leading-7 text-muted-foreground">
             That template is not under the bank you are working on.
@@ -71,7 +71,7 @@ export default async function TemplatePage({
   return (
     <div className="flex min-h-full flex-col">
       <AppHeader user={user} />
-      <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 px-4 py-8 sm:px-6">
+      <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 px-4 py-8 sm:px-6">
         <div>
           <p className="text-sm text-muted-foreground">{bank.name}</p>
           <h1 className="mt-1 font-serif text-4xl tracking-tight">{template.name}</h1>

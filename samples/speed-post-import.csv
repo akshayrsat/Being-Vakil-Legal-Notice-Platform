@@ -1,0 +1,3 @@
+article_number,notice_number,loan_number,customer_name,status,note,occurred_at
+EK123456789IN,DEMO-LN10021,LN10021,Akshay Sathe,BOOKED,Booked at Mumbai,2026-10-01
+EK123456790IN,DEMO-LN10022,LN10022,Akshay R Sathe,IN_TRANSIT,Left the booking office,2026-10-02

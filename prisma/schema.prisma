@@ -39,6 +39,10 @@ model Bank {
   templates  NoticeTemplate[]
   campaigns  Campaign[]
   notices    PublicNotice[]
+  consignments SpeedPostConsignment[]
+  // When true, a live email also attaches a PDF of that notice. Default off.
+  // The clickable notice link in the email is unchanged.
+  attachNoticePdf Boolean    @default(false)
   createdAt  DateTime       @default(now())
 }
 
@@ -209,6 +213,7 @@ model Campaign {
   followsCampaign   Campaign?  @relation("FollowUp", fields: [followsCampaignId], references: [id], onDelete: SetNull)
   followUps         Campaign[] @relation("FollowUp")
   notices           PublicNotice[]
+  consignments      SpeedPostConsignment[]
 
   @@index([bankId])
   @@index([followsCampaignId])
@@ -276,10 +281,61 @@ model PublicNotice {
   linkLastViewedAt  DateTime?
   linkViewCount     Int       @default(0)
   createdAt         DateTime  @default(now())
+  consignments      SpeedPostConsignment[]
 
   @@index([bankId])
   @@index([campaignId])
   @@index([recipientRowId])
+  @@index([loanNumber])
+  @@index([customerId])
+}
+
+// One physical Speed Post booking for a person on a bank.
+// Status history lives in SpeedPostEvent. articleNumber stays empty until staff enter it.
+// Status is a string so SQLite and Cloud SQL Postgres share one migration shape.
+model SpeedPostConsignment {
+  id             String         @id @default(cuid())
+  bankId         String
+  bank           Bank           @relation(fields: [bankId], references: [id], onDelete: Cascade)
+  publicNoticeId String?
+  publicNotice   PublicNotice?  @relation(fields: [publicNoticeId], references: [id], onDelete: SetNull)
+  campaignId     String?
+  campaign       Campaign?      @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  recipientRowId String         @default("")
+  customerName   String         @default("")
+  loanNumber     String         @default("")
+  customerId     String         @default("")
+  noticeNumber   String         @default("")
+  articleNumber  String         @default("")
+  status         String         @default("BOOKED")
+  note           String         @default("")
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  events         SpeedPostEvent[]
+
+  @@index([bankId])
+  @@index([articleNumber])
+  @@index([loanNumber])
+  @@index([customerId])
+  @@index([noticeNumber])
+  @@index([campaignId])
+  @@index([publicNoticeId])
+  @@index([recipientRowId])
+  @@index([status])
+}
+
+model SpeedPostEvent {
+  id            String               @id @default(cuid())
+  consignmentId String
+  consignment   SpeedPostConsignment @relation(fields: [consignmentId], references: [id], onDelete: Cascade)
+  status        String
+  note          String               @default("")
+  occurredAt    DateTime             @default(now())
+  source        String               @default("manual")
+  createdAt     DateTime             @default(now())
+
+  @@index([consignmentId])
+  @@index([occurredAt])
 }
 
 // Who did what. Firm staff can read this. A Bank Viewer cannot.

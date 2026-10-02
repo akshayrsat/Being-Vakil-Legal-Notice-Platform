@@ -1,6 +1,6 @@
 // The list of client banks. Only Admin should be shown this list.
 
-import { selectBank, setBankActive } from "@/app/actions/banks";
+import { selectBank, setAttachNoticePdf, setBankActive } from "@/app/actions/banks";
 import { Button } from "@/components/ui/button";
 import { bankStatusLabel, type BankSnapshot } from "@/lib/banks";
 
@@ -8,7 +8,7 @@ export function BankList({
   banks,
   currentBankId,
 }: {
-  banks: BankSnapshot[];
+  banks: Array<BankSnapshot & { attachNoticePdf: boolean }>;
   currentBankId: string | null;
 }) {
   if (banks.length === 0) {
@@ -60,7 +60,19 @@ export function BankList({
                   {bank.active ? "Mark inactive" : "Mark active"}
                 </Button>
               </form>
+              <form action={setAttachNoticePdf}>
+                <input type="hidden" name="bankId" value={bank.id} />
+                <input type="hidden" name="attachNoticePdf" value={bank.attachNoticePdf ? "false" : "true"} />
+                <Button type="submit" variant="outline" className="h-11 px-4">
+                  {bank.attachNoticePdf ? "Stop email PDFs" : "Attach notice PDF to email"}
+                </Button>
+              </form>
             </div>
+            <p className="mt-3 text-sm text-muted-foreground">
+              {bank.attachNoticePdf
+                ? "Live emails include a PDF of the notice. The clickable notice link is still sent."
+                : "Live emails do not attach a PDF. This is the default."}
+            </p>
           </li>
         );
       })}

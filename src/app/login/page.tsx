@@ -1,6 +1,7 @@
 // The sign-in page. People who are already signed in are sent to the dashboard.
 
 import type { Metadata } from "next";
+import Image from "next/image";
 import { redirect } from "next/navigation";
 import { LoginForm } from "@/components/login-form";
 import {
@@ -24,8 +25,9 @@ export default async function LoginPage() {
 
   return (
     <div className="flex min-h-full flex-col">
-      <div className="h-2 bg-[#1b3048]" />
+      <div className="h-2 bg-[#5b2c83]" />
       <main className="mx-auto flex w-full max-w-lg flex-1 flex-col justify-center px-4 py-10 sm:px-6">
+        <Image src="/branding/letterhead-mark.png" alt="" width={48} height={48} className="mb-4 h-12 w-12 object-contain" />
         <p className="text-xs font-medium tracking-[0.16em] text-muted-foreground uppercase">
           Law firm workspace
         </p>

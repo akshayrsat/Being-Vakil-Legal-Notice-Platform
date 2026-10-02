@@ -27,6 +27,12 @@ export type WhatsAppNoticeVars = {
 // notice_link (same URL), notice_code (bare id for a future template edit).
 export const EMAIL_TEMPLATE_SLUG = "legal_notice_non_payment";
 
+export type EmailAttachment = {
+  fileName: string;
+  /** MSG91 data URI, data:application/pdf;base64,... */
+  file: string;
+};
+
 export type DeliveryRequest = {
   channel: SendChannel;
   to: string;
@@ -35,6 +41,7 @@ export type DeliveryRequest = {
   sms?: SmsNoticeVars;
   email?: EmailNoticeVars;
   whatsapp?: WhatsAppNoticeVars;
+  attachments?: EmailAttachment[];
 };
 
 // Approved MSG91 WhatsApp template legal_notice_link (POSITIONAL):
@@ -59,7 +66,8 @@ export function isOtpEnabled(): boolean {
   return Boolean(msg91AuthKey() && envValue("MSG91_OTP_TEMPLATE_ID") && toMsg91Mobile(envValue("MSG91_OTP_MOBILE")));
 }
 
-// A key by itself does not send notices. Live send also needs MSG91_LIVE_SEND=true.
+// A key by itself does not send notices.
+// MSG91_LIVE_SEND must be the exact lowercase value true. TRUE, 1, and yes stay off.
 export function isLiveSendEnabled(): boolean {
   return Boolean(msg91AuthKey() && envValue("MSG91_LIVE_SEND") === "true");
 }
@@ -69,6 +77,10 @@ export function dryRunReason(): string {
     return "MSG91 is not set up on this computer, so this is a dry run. No message will be sent.";
   }
   if (!isLiveSendEnabled()) {
+    const flag = envValue("MSG91_LIVE_SEND");
+    if (flag && flag !== "true") {
+      return "MSG91_LIVE_SEND is set, but only the exact value true turns live send on. This is a dry run. No message will be sent.";
+    }
     return "An MSG91 key is set, but live send is turned off. This is a dry run. No message will be sent.";
   }
   return "";
@@ -250,26 +262,34 @@ async function deliverEmail(authKey: string, request: DeliveryRequest): Promise<
   // Unsubscribe footer and open tracking are domain settings in MSG91
   // (Email > Domain Settings > Domain Configuration). There is no send-API flag.
   // notice_id is the full HTTPS URL so the current template prints a clickable link.
+  const payload: Record<string, unknown> = {
+    recipients: [
+      {
+        to: [{ email: request.to, name: contactName }],
+        variables: {
+          contact_name: contactName,
+          loan_account: loanAccount,
+          notice_id: noticeLink,
+          notice_link: noticeLink,
+          notice_code: noticeCode || noticeLink,
+        },
+      },
+    ],
+    from: { email: from, name: "Being Vakil Associates" },
+    domain,
+    template_id: templateId,
+  };
+  // Optional. The template variables, including the clickable notice URL, stay as they are.
+  if (request.attachments && request.attachments.length > 0) {
+    payload.attachments = request.attachments.map((file) => ({
+      fileName: file.fileName,
+      file: file.file,
+    }));
+  }
   const result = await postMsg91(
     EMAIL_SEND_URL,
     authKey,
-    {
-      recipients: [
-        {
-          to: [{ email: request.to, name: contactName }],
-          variables: {
-            contact_name: contactName,
-            loan_account: loanAccount,
-            notice_id: noticeLink,
-            notice_link: noticeLink,
-            notice_code: noticeCode || noticeLink,
-          },
-        },
-      ],
-      from: { email: from, name: "Being Vakil Associates" },
-      domain,
-      template_id: templateId,
-    },
+    payload,
     "MSG91 did not accept the email.",
   );
   return result.ok ? { ok: true, providerId: result.providerId } : result;

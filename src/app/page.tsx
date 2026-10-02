@@ -3,6 +3,7 @@
 
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
+import { PublicLanding } from "@/components/public-landing";
 import { PublicNoticeScreen } from "@/components/public-notice-screen";
 import { getCurrentUser } from "@/lib/auth";
 
@@ -26,7 +27,8 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
     return <PublicNoticeScreen noticeNumber={firstQuery(query.notice)} />;
   }
   const user = await getCurrentUser();
-  redirect(user ? "/dashboard" : "/login");
+  if (user) redirect("/dashboard");
+  return <PublicLanding />;
 }
 
 function firstQuery(value: string | string[] | undefined): string {

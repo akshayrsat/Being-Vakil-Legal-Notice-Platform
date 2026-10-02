@@ -56,7 +56,7 @@ export default async function UploadBatchPage({
     return (
       <div className="flex min-h-full flex-col">
         <AppHeader user={user} />
-        <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-4 px-4 py-8 sm:px-6">
+        <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-4 px-4 py-8 sm:px-6">
           <h1 className="font-serif text-3xl">Spreadsheet not found</h1>
           <p className="leading-7 text-muted-foreground">
             That file is not under the bank you are working on.
