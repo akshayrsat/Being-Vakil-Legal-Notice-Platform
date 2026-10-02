@@ -3,11 +3,11 @@
 import { randomBytes } from "node:crypto";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "./db";
-import { fillNotice, noticePlainText, valuesForRecipient, type NoticeRecipient } from "./merge-notice";
-import { noticePublicUrl } from "./notice-link";
+import { demandNoticePlainText } from "./demand-notice";
+import type { NoticeRecipient } from "./merge-notice";
 
 const ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-const NOTICE_NUMBER_PATTERN = /^[A-Z0-9-]{4,40}$/;
+const NOTICE_NUMBER_PATTERN = /^[A-Z0-9-]{1,40}$/;
 
 export type PublicNoticeView = {
   noticeNumber: string;
@@ -17,6 +17,11 @@ export type PublicNoticeView = {
   outstandingAmount: string;
   loanNumber: string;
   customerId: string;
+  loanType: string;
+  referenceNumber: string;
+  collectionManager: string;
+  collectionManagerMobile: string;
+  bankWebsite: string;
   bankName: string;
   body: string;
   createdAt: Date;
@@ -31,6 +36,11 @@ export type NoticeDraft = {
   outstandingAmount: string;
   loanNumber: string;
   customerId: string;
+  loanType: string;
+  referenceNumber: string;
+  collectionManager: string;
+  collectionManagerMobile: string;
+  bankWebsite: string;
   bankName: string;
   body: string;
 };
@@ -55,12 +65,22 @@ export function normalizeNoticeNumber(raw: string | undefined | null): string {
 export function buildNoticeDraft(
   row: NoticeRow,
   bankName: string,
-  templateBody: string,
   noticeNumber: string,
 ): NoticeDraft {
-  const values = valuesForRecipient(row, bankName);
-  values.notice_number = noticeNumber;
-  values.notice_link = noticePublicUrl(noticeNumber);
+  const letter = {
+    customerName: row.customerName,
+    address: row.address,
+    outstandingAmount: row.outstandingAmount,
+    loanNumber: row.loanNumber,
+    bankName,
+    loanType: row.loanType,
+    referenceNumber: row.referenceNumber,
+    collectionManager: row.collectionManager,
+    collectionManagerMobile: row.collectionManagerMobile,
+    bankWebsite: row.bankWebsite,
+    noticeNumber,
+    dated: new Date(),
+  };
   return {
     noticeNumber,
     recipientRowId: row.id,
@@ -70,8 +90,13 @@ export function buildNoticeDraft(
     outstandingAmount: row.outstandingAmount,
     loanNumber: row.loanNumber,
     customerId: row.customerId,
+    loanType: row.loanType,
+    referenceNumber: row.referenceNumber,
+    collectionManager: row.collectionManager,
+    collectionManagerMobile: row.collectionManagerMobile,
+    bankWebsite: row.bankWebsite,
     bankName,
-    body: noticePlainText(fillNotice(templateBody, values)),
+    body: demandNoticePlainText(letter),
   };
 }
 
@@ -134,6 +159,11 @@ export async function findPublicNotice(raw: string | undefined | null): Promise<
       outstandingAmount: true,
       loanNumber: true,
       customerId: true,
+      loanType: true,
+      referenceNumber: true,
+      collectionManager: true,
+      collectionManagerMobile: true,
+      bankWebsite: true,
       bankName: true,
       body: true,
       createdAt: true,

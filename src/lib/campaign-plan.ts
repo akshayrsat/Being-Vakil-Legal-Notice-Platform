@@ -1,6 +1,7 @@
 // Decides, before anything is sent, which people can be reached on each channel.
 
 import { fillNotice, noticePlainText, valuesForRecipient, type NoticeRecipient } from "./merge-notice";
+import { emailNoticeText } from "./email-notice";
 import { noticePublicUrl, smsNoticeText, withNoticeLink } from "./notice-link";
 
 export const SEND_CHANNELS = ["SMS", "EMAIL", "WHATSAPP"] as const;
@@ -64,7 +65,9 @@ export function planDeliveries(
             ? "No email on this row."
             : "No mobile number on this row."
           : "",
-        messageText: missing ? "" : messageForChannel(channel, filled, row.customerName, bankName, noticeNumber),
+        messageText: missing
+          ? ""
+          : messageForChannel(channel, filled, row, bankName, noticeNumber),
         noticeNumber,
       });
     }
@@ -76,12 +79,20 @@ export function planDeliveries(
 function messageForChannel(
   channel: SendChannel,
   filled: string,
-  customerName: string,
+  row: PlanRow,
   bankName: string,
   noticeNumber: string,
 ): string {
   if (channel === "SMS" && noticeNumber) {
-    return smsNoticeText({ customerName, bankName, noticeNumber });
+    return smsNoticeText({ customerName: row.customerName, bankName, noticeNumber });
+  }
+  if (channel === "EMAIL" && noticeNumber) {
+    return emailNoticeText({
+      customerName: row.customerName,
+      bankName,
+      noticeNumber,
+      dated: new Date(),
+    });
   }
   return withNoticeLink(filled, noticeNumber);
 }

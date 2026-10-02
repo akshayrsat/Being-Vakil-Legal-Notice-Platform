@@ -1,12 +1,12 @@
 // The public address of one notice.
-// Live SMS uses DLT template Legal_Notice_12092026. Its variables are
-// customer_name, bank_name, and notice_number. The registered link is
-// www.notice.beingvakil.com/?notice=##notice_number##.
-// This app serves that same query. NOTICE_PUBLIC_BASE_URL picks the host.
+// SMS and email use https://www.notice.beingvakil.in/notice-<id>
+// when NOTICE_PUBLIC_BASE_URL is that host.
+// Live SMS still sends DLT template Legal_Notice_12092026 with
+// customer_name, bank_name, and notice_number.
 
 export const DLT_SMS_TEMPLATE_NAME = "Legal_Notice_12092026";
 
-const PRODUCTION_BASE = "https://www.notice.beingvakil.com";
+const PRODUCTION_BASE = "https://www.notice.beingvakil.in";
 const LOCAL_BASE = "http://localhost:4317";
 
 export type SmsNoticeVars = {
@@ -23,7 +23,7 @@ export function noticePublicBaseUrl(): string {
 }
 
 export function noticePageHref(noticeNumber: string): string {
-  return `/?notice=${encodeURIComponent(noticeNumber)}`;
+  return `/notice-${encodeURIComponent(noticeNumber)}`;
 }
 
 export function noticePublicUrl(noticeNumber: string): string {

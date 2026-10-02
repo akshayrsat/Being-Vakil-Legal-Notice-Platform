@@ -105,6 +105,11 @@ model RecipientRow {
   customerId        String      @default("")
   loanAmount        String      @default("")
   outstandingAmount String      @default("")
+  loanType          String      @default("")
+  referenceNumber   String      @default("")
+  collectionManager String      @default("")
+  collectionManagerMobile String @default("")
+  bankWebsite       String      @default("")
   coBorrowerName    String      @default("")
   coBorrowerMobile  String      @default("")
   coBorrowerEmail   String      @default("")
@@ -255,6 +260,11 @@ model PublicNotice {
   outstandingAmount String    @default("")
   loanNumber        String    @default("")
   customerId        String    @default("")
+  loanType          String    @default("")
+  referenceNumber   String    @default("")
+  collectionManager String    @default("")
+  collectionManagerMobile String @default("")
+  bankWebsite       String    @default("")
   bankName          String
   body              String
   seedKey           String?   @unique

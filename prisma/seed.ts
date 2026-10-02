@@ -9,7 +9,9 @@ import bcrypt from "bcryptjs";
 import { PrismaClient } from "@prisma/client";
 import { DEMO_BANKS } from "../src/lib/demo-banks";
 import { DEMO_ACCOUNTS } from "../src/lib/demo-accounts";
+import { demandNoticePlainText } from "../src/lib/demand-notice";
 import { DEMO_NOTICES } from "../src/lib/demo-notices";
+import { noticePageHref } from "../src/lib/notice-link";
 import { DEMO_TEMPLATES } from "../src/lib/demo-templates";
 import { ROLE_BANK_VIEWER } from "../src/lib/roles";
 
@@ -106,8 +108,26 @@ async function main() {
       outstandingAmount: notice.outstandingAmount,
       loanNumber: notice.loanNumber,
       customerId: notice.customerId,
+      loanType: notice.loanType,
+      referenceNumber: notice.referenceNumber,
+      collectionManager: notice.collectionManager,
+      collectionManagerMobile: notice.collectionManagerMobile,
+      bankWebsite: notice.bankWebsite,
       bankName: viewerBank.name,
-      body: notice.body,
+      body: demandNoticePlainText({
+        customerName: notice.customerName,
+        address: notice.address,
+        outstandingAmount: notice.outstandingAmount,
+        loanNumber: notice.loanNumber,
+        bankName: viewerBank.name,
+        loanType: notice.loanType,
+        referenceNumber: notice.referenceNumber,
+        collectionManager: notice.collectionManager,
+        collectionManagerMobile: notice.collectionManagerMobile,
+        bankWebsite: notice.bankWebsite,
+        noticeNumber: notice.noticeNumber,
+        dated: new Date(),
+      }),
     };
     await prisma.publicNotice.upsert({
       where: { seedKey: notice.seedKey },
@@ -117,7 +137,7 @@ async function main() {
   }
   console.log("Practice notice pages are ready.");
   for (const notice of DEMO_NOTICES) {
-    console.log(`  ${notice.customerName}: /?notice=${notice.noticeNumber}`);
+    console.log(`  ${notice.customerName}: ${noticePageHref(notice.noticeNumber)}`);
   }
   console.log("Passwords are listed in the README.");
 }

@@ -1,4 +1,4 @@
-// Short public path for one notice: /n/<notice number>.
+// Public path /notice-<id> is rewritten here. /n/<id> opens the same page.
 
 import type { Metadata } from "next";
 import { PublicNoticeScreen } from "@/components/public-notice-screen";

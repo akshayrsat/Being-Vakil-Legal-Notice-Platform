@@ -2,6 +2,7 @@
 
 import { NoticeLetterfoot, NoticeLetterhead, NoticeSignature } from "@/components/notice-letter";
 import { PrintLetterButton } from "@/components/print-letter-button";
+import { buildDemandNotice } from "@/lib/demand-notice";
 import { findPublicNotice, normalizeNoticeNumber, type PublicNoticeView } from "@/lib/public-notice";
 
 export async function PublicNoticeScreen({ noticeNumber }: { noticeNumber: string }) {
@@ -30,15 +31,20 @@ function NoticeMissing({ kind }: { kind: "empty" | "missing" }) {
 }
 
 function PublicNoticeDocument({ notice }: { notice: PublicNoticeView }) {
-  const dated = new Intl.DateTimeFormat("en-IN", { dateStyle: "long" }).format(notice.createdAt);
-  const particulars = [
-    ["Bank", notice.bankName],
-    ["Notice number", notice.noticeNumber],
-    ["Loan number", notice.loanNumber],
-    ["Customer id", notice.customerId],
-    ["Loan amount", formatAmount(notice.loanAmount)],
-    ["Outstanding", formatAmount(notice.outstandingAmount)],
-  ];
+  const letter = buildDemandNotice({
+    customerName: notice.customerName,
+    address: notice.address,
+    outstandingAmount: notice.outstandingAmount,
+    loanNumber: notice.loanNumber,
+    bankName: notice.bankName,
+    loanType: notice.loanType,
+    referenceNumber: notice.referenceNumber,
+    collectionManager: notice.collectionManager,
+    collectionManagerMobile: notice.collectionManagerMobile,
+    bankWebsite: notice.bankWebsite,
+    noticeNumber: notice.noticeNumber,
+    dated: notice.createdAt,
+  });
 
   return (
     <main className="notice-screen mx-auto w-full max-w-3xl px-4 py-8 sm:py-12">
@@ -48,51 +54,41 @@ function PublicNoticeDocument({ notice }: { notice: PublicNoticeView }) {
       <article className="notice-letter bg-card px-5 py-8 shadow-sm ring-1 ring-foreground/10 sm:px-10 sm:py-12">
         <NoticeLetterhead />
 
-        <div className="mt-8 flex flex-wrap items-baseline justify-between gap-2">
-          <h1 className="text-2xl font-bold tracking-wide">LEGAL NOTICE</h1>
-          <p className="text-sm">No. {notice.noticeNumber}</p>
-        </div>
-        <p className="mt-1 text-sm">Dated {dated}</p>
+        <p className="mt-8 text-center text-sm font-bold tracking-wide">{letter.kicker}</p>
+        <h1 className="mt-2 text-center text-2xl font-bold tracking-wide">{letter.title}</h1>
+        <p className="mt-4 text-sm">{letter.dateLine}</p>
+        <p className="text-sm">{letter.referenceLine}</p>
 
-        <section className="mt-8">
-          <p className="text-sm">To,</p>
-          <p className="mt-2 text-xl font-bold">{notice.customerName}</p>
-          {notice.address.trim() ? (
-            <p className="mt-1 max-w-md whitespace-pre-wrap leading-6">{notice.address}</p>
-          ) : (
-            <p className="mt-1 text-sm">Address not on file</p>
-          )}
+        <section className="mt-6">
+          <p>To,</p>
+          <p className="mt-2 font-bold">{letter.addresseeName}</p>
+          <p className="mt-1 max-w-md whitespace-pre-wrap leading-6">{letter.addresseeAddress}</p>
         </section>
 
-        <section className="mt-8">
-          <h2 className="text-lg font-bold">Particulars</h2>
-          <dl className="mt-3 grid gap-3 sm:grid-cols-2">
-            {particulars.map(([label, value]) => (
-              <div key={label} className="border-b border-black/15 pb-2">
-                <dt className="text-xs uppercase tracking-wide">{label}</dt>
-                <dd className="mt-1 text-sm">{value.trim() || "Not on file"}</dd>
-              </div>
-            ))}
-          </dl>
-        </section>
-
-        <section className="mt-8 whitespace-pre-wrap text-base leading-7">{notice.body}</section>
+        <p className="mt-6">{letter.salutation}</p>
+        <p className="mt-4 font-bold leading-7">{letter.subject}</p>
+        {letter.opening.map((paragraph) => (
+          <p key={paragraph} className="mt-4 leading-7">
+            {paragraph}
+          </p>
+        ))}
+        <dl className="mt-4">
+          {letter.status.map((row) => (
+            <div key={row.label} className="mt-1">
+              <dt className="inline font-bold">{row.label} : </dt>
+              <dd className="inline">{row.value}</dd>
+            </div>
+          ))}
+        </dl>
+        {letter.closing.map((paragraph) => (
+          <p key={paragraph} className="mt-4 leading-7">
+            {paragraph}
+          </p>
+        ))}
 
         <NoticeSignature bankName={notice.bankName} />
         <NoticeLetterfoot />
       </article>
     </main>
   );
-}
-
-function formatAmount(raw: string): string {
-  const trimmed = raw.trim();
-  if (!trimmed) return "";
-  const numeric = Number(trimmed.replace(/,/g, ""));
-  if (!Number.isFinite(numeric)) return trimmed;
-  return new Intl.NumberFormat("en-IN", {
-    style: "currency",
-    currency: "INR",
-    maximumFractionDigits: 0,
-  }).format(numeric);
 }

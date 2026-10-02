@@ -10,10 +10,14 @@ export type DemoNotice = {
   customerId: string;
   loanAmount: string;
   outstandingAmount: string;
-  body: string;
+  loanType: string;
+  referenceNumber: string;
+  collectionManager: string;
+  collectionManagerMobile: string;
+  bankWebsite: string;
 };
 
-const PRACTICE_PEOPLE = [
+export const DEMO_NOTICES: DemoNotice[] = [
   {
     seedKey: "demo-akshay-sathe",
     noticeNumber: "DEMO-LN10021",
@@ -23,6 +27,11 @@ const PRACTICE_PEOPLE = [
     customerId: "CUST501",
     loanAmount: "500000",
     outstandingAmount: "125000",
+    loanType: "Home Loan",
+    referenceNumber: "DEMO-LN10021",
+    collectionManager: "",
+    collectionManagerMobile: "",
+    bankWebsite: "",
   },
   {
     seedKey: "demo-akshay-r-sathe",
@@ -33,6 +42,11 @@ const PRACTICE_PEOPLE = [
     customerId: "CUST502",
     loanAmount: "250000",
     outstandingAmount: "80000",
+    loanType: "Personal Loan",
+    referenceNumber: "DEMO-LN10022",
+    collectionManager: "",
+    collectionManagerMobile: "",
+    bankWebsite: "",
   },
   {
     seedKey: "demo-shweta-sudhir",
@@ -43,22 +57,10 @@ const PRACTICE_PEOPLE = [
     customerId: "CUST503",
     loanAmount: "750000",
     outstandingAmount: "210000",
+    loanType: "Housing Loan",
+    referenceNumber: "DEMO-LN10023",
+    collectionManager: "",
+    collectionManagerMobile: "",
+    bankWebsite: "",
   },
-] as const;
-
-export const DEMO_NOTICES: DemoNotice[] = PRACTICE_PEOPLE.map((person) => ({
-  ...person,
-  body: practiceBody(person),
-}));
-
-function practiceBody(person: (typeof PRACTICE_PEOPLE)[number]): string {
-  return [
-    `Under instructions from our client, we call upon you, ${person.customerName}, to pay the outstanding amount on loan ${person.loanNumber} (customer id ${person.customerId}).`,
-    "",
-    `The loan amount on record is Rs ${person.loanAmount}. The outstanding amount on record is Rs ${person.outstandingAmount}. Please pay that outstanding amount within 15 days of reading this notice.`,
-    "",
-    "If the outstanding amount remains unpaid, our client may take the next steps available under the loan agreement.",
-    "",
-    "This is a practice notice for a local demonstration.",
-  ].join("\n");
-}
+];

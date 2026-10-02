@@ -1,4 +1,6 @@
-// Firm details taken from the Being Vakil Associates letterhead.
+// Firm details taken from the Being Vakil Associates Word letterhead.
+// The page shows public/branding/letterhead-header.png and letterhead-footer.png,
+// which are a render of that Word file.
 
 export const FIRM_NAME = "Being Vakil Associates";
 export const FIRM_TAGLINE = "Empowering You, Protecting You, Being Vakil!";

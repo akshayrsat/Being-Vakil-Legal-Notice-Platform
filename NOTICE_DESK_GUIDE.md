@@ -70,11 +70,11 @@ Each time you run `npm run dev`, the two practice passwords are set back to the 
 
 These pages need no sign-in. Each one is a single recipient:
 
-- Akshay Sathe: [http://localhost:4317/?notice=DEMO-LN10021](http://localhost:4317/?notice=DEMO-LN10021)
-- Akshay R Sathe: [http://localhost:4317/?notice=DEMO-LN10022](http://localhost:4317/?notice=DEMO-LN10022)
-- Shweta Sudhir: [http://localhost:4317/?notice=DEMO-LN10023](http://localhost:4317/?notice=DEMO-LN10023)
+- Akshay Sathe: [http://localhost:4317/notice-DEMO-LN10021](http://localhost:4317/notice-DEMO-LN10021)
+- Akshay R Sathe: [http://localhost:4317/notice-DEMO-LN10022](http://localhost:4317/notice-DEMO-LN10022)
+- Shweta Sudhir: [http://localhost:4317/notice-DEMO-LN10023](http://localhost:4317/notice-DEMO-LN10023)
 
-The same page opens at `/notice?notice=DEMO-LN10021` and at `/n/DEMO-LN10021`. Each notice uses the Being Vakil Associates letterhead and the signature and stamp. Press **Print letter** to print it or save a PDF. After you sign in, the home page lists these three links. A number that is not on file shows **Notice not found** and no other person.
+The same page opens at `/?notice=DEMO-LN10021`, at `/notice?notice=DEMO-LN10021`, and at `/n/DEMO-LN10021`. Each notice uses the Being Vakil Associates letterhead (the header and footer from the firm’s Word stationery) and the signature and stamp. The letter is the demand notice for that person and that bank. Press **Print letter** to print it or save a PDF. After you sign in, the home page lists these three links. A number that is not on file shows **Notice not found** and no other person.
 
 ## Sign in as Admin (firm staff)
 

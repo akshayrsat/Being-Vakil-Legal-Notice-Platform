@@ -27,7 +27,7 @@ export async function writePreparedDeliveries(
   const drafts = rows.map((row, index) => {
     const noticeNumber = numbers[index];
     if (!noticeNumber) throw new Error("Could not assign a notice number.");
-    return buildNoticeDraft(row, input.bankName, input.templateBody, noticeNumber);
+    return buildNoticeDraft(row, input.bankName, noticeNumber);
   });
 
   if (drafts.length > 0) {
@@ -43,6 +43,11 @@ export async function writePreparedDeliveries(
         outstandingAmount: draft.outstandingAmount,
         loanNumber: draft.loanNumber,
         customerId: draft.customerId,
+        loanType: draft.loanType,
+        referenceNumber: draft.referenceNumber,
+        collectionManager: draft.collectionManager,
+        collectionManagerMobile: draft.collectionManagerMobile,
+        bankWebsite: draft.bankWebsite,
         bankName: draft.bankName,
         body: draft.body,
       })),

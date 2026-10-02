@@ -1,7 +1,8 @@
 // MSG91 access. The auth key is read from the environment on the server.
 // Never put it in a NEXT_PUBLIC_ variable, and never send it to the browser.
 
-import type { SmsNoticeVars } from "./notice-link";
+import { emailNoticeHtml } from "./email-notice";
+import { noticePublicBaseUrl, type SmsNoticeVars } from "./notice-link";
 import { toMsg91Mobile } from "./phone";
 
 const OTP_SEND_URL = "https://control.msg91.com/api/v5/otp";
@@ -169,7 +170,7 @@ async function deliverEmail(authKey: string, request: DeliveryRequest): Promise<
       recipients: [
         {
           to: [{ email: request.to, name: request.to }],
-          variables: { message: request.body },
+          variables: { message: emailNoticeHtml(request.body, noticePublicBaseUrl()) },
         },
       ],
       from: { email: from, name: "Notice Desk" },

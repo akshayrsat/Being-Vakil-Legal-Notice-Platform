@@ -1,6 +1,15 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // /notice-<id> is the public link. /notice remains the query-string page.
+  async rewrites() {
+    return [
+      {
+        source: "/notice-:id",
+        destination: "/n/:id",
+      },
+    ];
+  },
   // Keep the database and spreadsheet libraries out of the browser bundle.
   serverExternalPackages: ["@prisma/client", "bcryptjs", "exceljs"],
   experimental: {

@@ -16,6 +16,11 @@ export type FieldKey =
   | "customerId"
   | "loanAmount"
   | "outstandingAmount"
+  | "loanType"
+  | "referenceNumber"
+  | "collectionManager"
+  | "collectionManagerMobile"
+  | "bankWebsite"
   | "coBorrowerName"
   | "coBorrowerMobile"
   | "coBorrowerEmail"
@@ -100,7 +105,42 @@ export const SHEET_FIELDS: SheetField[] = [
     label: "Outstanding amount",
     group: "Loan",
     required: false,
-    aliases: ["outstanding amount", "outstanding", "total due", "amount due", "overdue amount"],
+    aliases: ["outstanding amount", "outstanding", "total due", "amount due", "overdue amount", "total overdue"],
+  },
+  {
+    key: "loanType",
+    label: "Loan type",
+    group: "Loan",
+    required: false,
+    aliases: ["loan type", "facility type", "product", "loan product"],
+  },
+  {
+    key: "referenceNumber",
+    label: "Reference number",
+    group: "Loan",
+    required: false,
+    aliases: ["reference number", "reference no", "ref no", "notice reference"],
+  },
+  {
+    key: "collectionManager",
+    label: "Collection manager",
+    group: "Loan",
+    required: false,
+    aliases: ["collection manager", "collection manager name"],
+  },
+  {
+    key: "collectionManagerMobile",
+    label: "Collection manager mobile",
+    group: "Loan",
+    required: false,
+    aliases: ["collection manager mobile", "collection manager phone"],
+  },
+  {
+    key: "bankWebsite",
+    label: "Bank website",
+    group: "Loan",
+    required: false,
+    aliases: ["bank website", "bank portal", "portal"],
   },
   {
     key: "coBorrowerName",
