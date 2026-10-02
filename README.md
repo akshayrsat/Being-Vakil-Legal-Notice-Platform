@@ -35,7 +35,7 @@ An SMS uses the DLT template `Legal_Notice_12092026`. The variables are `custome
 
 `www.notice.beingvakil.com/?notice=##notice_number##`
 
-That address is this app. `/?notice=<notice_number>` shows that one recipient’s notice. The same page is also at `/notice?notice=<notice_number>` and `/n/<notice_number>`. No sign-in is required. A missing or unknown number shows a not-found page and no other customer.
+That address is this app. `/?notice=<notice_number>` shows that one recipient’s notice on the Being Vakil Associates letterhead, with the advocate’s signature and stamp. The same page is also at `/notice?notice=<notice_number>` and `/n/<notice_number>`. Use Print letter to print or save a PDF. No sign-in is required. A missing or unknown number shows a not-found page and no other customer.
 
 Set `NOTICE_PUBLIC_BASE_URL` to the public host. If it is unset, a local run uses `http://localhost:4317` and a production run uses `https://www.notice.beingvakil.com`. Preparing a send stores a notice for each person and puts that notice number in the SMS text and in the MSG91 variables. `MSG91_LIVE_SEND` stays off unless you set it to `true`.
 

@@ -74,7 +74,7 @@ These pages need no sign-in. Each one is a single recipient:
 - Akshay R Sathe: [http://localhost:4317/?notice=DEMO-LN10022](http://localhost:4317/?notice=DEMO-LN10022)
 - Shweta Sudhir: [http://localhost:4317/?notice=DEMO-LN10023](http://localhost:4317/?notice=DEMO-LN10023)
 
-The same page opens at `/notice?notice=DEMO-LN10021` and at `/n/DEMO-LN10021`. After you sign in, the home page lists these three links. A number that is not on file shows **Notice not found** and no other person.
+The same page opens at `/notice?notice=DEMO-LN10021` and at `/n/DEMO-LN10021`. Each notice uses the Being Vakil Associates letterhead and the signature and stamp. Press **Print letter** to print it or save a PDF. After you sign in, the home page lists these three links. A number that is not on file shows **Notice not found** and no other person.
 
 ## Sign in as Admin (firm staff)
 

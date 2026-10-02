@@ -130,3 +130,33 @@
     @apply font-sans;
   }
 }
+
+.notice-letter {
+  font-family: "Times New Roman", Times, serif;
+  color: #161616;
+}
+
+@media print {
+  @page {
+    size: A4;
+    margin: 12mm;
+  }
+
+  body {
+    background: white !important;
+  }
+
+  .notice-screen {
+    background: white !important;
+    padding: 0 !important;
+  }
+
+  .notice-letter {
+    box-shadow: none !important;
+    max-width: none !important;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+}
