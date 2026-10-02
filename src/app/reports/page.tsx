@@ -42,6 +42,7 @@ export default async function ReportsPage({
         <h1 className="font-serif text-4xl tracking-tight">Reports</h1>
         <p className="mt-3 max-w-2xl text-base leading-7 text-muted-foreground">
           Failure rates, opens, notice links, and Speed Post returns. A dry run is counted apart from a live failure.
+          Delivery CSV is one row for each person and channel, for this bank only.
         </p>
       </div>
 
@@ -95,6 +96,12 @@ export default async function ReportsPage({
                 className={buttonVariants({ variant: "outline", className: "h-11 px-4" })}
               >
                 Download summary CSV
+              </Link>
+              <Link
+                href={`/reports/delivery-export?${reportFiltersToSearch(filters, bank.id)}`}
+                className={buttonVariants({ variant: "outline", className: "h-11 px-4" })}
+              >
+                Download delivery CSV
               </Link>
               <Link
                 href={`/deliveries/export?${reportFiltersToSearch(filters, bank.id)}`}
