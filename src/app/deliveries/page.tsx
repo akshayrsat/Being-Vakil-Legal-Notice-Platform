@@ -10,7 +10,7 @@ import { MessageOpened, NoticeLinkOpened } from "@/components/notice-link-opened
 import { NoticeOpenLink } from "@/components/notice-open-link";
 import { buttonVariants } from "@/components/ui/button";
 import { getCurrentUser } from "@/lib/auth";
-import { workingBank } from "@/lib/bank-context";
+import { campaignWhere } from "@/lib/bank-data";
 import { deliveryStatusLabel, sendChannelLabel } from "@/lib/campaigns";
 import { prisma } from "@/lib/db";
 import {
@@ -21,6 +21,7 @@ import {
 } from "@/lib/delivery-report";
 import { loanSearchHref } from "@/lib/loan-timeline";
 import { noticeLinkOpensByNumber } from "@/lib/public-notice";
+import { formatIndiaDateTime } from "@/lib/india-day";
 import { resolveReportBank } from "@/lib/report-bank";
 import { ROLE_ADMIN } from "@/lib/roles";
 
@@ -46,9 +47,6 @@ export default async function DeliveriesPage({
   const filters = readDeliveryFilters(params);
   const isAdmin = user.role === ROLE_ADMIN;
   const bank = await resolveReportBank(user, params.get("bank") ?? "");
-  const banks = isAdmin
-    ? await prisma.bank.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } })
-    : [];
 
   return (
     <div className="flex min-h-full flex-col">
@@ -69,18 +67,11 @@ export default async function DeliveriesPage({
           </p>
         ) : (
           <>
-            {isAdmin && workingBank(user)?.id !== bank.id ? (
-              <p className="text-sm text-muted-foreground">
-                You are working on {workingBank(user)?.name ?? "no bank"}. This search is showing {bank.name}.
-              </p>
-            ) : null}
             <DeliveryFiltersForm
               action="/deliveries"
               filters={filters}
               bankId={bank.id}
-              banks={banks}
               campaigns={await campaignOptions(bank.id)}
-              showBank={isAdmin}
             />
             <Results bankId={bank.id} filters={filters} />
           </>
@@ -92,13 +83,13 @@ export default async function DeliveriesPage({
 
 async function campaignOptions(bankId: string) {
   const campaigns = await prisma.campaign.findMany({
-    where: { bankId },
+    where: campaignWhere(bankId),
     orderBy: { createdAt: "desc" },
     select: { id: true, templateName: true, createdAt: true },
   });
   return campaigns.map((campaign) => ({
     id: campaign.id,
-    name: `${campaign.templateName} · ${formatWhen(campaign.createdAt)}`,
+    name: `${campaign.templateName} · ${formatIndiaDateTime(campaign.createdAt)}`,
   }));
 }
 
@@ -178,7 +169,7 @@ async function Results({
                       <Link href={`/campaigns/${row.campaign.id}?bank=${encodeURIComponent(bankId)}`} className="font-medium underline">
                         {row.campaign.templateName}
                       </Link>
-                      <p className="text-muted-foreground">{formatWhen(row.campaign.createdAt)}</p>
+                      <p className="text-muted-foreground">{formatIndiaDateTime(row.campaign.createdAt)}</p>
                       {loanHref ? (
                         <Link href={loanHref} className="underline">
                           Loan timeline
@@ -201,6 +192,3 @@ async function Results({
   );
 }
 
-function formatWhen(date: Date): string {
-  return new Intl.DateTimeFormat("en-IN", { dateStyle: "medium", timeStyle: "short" }).format(date);
-}

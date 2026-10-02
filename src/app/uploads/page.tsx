@@ -3,6 +3,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { connection } from "next/server";
 import { AppHeader } from "@/components/app-header";
 import { UploadForm } from "@/components/upload-form";
 import { buttonVariants } from "@/components/ui/button";
@@ -14,15 +15,20 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { getCurrentUser } from "@/lib/auth";
+import { uploadBatchWhere } from "@/lib/bank-data";
 import { workingBank } from "@/lib/bank-context";
 import { prisma } from "@/lib/db";
+import { formatIndiaDateTime } from "@/lib/india-day";
 import { ROLE_ADMIN } from "@/lib/roles";
+
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "Uploads",
 };
 
 export default async function UploadsPage() {
+  await connection();
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
@@ -90,7 +96,7 @@ export default async function UploadsPage() {
               </Card>
             ) : null}
 
-            <UploadList bankId={bank.id} canEdit={isAdmin} />
+            <UploadList bankId={bank.id} bankName={bank.name} canEdit={isAdmin} />
           </>
         )}
       </main>
@@ -98,9 +104,17 @@ export default async function UploadsPage() {
   );
 }
 
-async function UploadList({ bankId, canEdit }: { bankId: string; canEdit: boolean }) {
+async function UploadList({
+  bankId,
+  bankName,
+  canEdit,
+}: {
+  bankId: string;
+  bankName: string;
+  canEdit: boolean;
+}) {
   const batches = await prisma.uploadBatch.findMany({
-    where: { bankId },
+    where: uploadBatchWhere(bankId),
     orderBy: { createdAt: "desc" },
     select: {
       id: true,
@@ -113,7 +127,7 @@ async function UploadList({ bankId, canEdit }: { bankId: string; canEdit: boolea
 
   return (
     <section className="flex flex-col gap-3">
-      <h2 className="font-serif text-2xl">Files for this bank</h2>
+      <h2 className="font-serif text-2xl">Files for {bankName}</h2>
       {batches.length === 0 ? (
         <p className="text-sm text-muted-foreground">
           {canEdit ? "No spreadsheets yet. Upload the first one above." : "No spreadsheets yet."}
@@ -128,7 +142,7 @@ async function UploadList({ bankId, canEdit }: { bankId: string; canEdit: boolea
               <div>
                 <p className="font-medium">{batch.fileName}</p>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  {formatWhen(batch.createdAt)}
+                  {formatIndiaDateTime(batch.createdAt)}
                   <span className="mx-2">·</span>
                   {batch.saved
                     ? `${batch.rowCount} ${batch.rowCount === 1 ? "person" : "people"} saved`
@@ -149,9 +163,3 @@ async function UploadList({ bankId, canEdit }: { bankId: string; canEdit: boolea
   );
 }
 
-function formatWhen(date: Date): string {
-  return new Intl.DateTimeFormat("en-IN", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(date);
-}

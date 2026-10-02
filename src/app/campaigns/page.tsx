@@ -14,6 +14,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { getCurrentUser } from "@/lib/auth";
+import { campaignWhere } from "@/lib/bank-data";
 import { workingBank } from "@/lib/bank-context";
 import { campaignStatusLabel, labelsForChannels } from "@/lib/campaigns";
 import { parseSendChannels } from "@/lib/campaign-plan";
@@ -114,7 +115,7 @@ export default async function CampaignsPage() {
 
 async function CampaignList({ bankId }: { bankId: string }) {
   const campaigns = await prisma.campaign.findMany({
-    where: { bankId },
+    where: campaignWhere(bankId),
     orderBy: { createdAt: "desc" },
     include: {
       batch: { select: { fileName: true } },

@@ -1,6 +1,7 @@
 // Counts for the reports page. Dry runs are kept out of failure rates.
 
 import type { Prisma } from "@prisma/client";
+import { requiredBankId } from "./bank-data";
 import { SEND_CHANNELS, isSendChannel } from "./campaign-plan";
 import { sendChannelLabel } from "./campaigns";
 import { prisma } from "./db";
@@ -100,13 +101,14 @@ async function channelReports(
   filters: ReportFilters,
   range: { gte?: Date; lte?: Date } | undefined,
 ): Promise<ChannelReport[]> {
+  const scope = requiredBankId(bankId);
   const channels = filters.channel && isSendChannel(filters.channel) ? [filters.channel] : [...SEND_CHANNELS];
   const reports: ChannelReport[] = [];
   for (const channel of channels) {
     const where: Prisma.CampaignDeliveryWhereInput = {
-      bankId,
+      bankId: scope,
       channel,
-      ...(range ? { campaign: { createdAt: range } } : {}),
+      campaign: { bankId: scope, ...(range ? { createdAt: range } : {}) },
     };
     const [attempted, failed, handedOver, opened, skipped, dryRun] = await Promise.all([
       prisma.campaignDelivery.count({ where: { ...where, status: { in: [...ATTEMPTED] } } }),
@@ -114,8 +116,7 @@ async function channelReports(
       prisma.campaignDelivery.count({ where: { ...where, status: { in: [...HANDED] } } }),
       prisma.campaignDelivery.count({
         where: {
-          ...where,
-          OR: [{ openedAt: { not: null } }, { status: "READ" }],
+          AND: [where, { OR: [{ openedAt: { not: null } }, { status: "READ" }] }],
         },
       }),
       prisma.campaignDelivery.count({ where: { ...where, status: "SKIPPED" } }),
@@ -139,7 +140,7 @@ async function channelReports(
 }
 
 async function linkReports(bankId: string, range: { gte?: Date; lte?: Date } | undefined) {
-  const where = { bankId, ...(range ? { createdAt: range } : {}) };
+  const where = { bankId: requiredBankId(bankId), ...(range ? { createdAt: range } : {}) };
   const [opened, closed] = await Promise.all([
     prisma.publicNotice.count({ where: { ...where, linkViewCount: { gt: 0 } } }),
     prisma.publicNotice.count({ where: { ...where, linkViewCount: 0 } }),
@@ -156,7 +157,7 @@ async function speedPostReports(
       status,
       label: postalStatusLabel(status),
       count: await prisma.speedPostConsignment.count({
-        where: { bankId, status, ...(range ? { updatedAt: range } : {}) },
+        where: { bankId: requiredBankId(bankId), status, ...(range ? { updatedAt: range } : {}) },
       }),
     })),
   );

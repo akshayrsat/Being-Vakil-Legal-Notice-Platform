@@ -9,6 +9,7 @@ import { LoanTimelineList } from "@/components/loan-timeline-list";
 import { MessageOpened, NoticeLinkOpened } from "@/components/notice-link-opened";
 import { NoticeOpenLink } from "@/components/notice-open-link";
 import { getCurrentUser } from "@/lib/auth";
+import { formatIndiaDateTime } from "@/lib/india-day";
 import { campaignStatusLabel, deliveryStatusLabel, sendChannelLabel } from "@/lib/campaigns";
 import { backToSearch } from "@/lib/desk-back";
 import { prisma } from "@/lib/db";
@@ -112,7 +113,7 @@ export default async function PersonHistoryPage({
                   <Link href={`/campaigns/${row.campaign.id}?bank=${encodeURIComponent(bank.id)}`} className="font-medium underline">
                     {row.campaign.templateName}
                   </Link>
-                  <p className="text-sm text-muted-foreground">{formatWhen(row.campaign.createdAt)}</p>
+                  <p className="text-sm text-muted-foreground">{formatIndiaDateTime(row.campaign.createdAt)}</p>
                 </div>
                 <p className="mt-2 text-sm">
                   {sendChannelLabel(row.channel)}
@@ -154,8 +155,4 @@ export default async function PersonHistoryPage({
       </main>
     </div>
   );
-}
-
-function formatWhen(date: Date): string {
-  return new Intl.DateTimeFormat("en-IN", { dateStyle: "medium", timeStyle: "short" }).format(date);
 }

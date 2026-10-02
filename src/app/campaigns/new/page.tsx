@@ -15,6 +15,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { getCurrentUser } from "@/lib/auth";
+import { uploadBatchWhere } from "@/lib/bank-data";
 import { workingBank } from "@/lib/bank-context";
 import { isSendChannel } from "@/lib/campaign-plan";
 import { prepareSendBack } from "@/lib/desk-back";
@@ -42,7 +43,7 @@ export default async function NewCampaignPage({
 
   const query = await searchParams;
   const batches = await prisma.uploadBatch.findMany({
-    where: { bankId: bank.id, saved: true },
+    where: { ...uploadBatchWhere(bank.id), saved: true },
     orderBy: { createdAt: "desc" },
     select: { id: true, fileName: true, rowCount: true },
   });

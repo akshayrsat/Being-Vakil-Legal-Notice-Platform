@@ -8,7 +8,6 @@ import { getCurrentUser } from "@/lib/auth";
 import { workingBank } from "@/lib/bank-context";
 import { SEND_CHANNELS } from "@/lib/campaign-plan";
 import { sendChannelLabel } from "@/lib/campaigns";
-import { prisma } from "@/lib/db";
 import { loadDeskReport, readReportFilters, reportFiltersToSearch } from "@/lib/desk-reports";
 import { resolveReportBank } from "@/lib/report-bank";
 import { ROLE_ADMIN } from "@/lib/roles";
@@ -32,9 +31,6 @@ export default async function ReportsPage({
   const filters = readReportFilters(params);
   const isAdmin = user.role === ROLE_ADMIN;
   const bank = await resolveReportBank(user, params.get("bank") ?? workingBank(user)?.id ?? "");
-  const banks = isAdmin
-    ? await prisma.bank.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } })
-    : [];
 
   return (
     <DeskShell user={user}>
@@ -52,21 +48,8 @@ export default async function ReportsPage({
         </EmptyState>
       ) : (
         <>
-          <form action="/reports" method="get" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {isAdmin ? (
-              <label className="flex flex-col gap-1 text-sm font-medium">
-                Bank
-                <select name="bank" defaultValue={bank.id} className="h-11 rounded-lg border border-input bg-card px-3 text-sm font-normal">
-                  {banks.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            ) : (
-              <input type="hidden" name="bank" value={bank.id} />
-            )}
+          <form action="/reports" method="get" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <input type="hidden" name="bank" value={bank.id} />
             <label className="flex flex-col gap-1 text-sm font-medium">
               Channel
               <select name="channel" defaultValue={filters.channel} className="h-11 rounded-lg border border-input bg-card px-3 text-sm font-normal">
@@ -87,7 +70,7 @@ export default async function ReportsPage({
               To
               <input name="to" type="date" defaultValue={filters.to} className="h-11 rounded-lg border border-input bg-card px-3 text-sm font-normal" />
             </label>
-            <div className="flex flex-wrap gap-2 lg:col-span-4">
+            <div className="flex flex-wrap gap-2 lg:col-span-3">
               <button type="submit" className={buttonVariants({ className: "h-11 px-4" })}>
                 Apply
               </button>
