@@ -1,0 +1,380 @@
+// Review a send, then confirm it. After confirm, each person keeps a channel and a status.
+// A dry run stores a result and does not call MSG91. It is never labelled delivered.
+
+import type { Metadata } from "next";
+import Link from "next/link";
+import { redirect } from "next/navigation";
+import { AppHeader } from "@/components/app-header";
+import { ConfirmCampaign } from "@/components/confirm-campaign";
+import { buttonVariants } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { getCurrentUser } from "@/lib/auth";
+import { workingBank } from "@/lib/bank-context";
+import { isSendChannel, parseSendChannels, SEND_CHANNELS } from "@/lib/campaign-plan";
+import {
+  campaignStatusLabel,
+  countByChannel,
+  DELIVERY_STATUS_OPTIONS,
+  deliveryStatusLabel,
+  isDeliveryStatus,
+  labelsForChannels,
+  sendChannelLabel,
+  statusesForFilter,
+} from "@/lib/campaigns";
+import { prisma } from "@/lib/db";
+import { personHistoryHref } from "@/lib/delivery-report";
+import { canReadBank } from "@/lib/report-bank";
+import { ROLE_ADMIN } from "@/lib/roles";
+
+export const metadata: Metadata = {
+  title: "Review send",
+};
+
+const SAMPLE_COUNT = 3;
+const TABLE_LIMIT = 50;
+
+export default async function CampaignPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ done?: string; channel?: string; status?: string }>;
+}) {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+
+  const working = workingBank(user);
+  const { id } = await params;
+  const query = await searchParams;
+  const isAdmin = user.role === ROLE_ADMIN;
+  const channelFilter = isSendChannel((query.channel ?? "").toUpperCase())
+    ? (query.channel ?? "").toUpperCase()
+    : "";
+  const statusFilter = isDeliveryStatus((query.status ?? "").toUpperCase())
+    ? (query.status ?? "").toUpperCase()
+    : "";
+
+  const campaign = await prisma.campaign.findFirst({
+    where: { id },
+    include: {
+      bank: { select: { id: true, name: true, code: true, active: true } },
+      batch: { select: { fileName: true, rowCount: true } },
+      followsCampaign: { select: { id: true, templateName: true } },
+      followUps: {
+        select: { id: true, templateName: true, status: true, mode: true },
+        orderBy: { createdAt: "desc" },
+      },
+      deliveries: { orderBy: [{ rowNumber: "asc" }, { channel: "asc" }] },
+    },
+  });
+
+  if (!campaign || !canReadBank(user, campaign.bankId)) {
+    return (
+      <div className="flex min-h-full flex-col">
+        <AppHeader user={user} />
+        <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-4 px-4 py-8 sm:px-6">
+          <h1 className="font-serif text-3xl">Send not found</h1>
+          <p className="leading-7 text-muted-foreground">
+            That send is not under a bank this login can see.
+          </p>
+          <Link
+            href="/campaigns"
+            className={buttonVariants({ variant: "outline", className: "h-11 w-fit px-4" })}
+          >
+            Back to campaigns
+          </Link>
+        </main>
+      </div>
+    );
+  }
+
+  const channels = parseSendChannels(campaign.channels);
+  const counts = countByChannel(campaign.deliveries);
+  const people = new Set(campaign.deliveries.map((row) => row.recipientRowId)).size;
+  const samples: typeof campaign.deliveries = [];
+  const seen = new Set<string>();
+  for (const row of campaign.deliveries) {
+    if (!row.messageText || seen.has(row.recipientRowId)) continue;
+    seen.add(row.recipientRowId);
+    samples.push(row);
+    if (samples.length === SAMPLE_COUNT) break;
+  }
+  const dryRun = campaign.mode === "DRY_RUN";
+  const waiting = campaign.status === "REVIEW";
+  const canManage = isAdmin && working?.id === campaign.bankId && campaign.bank.active;
+  const matching = campaign.deliveries.filter((row) => {
+    if (channelFilter && row.channel !== channelFilter) return false;
+    if (statusFilter && !statusesForFilter(statusFilter).includes(row.status)) return false;
+    return true;
+  });
+  const shown = matching.slice(0, TABLE_LIMIT);
+  const exportQuery = new URLSearchParams();
+  if (channelFilter) exportQuery.set("channel", channelFilter);
+  if (statusFilter) exportQuery.set("status", statusFilter);
+  const exportHref = `/campaigns/${campaign.id}/export${exportQuery.size ? `?${exportQuery}` : ""}`;
+
+  return (
+    <div className="flex min-h-full flex-col">
+      <AppHeader user={user} />
+      <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 px-4 py-8 sm:px-6">
+        <div>
+          <p className="text-sm text-muted-foreground">{campaign.bank.name}</p>
+          <h1 className="mt-1 font-serif text-4xl tracking-tight">Review send</h1>
+          <p className="mt-3 text-sm text-muted-foreground">
+            {campaignStatusLabel(campaign.status, campaign.mode)}
+            <span className="mx-2">·</span>
+            {labelsForChannels(channels) || "No channel"}
+          </p>
+        </div>
+
+        {isAdmin && working?.id !== campaign.bankId ? (
+          <p className="text-sm text-muted-foreground">
+            You are working on {working?.name ?? "no bank"}. This send belongs to {campaign.bank.name}.
+            Switch to that bank before confirming it or preparing a follow-up.
+          </p>
+        ) : null}
+
+        {query.done === "1" ? (
+          <p className="rounded-lg border border-border bg-card px-3 py-2 text-sm" role="status">
+            {dryRun
+              ? "Dry run finished. Nothing was sent."
+              : "The send was handed to MSG91 for the people who were not skipped."}
+          </p>
+        ) : null}
+
+        {campaign.followsCampaign ? (
+          <p className="text-sm">
+            Follow-up to{" "}
+            <Link href={`/campaigns/${campaign.followsCampaign.id}`} className="underline">
+              {campaign.followsCampaign.templateName}
+            </Link>
+            . The same loan number, customer id, or mobile ties these sends together.
+          </p>
+        ) : null}
+
+        {campaign.followUps.length > 0 ? (
+          <Card>
+            <CardHeader>
+              <CardTitle>Follow-ups</CardTitle>
+              <CardDescription>
+                Later sends prepared for people who were skipped or failed on this one.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ul className="flex flex-col gap-2 text-sm">
+                {campaign.followUps.map((followUp) => (
+                  <li key={followUp.id}>
+                    <Link href={`/campaigns/${followUp.id}`} className="font-medium underline">
+                      {followUp.templateName}
+                    </Link>
+                    <span className="text-muted-foreground">
+                      {" "}
+                      · {campaignStatusLabel(followUp.status, followUp.mode)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </CardContent>
+          </Card>
+        ) : null}
+
+        <Card>
+          <CardHeader>
+            <CardTitle>{campaign.templateName}</CardTitle>
+            <CardDescription>
+              {campaign.batch.fileName}. {people} {people === 1 ? "person" : "people"} in this send.
+              {campaign.dltTemplateId ? ` DLT id ${campaign.dltTemplateId}.` : ""}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-3 text-sm leading-6">
+            {dryRun ? (
+              <p>{campaign.dryRunNote || "This is a dry run. No message will be sent."}</p>
+            ) : (
+              <p>Live send is on. Confirming will call MSG91.</p>
+            )}
+            <ul className="flex flex-col gap-1">
+              {counts.map((count) => (
+                <li key={count.channel}>
+                  {sendChannelLabel(count.channel)}: {count.ready} ready, {count.skipped} skipped.
+                </li>
+              ))}
+            </ul>
+            <p className="text-muted-foreground">
+              Speed Post is not part of this send. There is no courier status.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <Link
+                href={`/campaigns/${campaign.id}/reminders`}
+                className={buttonVariants({ variant: "outline", className: "h-11 px-4" })}
+              >
+                Reminders
+              </Link>
+              <Link
+                href={exportHref}
+                className={buttonVariants({ variant: "outline", className: "h-11 px-4" })}
+              >
+                Download CSV
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Sample messages</CardTitle>
+            <CardDescription>
+              The first {samples.length} {samples.length === 1 ? "person" : "people"} with a message.
+              Check the wording before you confirm.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {samples.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                Nobody on this file can be reached on the channels you ticked.
+              </p>
+            ) : (
+              <ul className="flex flex-col gap-4">
+                {samples.map((row) => (
+                  <li key={row.recipientRowId} className="rounded-lg ring-1 ring-foreground/10">
+                    <div className="border-b border-border px-3 py-2">
+                      <p className="font-medium">{row.customerName}</p>
+                      <p className="text-sm text-muted-foreground">
+                        Row {row.rowNumber}
+                        {row.loanNumber ? ` · ${row.loanNumber}` : ""}
+                      </p>
+                    </div>
+                    <p className="px-3 py-3 text-sm leading-6 whitespace-pre-wrap">{row.messageText}</p>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+
+        {waiting && canManage ? <ConfirmCampaign campaignId={campaign.id} dryRun={dryRun} /> : null}
+        {waiting && isAdmin && !canManage ? (
+          <p className="text-sm text-muted-foreground">
+            This send is still waiting. Confirm it only while you are working on {campaign.bank.name}
+            {campaign.bank.active ? "." : ", and only after that bank is marked active."}
+          </p>
+        ) : null}
+        {waiting && !isAdmin ? (
+          <p className="text-sm text-muted-foreground">This send has not been confirmed. You cannot confirm it.</p>
+        ) : null}
+
+        <Card>
+          <CardHeader>
+            <CardTitle>People</CardTitle>
+            <CardDescription>
+              Showing {shown.length} of {matching.length} channel{" "}
+              {matching.length === 1 ? "row" : "rows"}
+              {matching.length !== campaign.deliveries.length
+                ? ` (${campaign.deliveries.length} in this send).`
+                : "."}{" "}
+              A dry run stays Dry run. It is not called delivered.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-4">
+            <form action={`/campaigns/${campaign.id}`} method="get" className="grid gap-3 sm:grid-cols-2">
+              <label className="flex flex-col gap-1 text-sm font-medium">
+                Channel
+                <select
+                  name="channel"
+                  defaultValue={channelFilter}
+                  className="h-11 rounded-lg border border-input bg-card px-3 text-sm font-normal"
+                >
+                  <option value="">All channels</option>
+                  {SEND_CHANNELS.map((channel) => (
+                    <option key={channel} value={channel}>
+                      {sendChannelLabel(channel)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="flex flex-col gap-1 text-sm font-medium">
+                Status
+                <select
+                  name="status"
+                  defaultValue={statusFilter === "SENT" ? "DELIVERED" : statusFilter}
+                  className="h-11 rounded-lg border border-input bg-card px-3 text-sm font-normal"
+                >
+                  <option value="">All statuses</option>
+                  {DELIVERY_STATUS_OPTIONS.map((option) => (
+                    <option key={option.id} value={option.id}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <div className="sm:col-span-2">
+                <button
+                  type="submit"
+                  className={buttonVariants({ variant: "outline", className: "h-11 px-4" })}
+                >
+                  Filter
+                </button>
+              </div>
+            </form>
+            {shown.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No rows match this filter.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[42rem] border-collapse text-left text-sm">
+                  <thead>
+                    <tr className="border-b border-border">
+                      <th className="px-2 py-2 font-medium">Name</th>
+                      <th className="px-2 py-2 font-medium">Loan</th>
+                      <th className="px-2 py-2 font-medium">Channel</th>
+                      <th className="px-2 py-2 font-medium">Status</th>
+                      <th className="px-2 py-2 font-medium">Note</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {shown.map((row) => {
+                      const history = personHistoryHref(row, campaign.bankId);
+                      return (
+                        <tr key={row.id} className="border-b border-border">
+                          <td className="px-2 py-2">
+                            <p className="font-medium">{row.customerName}</p>
+                            <p className="text-muted-foreground">{row.mobile || row.email || "—"}</p>
+                          </td>
+                          <td className="px-2 py-2">
+                            <p>{row.loanNumber || "—"}</p>
+                            <p className="text-muted-foreground">{row.customerId}</p>
+                          </td>
+                          <td className="px-2 py-2">{sendChannelLabel(row.channel)}</td>
+                          <td className="px-2 py-2">{deliveryStatusLabel(row.status)}</td>
+                          <td className="px-2 py-2 text-muted-foreground">
+                            <p>{row.detail || "—"}</p>
+                            {history ? (
+                              <Link href={history} className="underline">
+                                History
+                              </Link>
+                            ) : null}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Link
+          href="/campaigns"
+          className={buttonVariants({ variant: "outline", className: "h-11 w-fit px-4" })}
+        >
+          Back to campaigns
+        </Link>
+      </main>
+    </div>
+  );
+}

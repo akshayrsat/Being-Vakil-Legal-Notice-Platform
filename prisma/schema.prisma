@@ -1,0 +1,255 @@
+// What this app stores.
+// A bank is a client of the firm. Later notices and spreadsheets must belong to one bank.
+// A user is a person who can sign in.
+// A Bank Viewer is tied to one bank (bankId). An Admin is not tied to a bank.
+// The Admin's selectedBankId is the bank they are working on right now.
+// A session is one signed-in visit. Signing out deletes it.
+// Allowed roles: ADMIN (firm staff) and BANK_VIEWER (bank side).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  BANK_VIEWER
+}
+
+// Draft wording is not offered when filling a notice. Approved means the firm
+// has marked it ready. This site does not ask a phone company to approve it.
+enum TemplateStatus {
+  DRAFT
+  APPROVED
+}
+
+model Bank {
+  id         String         @id @default(cuid())
+  name       String
+  code       String         @unique
+  active     Boolean        @default(true)
+  members    User[]         @relation("MemberBank")
+  selectedBy User[]         @relation("SelectedBank")
+  columnMap  BankColumnMap?
+  batches    UploadBatch[]
+  templates  NoticeTemplate[]
+  campaigns  Campaign[]
+  createdAt  DateTime       @default(now())
+}
+
+// A notice template belongs to one bank. Firm-wide templates are not used.
+// channels is a JSON list such as ["SMS","EMAIL"]. seedKey is set only for the practice templates.
+model NoticeTemplate {
+  id            String         @id @default(cuid())
+  bankId        String
+  bank          Bank           @relation(fields: [bankId], references: [id], onDelete: Cascade)
+  name          String
+  dltTemplateId String         @default("")
+  channels      String         @default("[]")
+  body          String
+  status        TemplateStatus @default(DRAFT)
+  seedKey       String?        @unique
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  campaigns     Campaign[]
+
+  @@index([bankId])
+}
+
+// The column match saved for one bank. The next spreadsheet for that bank starts from this.
+model BankColumnMap {
+  bankId    String   @id
+  bank      Bank     @relation(fields: [bankId], references: [id], onDelete: Cascade)
+  fields    String
+  updatedAt DateTime @updatedAt
+}
+
+// One uploaded spreadsheet, kept under a single bank.
+model UploadBatch {
+  id          String          @id @default(cuid())
+  bankId      String
+  bank        Bank            @relation(fields: [bankId], references: [id], onDelete: Cascade)
+  fileName    String
+  headers     String
+  rawRows     String
+  mappingUsed String          @default("")
+  saved       Boolean         @default(false)
+  rowCount    Int             @default(0)
+  createdAt   DateTime        @default(now())
+  rows        RecipientRow[]
+  campaigns   Campaign[]
+
+  @@index([bankId])
+}
+
+// One notice recipient taken from a spreadsheet row, after the columns were matched.
+model RecipientRow {
+  id                String      @id @default(cuid())
+  batchId           String
+  batch             UploadBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  bankId            String
+  rowNumber         Int
+  customerName      String
+  mobile1           String      @default("")
+  mobile2           String      @default("")
+  mobile3           String      @default("")
+  mobiles           String      @default("[]")
+  email             String      @default("")
+  address           String      @default("")
+  loanNumber        String      @default("")
+  customerId        String      @default("")
+  loanAmount        String      @default("")
+  outstandingAmount String      @default("")
+  coBorrowerName    String      @default("")
+  coBorrowerMobile  String      @default("")
+  coBorrowerEmail   String      @default("")
+  guarantorName     String      @default("")
+  guarantorMobile   String      @default("")
+  guarantorEmail    String      @default("")
+
+  @@index([bankId])
+  @@index([batchId])
+}
+
+model User {
+  id             String    @id @default(cuid())
+  name           String
+  email          String    @unique
+  passwordHash   String
+  role           Role
+  bankId         String?
+  bank           Bank?     @relation("MemberBank", fields: [bankId], references: [id], onDelete: SetNull)
+  selectedBankId String?
+  selectedBank   Bank?     @relation("SelectedBank", fields: [selectedBankId], references: [id], onDelete: SetNull)
+  sessions       Session[]
+  challenges     LoginChallenge[]
+  campaigns      Campaign[]
+  createdAt      DateTime  @default(now())
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+// A short-lived step after the Admin password, used only when MSG91 OTP is configured.
+// The one-time code itself is not stored here. MSG91 checks it.
+model LoginChallenge {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  mobile    String
+  expiresAt DateTime
+  attempts  Int      @default(0)
+  createdAt DateTime @default(now())
+}
+
+enum CampaignMode {
+  DRY_RUN
+  LIVE
+}
+
+enum CampaignStatus {
+  REVIEW
+  COMPLETED
+  FAILED
+}
+
+// PENDING is the review, before confirm.
+// SIMULATED_SENT means a dry run. Nothing was handed to MSG91.
+// SENT and DELIVERED mean a live handoff. READ is for a later receipt. A dry run is never relabelled as delivered.
+enum DeliveryStatus {
+  PENDING
+  SKIPPED
+  QUEUED
+  SIMULATED_SENT
+  SENT
+  DELIVERED
+  READ
+  FAILED
+}
+
+// One prepared send for one bank, one spreadsheet, and one approved template.
+model Campaign {
+  id            String             @id @default(cuid())
+  bankId        String
+  bank          Bank               @relation(fields: [bankId], references: [id], onDelete: Cascade)
+  batchId       String
+  batch         UploadBatch        @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  templateId    String
+  template      NoticeTemplate     @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  templateName  String
+  templateBody  String
+  dltTemplateId String             @default("")
+  channels      String
+  mode          CampaignMode
+  status        CampaignStatus     @default(REVIEW)
+  dryRunNote    String             @default("")
+  createdById   String?
+  createdBy     User?              @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt     DateTime           @default(now())
+  confirmedAt   DateTime?
+  deliveries    CampaignDelivery[]
+  followsCampaignId String?
+  followsCampaign   Campaign?  @relation("FollowUp", fields: [followsCampaignId], references: [id], onDelete: SetNull)
+  followUps         Campaign[] @relation("FollowUp")
+
+  @@index([bankId])
+  @@index([followsCampaignId])
+}
+
+// One channel for one person. Kept so a later version can track and search deliveries.
+model CampaignDelivery {
+  id             String         @id @default(cuid())
+  campaignId     String
+  campaign       Campaign       @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  bankId         String
+  recipientRowId String
+  rowNumber      Int
+  customerName   String
+  mobile         String         @default("")
+  email          String         @default("")
+  loanNumber     String         @default("")
+  customerId     String         @default("")
+  channel        String
+  status         DeliveryStatus
+  detail         String         @default("")
+  messageText    String         @default("")
+  providerId     String         @default("")
+
+  @@index([campaignId])
+  @@index([providerId])
+  @@index([bankId])
+  @@index([customerName])
+  @@index([mobile])
+  @@index([loanNumber])
+  @@index([customerId])
+}
+
+// Who did what. Firm staff can read this. A Bank Viewer cannot.
+// The summary is a short sentence. Passwords, notice text, and MSG91 keys are not stored here.
+model AuditEvent {
+  id        String   @id @default(cuid())
+  actorId   String?
+  actorName String
+  actorRole String
+  action    String
+  summary   String
+  bankId    String?
+  bankName  String   @default("")
+  targetId  String   @default("")
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([action])
+  @@index([bankId])
+}
