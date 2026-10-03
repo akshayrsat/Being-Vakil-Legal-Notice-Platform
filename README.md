@@ -31,6 +31,8 @@ Spreadsheets, the people in them, sends, delivery rows, public notices, Speed Po
 
 Approved notice wording is the firm library. Any bank can select an Approved template, including a bank you just added. A draft stays on the bank it was written for. Selecting a template does not open another bank’s spreadsheet or people.
 
+The seeded Approved library is the live MSG91 set, stored on Northwind: **Legal notice (SMS)** (`6abf5af2e9226c340a0548e2`), **Legal notice (email)** (`legal_notice_non_payment`), and **Legal notice (WhatsApp)** (`legal_notice_link`). Every bank sees those three. To refresh the same rows on Cloud SQL without resetting passwords, run `npx tsx scripts/align-msg91-library.ts`. That script does not turn live send on.
+
 - A Bank Viewer can read only the bank on their login. A `?bank=` parameter does not change that.
 - An Admin’s pages use the bank chosen with **Use this bank** (`selectedBankId`). Uploads, recipient rows, campaigns, tracking, bank-owned templates, Speed Post, loans, and reports stay on that bank. A `?bank=` address cannot open a different bank. Switch on the Banks page first.
 - Opening a campaign, consignment, or CSV by id loads that row only when its `bankId` is the bank in use. Guessing another bank’s id returns “not found”.

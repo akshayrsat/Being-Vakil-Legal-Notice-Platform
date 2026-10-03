@@ -24,22 +24,32 @@ const stored = [
   {
     id: "email",
     bankId: NORTHWIND,
-    name: "Borrower email notice",
+    name: "Legal notice (email)",
     status: TEMPLATE_APPROVED,
-    body: "To {{customer_name}}",
-    dltTemplateId: "1107165400000000002",
-    channels: '["EMAIL","WHATSAPP"]',
+    body: "contact_name {{customer_name}}",
+    dltTemplateId: "legal_notice_non_payment",
+    channels: '["EMAIL"]',
     seedKey: "nwh-borrower-email",
   },
   {
     id: "sms",
     bankId: NORTHWIND,
-    name: "Loan recall notice (SMS)",
+    name: "Legal notice (SMS)",
     status: TEMPLATE_APPROVED,
     body: "Dear {{customer_name}}",
-    dltTemplateId: "1107165400000000001",
+    dltTemplateId: "6abf5af2e9226c340a0548e2",
     channels: '["SMS"]',
     seedKey: "nwh-loan-recall-sms",
+  },
+  {
+    id: "whatsapp",
+    bankId: NORTHWIND,
+    name: "Legal notice (WhatsApp)",
+    status: TEMPLATE_APPROVED,
+    body: "Dear {{customer_name}}",
+    dltTemplateId: "legal_notice_link",
+    channels: '["WHATSAPP"]',
+    seedKey: "msg91-legal-notice-whatsapp",
   },
   {
     id: "nwh-draft",
@@ -68,22 +78,24 @@ test("Test Bank lists Northwind Approved wording and hides Northwind drafts", ()
   const listed = listTemplatesForBank(stored, TEST_BANK);
   assert.deepEqual(
     listed.map((template) => template.id),
-    ["email", "sms", "mh-draft"],
+    ["email", "sms", "whatsapp", "mh-draft"],
   );
-  assert.equal(templateListedForBank(stored[2], TEST_BANK), false);
+  const northwindDraft = stored.find((template) => template.id === "nwh-draft");
+  assert.ok(northwindDraft);
+  assert.equal(templateListedForBank(northwindDraft, TEST_BANK), false);
   assert.equal(templateListedForBank(stored[0], TEST_BANK), true);
 
   const choices = selectableApprovedTemplates(listed);
   assert.deepEqual(
     choices.map((template) => template.name),
-    ["Borrower email notice", "Loan recall notice (SMS)"],
+    ["Legal notice (email)", "Legal notice (SMS)", "Legal notice (WhatsApp)"],
   );
   assert.equal(
     templateChoiceLabel(
       { name: choices[0].name, bankId: NORTHWIND, bankName: "Northwind Housing Finance" },
       TEST_BANK,
     ),
-    "Borrower email notice (Northwind Housing Finance)",
+    "Legal notice (email) (Northwind Housing Finance)",
   );
 
   assert.deepEqual(stored, before);
@@ -95,7 +107,7 @@ test("a new bank with no templates of its own still sees Approved wording", () =
   const listed = listTemplatesForBank(stored, NEW_BANK);
   assert.deepEqual(
     listed.map((template) => template.id),
-    ["email", "sms"],
+    ["email", "sms", "whatsapp"],
   );
   assert.equal(listed.some((template) => template.bankId === NEW_BANK), false);
 });
@@ -122,10 +134,10 @@ test("shared template payload is wording only", () => {
   const wording = templateWording(polluted);
   assert.deepEqual(wording, {
     id: "email",
-    name: "Borrower email notice",
-    body: "To {{customer_name}}",
-    dltTemplateId: "1107165400000000002",
-    channels: '["EMAIL","WHATSAPP"]',
+    name: "Legal notice (email)",
+    body: "contact_name {{customer_name}}",
+    dltTemplateId: "legal_notice_non_payment",
+    channels: '["EMAIL"]',
     status: TEMPLATE_APPROVED,
   });
   assert.equal("customerName" in wording, false);
@@ -144,10 +156,10 @@ test("shared template payload is wording only", () => {
 });
 
 test("same-name Approved wording is not overwritten", () => {
-  assert.equal(approvedNameTaken(stored, "borrower email notice", ""), true);
-  assert.equal(approvedNameTaken(stored, "borrower email notice", "email"), false);
+  assert.equal(approvedNameTaken(stored, "legal notice (email)", ""), true);
+  assert.equal(approvedNameTaken(stored, "legal notice (email)", "email"), false);
   assert.equal(draftNameTaken(stored, TEST_BANK, "Test Bank draft", ""), true);
-  assert.equal(draftNameTaken(stored, TEST_BANK, "Borrower email notice", ""), false);
+  assert.equal(draftNameTaken(stored, TEST_BANK, "Legal notice (email)", ""), false);
   assert.equal(draftNameTaken(stored, NORTHWIND, "Northwind private draft", "nwh-draft"), false);
 });
 

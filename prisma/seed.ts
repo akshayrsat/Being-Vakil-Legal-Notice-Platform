@@ -1,11 +1,12 @@
-// Creates the practice users, the practice banks, two practice notice templates,
+// Creates the practice users, the practice banks, the three MSG91 library templates,
 // and three practice public notices.
 // Running this again sets the practice passwords back, and resets the practice banks.
 // Banks you add yourself, with a different short code, are left alone.
 // The bank viewer is always tied to the practice bank marked forViewer.
-// The practice templates are stored on the bank viewer’s bank and marked Approved,
+// The MSG91 templates are stored on the bank viewer’s bank and marked Approved,
 // so every bank can select that wording. They are not copied onto other banks.
-// Templates you add stay.
+// The same seed keys are updated in place, so the old practice names do not stay Approved.
+// Templates you add stay. This does not turn MSG91_LIVE_SEND on.
 
 import bcrypt from "bcryptjs";
 import { PrismaClient } from "@prisma/client";
@@ -14,7 +15,7 @@ import { DEMO_ACCOUNTS } from "../src/lib/demo-accounts";
 import { demandNoticePlainText } from "../src/lib/demand-notice";
 import { DEMO_NOTICES } from "../src/lib/demo-notices";
 import { noticePageHref } from "../src/lib/notice-link";
-import { DEMO_TEMPLATES } from "../src/lib/demo-templates";
+import { alignMsg91Library } from "../src/lib/align-msg91-library";
 import { ROLE_BANK_VIEWER } from "../src/lib/roles";
 
 const prisma = new PrismaClient();
@@ -73,21 +74,10 @@ async function main() {
   for (const account of DEMO_ACCOUNTS) {
     console.log(`  ${account.role}: ${account.email}`);
   }
-  for (const template of DEMO_TEMPLATES) {
-    const data = {
-      bankId: viewerBankId,
-      name: template.name,
-      dltTemplateId: template.dltTemplateId,
-      channels: JSON.stringify(template.channels),
-      body: template.body,
-      status: template.status,
-    };
-    await prisma.noticeTemplate.upsert({
-      where: { seedKey: template.seedKey },
-      update: data,
-      create: { ...data, seedKey: template.seedKey },
-    });
-  }
+  const library = await alignMsg91Library(prisma, {
+    bankIdForNew: viewerBankId,
+    moveExistingToBank: true,
+  });
 
   console.log("Practice banks are ready.");
   for (const bank of DEMO_BANKS) {
@@ -95,9 +85,12 @@ async function main() {
     const viewer = bank.forViewer ? " (bank viewer)" : "";
     console.log(`  ${bank.code}: ${bank.name} — ${status}${viewer}`);
   }
-  console.log("Practice templates are Approved, so every bank can select them.");
-  for (const template of DEMO_TEMPLATES) {
-    console.log(`  ${template.name}`);
+  console.log("MSG91 templates are Approved, so every bank can select them.");
+  for (const name of library.upserted) {
+    console.log(`  ${name}`);
+  }
+  if (library.retired > 0) {
+    console.log(`Moved ${library.retired} leftover practice template(s) to Draft.`);
   }
 
   for (const notice of DEMO_NOTICES) {
