@@ -3,6 +3,7 @@
 
 import type { Prisma } from "@prisma/client";
 import { requiredBankId } from "./bank-data";
+import { reportFileId } from "./desk-reports";
 import { isSendChannel } from "./campaign-plan";
 import { deliveryStatusLabel, isDeliveryStatus, sendChannelLabel, statusesForFilter } from "./campaigns";
 import { hideVendorWording } from "./staff-language";
@@ -11,6 +12,7 @@ import { csvCell, formatIndiaDateTime, indiaDayRange } from "./india-day";
 export type DeliveryFilters = {
   text: string;
   campaignId: string;
+  file: string;
   channel: string;
   status: string;
   from: string;
@@ -21,6 +23,7 @@ export function readDeliveryFilters(params: URLSearchParams): DeliveryFilters {
   return {
     text: (params.get("q") ?? "").trim().slice(0, 80),
     campaignId: (params.get("campaign") ?? "").trim(),
+    file: reportFileId(params.get("file")),
     channel: (params.get("channel") ?? "").trim().toUpperCase(),
     status: (params.get("status") ?? "").trim().toUpperCase(),
     from: dateOnly(params.get("from")),
@@ -33,6 +36,7 @@ export function filtersToSearch(filters: DeliveryFilters, bankId: string): strin
   params.set("bank", bankId);
   if (filters.text) params.set("q", filters.text);
   if (filters.campaignId) params.set("campaign", filters.campaignId);
+  if (filters.file) params.set("file", filters.file);
   if (filters.channel) params.set("channel", filters.channel);
   if (filters.status) params.set("status", filters.status);
   if (filters.from) params.set("from", filters.from);
@@ -52,6 +56,7 @@ export function deliveryWhere(
     campaign: {
       bankId: scope,
       ...(filters.campaignId ? { id: filters.campaignId } : {}),
+      ...(filters.file ? { batch: { id: filters.file, bankId: scope } } : {}),
       ...(createdAt ? { createdAt } : {}),
       ...(options?.sentOnly ? { status: { not: "REVIEW" } } : {}),
     },

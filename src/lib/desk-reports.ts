@@ -3,12 +3,13 @@
 import type { Prisma } from "@prisma/client";
 import { requiredBankId } from "./bank-data";
 import { SEND_CHANNELS, isSendChannel } from "./campaign-plan";
-import { sendChannelLabel } from "./campaigns";
+import { deliveryStatusLabel, sendChannelLabel } from "./campaigns";
 import { prisma } from "./db";
-import { csvCell, indiaDayRange } from "./india-day";
+import { csvCell, formatIndiaDateTime, indiaDayRange } from "./india-day";
 import { POSTAL_STATUSES, postalStatusLabel } from "./postal";
 
 export type ReportFilters = {
+  file: string;
   channel: string;
   from: string;
   to: string;
@@ -44,9 +45,15 @@ export type DeskReport = {
 const ATTEMPTED = ["QUEUED", "SENT", "DELIVERED", "READ", "FAILED"] as const;
 const HANDED = ["SENT", "DELIVERED", "READ"] as const;
 
+export function reportFileId(value: string | null): string {
+  const text = (value ?? "").trim();
+  return /^[a-z0-9]{10,32}$/i.test(text) ? text : "";
+}
+
 export function readReportFilters(params: URLSearchParams): ReportFilters {
   const channel = (params.get("channel") ?? "").trim().toUpperCase();
   return {
+    file: reportFileId(params.get("file")),
     channel: isSendChannel(channel) || channel === "SPEED_POST" ? channel : "",
     from: dateOnly(params.get("from")),
     to: dateOnly(params.get("to")),
@@ -56,15 +63,40 @@ export function readReportFilters(params: URLSearchParams): ReportFilters {
 export function reportFiltersToSearch(filters: ReportFilters, bankId: string): string {
   const params = new URLSearchParams();
   params.set("bank", bankId);
+  if (filters.file) params.set("file", filters.file);
   if (filters.channel) params.set("channel", filters.channel);
   if (filters.from) params.set("from", filters.from);
   if (filters.to) params.set("to", filters.to);
   return params.toString();
 }
 
-// The bank id is always present. A download needs a channel and/or a from/to date from Apply.
+// The bank id is always present. A download needs a file, a channel, and/or a from/to date from Apply.
 export function reportFiltersApplied(filters: ReportFilters): boolean {
-  return Boolean(filters.channel || filters.from || filters.to);
+  return Boolean(filters.file || filters.channel || filters.from || filters.to);
+}
+
+export function reportFileLabel(fileName: string, createdAt: Date, duplicate: boolean): string {
+  const name = fileName.trim() || "Spreadsheet";
+  if (!duplicate) return name;
+  return `${name} · ${formatIndiaDateTime(createdAt)}`;
+}
+
+export function reportCampaignWhere(
+  bankId: string,
+  filters: Pick<ReportFilters, "file" | "from" | "to">,
+  sentOnly = false,
+): Prisma.CampaignWhereInput {
+  const scope = requiredBankId(bankId);
+  const createdAt = createdRange(filters.from, filters.to);
+  return {
+    bankId: scope,
+    batch: {
+      bankId: scope,
+      ...(filters.file ? { id: filters.file } : {}),
+    },
+    ...(createdAt ? { createdAt } : {}),
+    ...(sentOnly ? { status: { not: "REVIEW" } } : {}),
+  };
 }
 
 export async function loadDeskReport(
@@ -75,9 +107,9 @@ export async function loadDeskReport(
   const range = createdRange(filters.from, filters.to);
   const digital = filters.channel !== "SPEED_POST";
   const postal = !filters.channel || filters.channel === "SPEED_POST";
-  const channels = digital ? await channelReports(bankId, filters, range, options?.sentOnly) : [];
-  const links = digital ? await linkReports(bankId, range, options?.sentOnly) : { opened: 0, closed: 0 };
-  const speedPost = postal ? await speedPostReports(bankId, range, options?.sentOnly) : [];
+  const channels = digital ? await channelReports(bankId, filters, options?.sentOnly) : [];
+  const links = digital ? await linkReports(bankId, filters, range, options?.sentOnly) : { opened: 0, closed: 0 };
+  const speedPost = postal ? await speedPostReports(bankId, filters, range, options?.sentOnly) : [];
   return {
     channels,
     linkOpened: links.opened,
@@ -108,7 +140,6 @@ export function reportSummaryCsv(bankName: string, report: DeskReport): string {
 async function channelReports(
   bankId: string,
   filters: ReportFilters,
-  range: { gte?: Date; lte?: Date } | undefined,
   sentOnly = false,
 ): Promise<ChannelReport[]> {
   const scope = requiredBankId(bankId);
@@ -118,11 +149,7 @@ async function channelReports(
     const where: Prisma.CampaignDeliveryWhereInput = {
       bankId: scope,
       channel,
-      campaign: {
-        bankId: scope,
-        ...(range ? { createdAt: range } : {}),
-        ...(sentOnly ? { status: { not: "REVIEW" } } : {}),
-      },
+      campaign: reportCampaignWhere(scope, filters, sentOnly),
     };
     const [attempted, failed, handedOver, opened, skipped, dryRun] = await Promise.all([
       prisma.campaignDelivery.count({ where: { ...where, status: { in: [...ATTEMPTED] } } }),
@@ -155,13 +182,25 @@ async function channelReports(
 
 async function linkReports(
   bankId: string,
+  filters: ReportFilters,
   range: { gte?: Date; lte?: Date } | undefined,
   sentOnly = false,
 ) {
+  const scope = requiredBankId(bankId);
   const where = {
-    bankId: requiredBankId(bankId),
+    bankId: scope,
     ...(range ? { createdAt: range } : {}),
-    ...(sentOnly ? { campaign: { status: { not: "REVIEW" as const } } } : {}),
+    ...(filters.file || sentOnly
+      ? {
+          campaign: filters.file
+            ? {
+                bankId: scope,
+                batch: { id: filters.file, bankId: scope },
+                ...(sentOnly ? { status: { not: "REVIEW" as const } } : {}),
+              }
+            : { status: { not: "REVIEW" as const } },
+        }
+      : {}),
   };
   const [opened, closed] = await Promise.all([
     prisma.publicNotice.count({ where: { ...where, linkViewCount: { gt: 0 } } }),
@@ -172,24 +211,123 @@ async function linkReports(
 
 async function speedPostReports(
   bankId: string,
+  filters: ReportFilters,
   range: { gte?: Date; lte?: Date } | undefined,
   sentOnly = false,
 ): Promise<SpeedPostReport[]> {
+  const scope = requiredBankId(bankId);
   const rows = await Promise.all(
     POSTAL_STATUSES.map(async (status) => ({
       status,
       label: postalStatusLabel(status),
       count: await prisma.speedPostConsignment.count({
         where: {
-          bankId: requiredBankId(bankId),
+          bankId: scope,
           status,
           ...(range ? { updatedAt: range } : {}),
-          ...(sentOnly ? { campaign: { status: { not: "REVIEW" as const } } } : {}),
+          ...(filters.file || sentOnly
+            ? {
+                campaign: filters.file
+                  ? {
+                      bankId: scope,
+                      batch: { id: filters.file, bankId: scope },
+                      ...(sentOnly ? { status: { not: "REVIEW" as const } } : {}),
+                    }
+                  : { status: { not: "REVIEW" as const } },
+              }
+            : {}),
         },
       }),
     })),
   );
   return rows;
+}
+
+export type ReportFileOption = {
+  id: string;
+  fileName: string;
+  createdAt: Date;
+};
+
+export type ReportNoticeRow = {
+  person: string;
+  notice: string;
+  channel: string;
+  status: string;
+};
+
+const sentFileWhere = (bankId: string) => {
+  const scope = requiredBankId(bankId);
+  return {
+    bankId: scope,
+    saved: true,
+    campaigns: { some: { bankId: scope, status: { not: "REVIEW" as const } } },
+  };
+};
+
+export async function listReportFiles(bankId: string): Promise<ReportFileOption[]> {
+  return prisma.uploadBatch.findMany({
+    where: sentFileWhere(bankId),
+    select: { id: true, fileName: true, createdAt: true },
+    orderBy: { createdAt: "desc" },
+  });
+}
+
+export async function reportFileBelongsToBank(bankId: string, fileId: string): Promise<boolean> {
+  const id = reportFileId(fileId);
+  if (!id) return false;
+  const found = await prisma.uploadBatch.findFirst({
+    where: { id, ...sentFileWhere(bankId) },
+    select: { id: true },
+  });
+  return Boolean(found);
+}
+
+export async function loadReportNotices(
+  bankId: string,
+  filters: ReportFilters,
+  options?: { sentOnly?: boolean; technical?: boolean },
+): Promise<ReportNoticeRow[]> {
+  if (!filters.file) return [];
+  const scope = requiredBankId(bankId);
+  const technical = options?.technical ?? false;
+  const campaign = reportCampaignWhere(scope, filters, options?.sentOnly ?? false);
+  const digital = filters.channel !== "SPEED_POST";
+  const postal = !filters.channel || filters.channel === "SPEED_POST";
+  const deliveries = digital
+    ? await prisma.campaignDelivery.findMany({
+        where: {
+          bankId: scope,
+          campaign,
+          ...(isSendChannel(filters.channel) ? { channel: filters.channel } : {}),
+        },
+        select: { customerName: true, noticeNumber: true, channel: true, status: true, rowNumber: true },
+        orderBy: [{ rowNumber: "asc" }, { channel: "asc" }],
+        take: 1000,
+      })
+    : [];
+  const postalRows = postal
+    ? await prisma.speedPostConsignment.findMany({
+        where: { bankId: scope, campaign },
+        select: { customerName: true, noticeNumber: true, status: true },
+        orderBy: [{ customerName: "asc" }, { noticeNumber: "asc" }],
+        take: 1000,
+      })
+    : [];
+  return [
+    ...deliveries.map((row) => ({
+      person: row.customerName,
+      notice: row.noticeNumber,
+      channel: sendChannelLabel(row.channel),
+      status: deliveryStatusLabel(row.status, technical),
+    })),
+    ...postalRows.map((row) => ({
+      person: row.customerName,
+      notice: row.noticeNumber,
+      channel: "Speed Post",
+      status: postalStatusLabel(row.status),
+    })),
+  ];
 }
 
 function dateOnly(value: string | null): string {
