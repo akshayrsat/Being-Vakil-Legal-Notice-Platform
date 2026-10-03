@@ -26,11 +26,13 @@ export function NoticeLinkOpened({
 
 export function MessageOpened({
   openedAt,
+  channel = "",
   className = "text-muted-foreground",
 }: {
   openedAt: Date | null;
+  channel?: string;
   className?: string;
 }) {
-  if (!openedAt) return null;
+  if (!openedAt || channel === "SMS") return null;
   return <p className={className}>Opened {formatIndiaDateTime(openedAt)}</p>;
 }

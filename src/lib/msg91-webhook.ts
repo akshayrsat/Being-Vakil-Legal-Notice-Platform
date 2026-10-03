@@ -40,26 +40,45 @@ export function collectStatusHits(body: unknown): StatusHit[] {
   return hits.slice(0, MAX_STATUS_HITS);
 }
 
+export function storedReceipt(hit: StatusHit): { status: StatusHit["status"]; openedAt: Date | null } {
+  // SMS cannot report an open. A read receipt is still proof the text was delivered.
+  if (hit.channel === "SMS") {
+    return { status: hit.status === "READ" ? "DELIVERED" : hit.status, openedAt: null };
+  }
+  if (hit.status === "READ") return { status: "READ", openedAt: hit.openedAt ?? new Date() };
+  return { status: hit.status, openedAt: null };
+}
+
+export function parseWebhookPayload(text: string): unknown {
+  const trimmed = text.trim();
+  if (!trimmed) return null;
+  if (trimmed.startsWith("{") || trimmed.startsWith("[")) return JSON.parse(trimmed);
+  const data = new URLSearchParams(trimmed).get("data");
+  if (data) return JSON.parse(data);
+  throw new SyntaxError("Send a JSON body.");
+}
+
 export async function applyStatusHits(hits: StatusHit[]): Promise<number> {
   let updated = 0;
   for (const hit of hits) {
     const row = await findLiveRow(hit);
     if (!row) continue;
+    const stored = storedReceipt({ ...hit, channel: hit.channel || row.channel });
     const data: {
       status: StatusHit["status"];
       detail: string;
       openedAt?: Date;
     } = {
-      status: hit.status,
-      detail: detailFor(hit.status),
+      status: stored.status,
+      detail: detailFor(stored.status),
     };
-    if (hit.status === "READ") {
-      data.openedAt = hit.openedAt ?? new Date();
-    }
+    if (stored.openedAt) data.openedAt = stored.openedAt;
+    const allowed: DeliveryStatus[] =
+      row.channel === "SMS" && stored.status === "FAILED" ? [...UPDATABLE, "READ"] : [...UPDATABLE];
     const result = await prisma.campaignDelivery.updateMany({
       where: {
         id: row.id,
-        status: { in: UPDATABLE },
+        status: { in: allowed },
         campaign: { mode: "LIVE" },
       },
       data,
@@ -119,45 +138,94 @@ async function findLiveRow(hit: StatusHit) {
 }
 
 function detailFor(status: StatusHit["status"]): string {
-  if (status === "READ") return "MSG91 reported this as opened/read.";
-  if (status === "FAILED") return "MSG91 reported this as failed.";
-  return "MSG91 reported this as delivered.";
+  if (status === "READ") return "Reported as opened or read.";
+  if (status === "FAILED") return "Reported as failed.";
+  return "Reported as delivered.";
 }
 
-function walk(node: unknown, depth: number, hits: StatusHit[]): void {
+function walk(node: unknown, depth: number, hits: StatusHit[], inherit?: Record<string, unknown>): void {
   if (depth > 6 || node == null) return;
+  if (typeof node === "string") {
+    const parsed = parseJsonString(node);
+    if (parsed) walk(parsed, depth + 1, hits, inherit);
+    return;
+  }
   if (Array.isArray(node)) {
-    for (const item of node) walk(item, depth + 1, hits);
+    for (const item of node) walk(item, depth + 1, hits, inherit);
     return;
   }
   if (typeof node !== "object") return;
-  const record = node as Record<string, unknown>;
+  const record = inherit ? withParentIdentity(inherit, node as Record<string, unknown>) : (node as Record<string, unknown>);
   const hit = hitFromRecord(record);
   if (hit) hits.push(hit);
-  for (const value of Object.values(record)) {
-    if (value && typeof value === "object") walk(value, depth + 1, hits);
+  for (const [key, value] of Object.entries(record)) {
+    if (key === "numbers" && value && typeof value === "object" && !Array.isArray(value)) {
+      for (const [mobile, detail] of Object.entries(value as Record<string, unknown>)) {
+        if (!detail || typeof detail !== "object" || Array.isArray(detail)) continue;
+        const merged: Record<string, unknown> = {
+          ...record,
+          ...(detail as Record<string, unknown>),
+          mobile,
+          number: mobile,
+        };
+        delete merged.numbers;
+        const child = hitFromRecord(merged);
+        if (child) hits.push(child);
+      }
+      continue;
+    }
+    if (value && typeof value === "object") walk(value, depth + 1, hits, record);
+    else if (typeof value === "string") {
+      const parsed = parseJsonString(value);
+      if (parsed) walk(parsed, depth + 1, hits, record);
+    }
   }
 }
 
+function withParentIdentity(parent: Record<string, unknown>, child: Record<string, unknown>): Record<string, unknown> {
+  const merged = { ...child };
+  for (const key of ["requestId", "request_id", "senderId", "DLT_TE_ID", "telNum"]) {
+    if (!firstString(merged, [key]) && firstString(parent, [key])) merged[key] = parent[key];
+  }
+  return merged;
+}
+
+function parseJsonString(value: string): unknown | null {
+  const trimmed = value.trim();
+  if (!trimmed.startsWith("{") && !trimmed.startsWith("[")) return null;
+  try {
+    return JSON.parse(trimmed) as unknown;
+  } catch {
+    return null;
+  }
+}
+
+const SMS_FAILED_CODES = new Set(["2", "9", "16", "17", "20", "25"]);
+
 function hitFromRecord(record: Record<string, unknown>): StatusHit | null {
-  const eventLabel = firstString(record, ["desc", "description", "event", "eventName"]);
-  // Email Queued/Accepted must not fall through to numeric eventId 1 (SMS delivered).
-  if (/^(queued|accepted|enqueued|sent)$/i.test(eventLabel.trim())) return null;
-  const described = mapStatus(eventLabel);
+  const labels = ["desc", "description", "event", "eventName", "upperCaseEventName"]
+    .map((key) => firstString(record, [key]))
+    .filter(Boolean);
+  const eventLabel = labels[0] ?? "";
   const mobile = firstString(record, ["mobile", "telNum", "number", "customerNumber", "phone"]);
   const email = emailFromRecord(record);
+  const channel = inferChannel(record, email, mobile);
+  const smsLike = channel === "SMS" || (!email && channel !== "WHATSAPP" && channel !== "EMAIL");
+  // Email Queued/Accepted/Sent must not fall through to numeric eventId 1 (SMS delivered).
+  if (email && /^(queued|accepted|enqueued|sent)$/i.test(eventLabel.trim())) return null;
+  const described = labels.map((label) => mapStatus(label)).find((status) => status != null) ?? null;
   const codedRaw = firstString(record, ["status", "eventId"]);
   // Email eventId 1/2 = Queued/Accepted. SMS status 1 = delivered. Prefer labels when present.
   let coded = mapStatus(codedRaw);
   if (email && (codedRaw === "1" || codedRaw === "2")) coded = null;
-  // SMS status 2 is failed. Email eventId 2 is Accepted and is cleared above.
-  if (!email && codedRaw === "2" && !described) {
-    coded = "FAILED";
+  // SMS 2/9/16/17/20/25 are failed, rejected, blocked, or NDNC. A failure code wins over "sent".
+  if (smsLike && SMS_FAILED_CODES.has(codedRaw)) coded = "FAILED";
+  if (smsLike && !described && !coded && (codedRaw === "0" || /^(sent|submitted)$/i.test(eventLabel.trim()))) {
+    return null;
   }
-  const status = described ?? coded;
+  const status = (smsLike && SMS_FAILED_CODES.has(codedRaw) ? "FAILED" : null) ?? described ?? coded;
   if (!status) return null;
   const requestId = firstString(record, ["requestId", "request_id"]);
-  const channel = inferChannel(record, email, mobile);
   if (!mobile && !email && !requestId) return null;
   const openedAt =
     status === "READ"
@@ -171,6 +239,7 @@ function inferChannel(record: Record<string, unknown>, email: string, mobile: st
   if (explicit) return explicit;
   if (firstString(record, ["customerNumber", "integratedNumber"])) return "WHATSAPP";
   if (firstString(record, ["telNum", "DLT_TE_ID", "senderId"]) && !email) return "SMS";
+  if (firstString(record, ["number"]) && firstString(record, ["desc", "description"]) && !email) return "SMS";
   if (email && !mobile) return "EMAIL";
   if (email) return "EMAIL";
   return "";
@@ -218,6 +287,8 @@ function mapStatus(raw: string): StatusHit["status"] | null {
     value === "undelivered" ||
     value === "rejected" ||
     value === "expired" ||
+    value === "bounced" ||
+    value === "bounce" ||
     value === "not delivered" ||
     value === "not_delivered"
   ) {
@@ -226,7 +297,9 @@ function mapStatus(raw: string): StatusHit["status"] | null {
   if (value === "unread" || value.includes("not read") || value.includes("not open") || value.includes("not delivered")) {
     return null;
   }
-  if (value.includes("undeliver") || value.includes("fail") || value.includes("reject")) return "FAILED";
+  if (value.includes("undeliver") || value.includes("fail") || value.includes("reject") || value.includes("bounce")) {
+    return "FAILED";
+  }
   if (value.includes("open") || value.includes("read")) return "READ";
   if (value.includes("deliver")) return "DELIVERED";
   return null;

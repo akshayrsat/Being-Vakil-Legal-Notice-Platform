@@ -21,9 +21,10 @@ export type ChannelReport = {
   attempted: number;
   failed: number;
   failureRate: string;
-  handedOver: number;
-  opened: number;
-  unopened: number;
+  delivered: number;
+  /** Null when this channel cannot report that a phone opened the message. */
+  opened: number | null;
+  unopened: number | null;
   skipped: number;
   dryRun: number;
 };
@@ -43,11 +44,17 @@ export type DeskReport = {
 };
 
 const ATTEMPTED = ["QUEUED", "SENT", "DELIVERED", "READ", "FAILED"] as const;
+// SENT is only a handoff to the operator. A delivery receipt is DELIVERED or READ.
+const DELIVERED = ["DELIVERED", "READ"] as const;
 const HANDED = ["SENT", "DELIVERED", "READ"] as const;
 
 export function reportFileId(value: string | null): string {
   const text = (value ?? "").trim();
   return /^[a-z0-9]{10,32}$/i.test(text) ? text : "";
+}
+
+export function channelShowsOpens(channel: string): boolean {
+  return channel !== "SMS";
 }
 
 export function readReportFilters(params: URLSearchParams): ReportFilters {
@@ -119,15 +126,28 @@ export async function loadDeskReport(
   };
 }
 
+export function channelSummaryMetrics(row: ChannelReport): Array<{ metric: string; count: string }> {
+  const metrics = [
+    { metric: "Attempted", count: String(row.attempted) },
+    { metric: "Failed or bounced", count: String(row.failed) },
+    { metric: "Failure rate", count: row.failureRate },
+    { metric: "Delivered", count: String(row.delivered) },
+  ];
+  if (channelShowsOpens(row.channel)) {
+    metrics.push(
+      { metric: "Opened", count: String(row.opened ?? 0) },
+      { metric: "Not opened", count: String(row.unopened ?? 0) },
+    );
+  }
+  return metrics;
+}
+
 export function reportSummaryCsv(bankName: string, report: DeskReport): string {
   const lines = [["Bank", "Section", "Channel", "Metric", "Count"].join(",")];
   for (const row of report.channels) {
-    lines.push(csvLine([bankName, "Digital", row.label, "Attempted", String(row.attempted)]));
-    lines.push(csvLine([bankName, "Digital", row.label, "Failed or bounced", String(row.failed)]));
-    lines.push(csvLine([bankName, "Digital", row.label, "Failure rate", row.failureRate]));
-    lines.push(csvLine([bankName, "Digital", row.label, "Handed over", String(row.handedOver)]));
-    lines.push(csvLine([bankName, "Digital", row.label, "Opened", String(row.opened)]));
-    lines.push(csvLine([bankName, "Digital", row.label, "Not opened", String(row.unopened)]));
+    for (const metric of channelSummaryMetrics(row)) {
+      lines.push(csvLine([bankName, "Digital", row.label, metric.metric, metric.count]));
+    }
   }
   lines.push(csvLine([bankName, "Notice link", "", "Opened", String(report.linkOpened)]));
   lines.push(csvLine([bankName, "Notice link", "", "Not opened", String(report.linkNotOpened)]));
@@ -151,33 +171,42 @@ async function channelReports(
       channel,
       campaign: reportCampaignWhere(scope, filters, sentOnly),
     };
-    const [attempted, failed, handedOver, opened, skipped, dryRun] = await Promise.all([
+    const [attempted, failed, delivered, skipped, dryRun] = await Promise.all([
       prisma.campaignDelivery.count({ where: { ...where, status: { in: [...ATTEMPTED] } } }),
       prisma.campaignDelivery.count({ where: { ...where, status: "FAILED" } }),
-      prisma.campaignDelivery.count({ where: { ...where, status: { in: [...HANDED] } } }),
-      prisma.campaignDelivery.count({
-        where: {
-          AND: [where, { OR: [{ openedAt: { not: null } }, { status: "READ" }] }],
-        },
-      }),
+      prisma.campaignDelivery.count({ where: { ...where, status: { in: [...DELIVERED] } } }),
       prisma.campaignDelivery.count({ where: { ...where, status: "SKIPPED" } }),
       prisma.campaignDelivery.count({ where: { ...where, status: "SIMULATED_SENT" } }),
     ]);
-    const unopened = Math.max(0, handedOver - opened);
+    const opens = channelShowsOpens(channel)
+      ? await openCounts(where)
+      : { opened: null, unopened: null };
     reports.push({
       channel,
       label: sendChannelLabel(channel),
       attempted,
       failed,
       failureRate: attempted === 0 ? "—" : `${Math.round((failed / attempted) * 100)}%`,
-      handedOver,
-      opened: channel === "SMS" ? 0 : opened,
-      unopened: channel === "SMS" ? 0 : unopened,
+      delivered,
+      opened: opens.opened,
+      unopened: opens.unopened,
       skipped,
       dryRun,
     });
   }
   return reports;
+}
+
+async function openCounts(where: Prisma.CampaignDeliveryWhereInput): Promise<{ opened: number; unopened: number }> {
+  const [handedOver, opened] = await Promise.all([
+    prisma.campaignDelivery.count({ where: { ...where, status: { in: [...HANDED] } } }),
+    prisma.campaignDelivery.count({
+      where: {
+        AND: [where, { OR: [{ openedAt: { not: null } }, { status: "READ" }] }],
+      },
+    }),
+  ]);
+  return { opened, unopened: Math.max(0, handedOver - opened) };
 }
 
 async function linkReports(

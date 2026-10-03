@@ -429,7 +429,12 @@ async function finishLiveSend(
     await prisma.campaignDelivery.updateMany({
       where: { id: row.id, campaignId, bankId, status: "QUEUED" },
       data: result.ok
-        ? { status: "DELIVERED", detail: result.detail, providerId: result.providerId }
+        ? {
+            // SMS acceptance is only a handoff. Delivered or failed comes from the receipt.
+            status: channel === "SMS" ? "SENT" : "DELIVERED",
+            detail: channel === "SMS" ? "Sent to the operator." : result.detail,
+            providerId: result.providerId,
+          }
         : { status: "FAILED", detail: result.error },
     });
     if (!result.ok) failed += 1;

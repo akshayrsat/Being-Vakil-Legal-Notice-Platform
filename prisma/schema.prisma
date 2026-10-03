@@ -186,8 +186,9 @@ enum CampaignStatus {
 }
 
 // PENDING is the review, before confirm.
-// SIMULATED_SENT means a dry run. Nothing was handed to MSG91.
-// SENT and DELIVERED mean a live handoff. READ is for a later receipt. A dry run is never relabelled as delivered.
+// SIMULATED_SENT means a dry run. Nothing was handed to the operator.
+// SENT is a live handoff to the operator. DELIVERED and READ come from a later receipt.
+// SMS stays SENT until a delivery receipt. A dry run is never relabelled as delivered.
 enum DeliveryStatus {
   PENDING
   SKIPPED

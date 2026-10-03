@@ -9,6 +9,7 @@ import {
   applyStatusHits,
   collectStatusHits,
   isWebhookConfigured,
+  parseWebhookPayload,
   secretMatches,
   webhookSecret,
 } from "@/lib/msg91-webhook";
@@ -39,7 +40,7 @@ export async function POST(request: Request) {
 
   let body: unknown;
   try {
-    body = JSON.parse(text) as unknown;
+    body = parseWebhookPayload(text);
   } catch {
     return NextResponse.json({ ok: false, error: "Send a JSON body." }, { status: 400 });
   }
