@@ -23,6 +23,7 @@ import { workingBank } from "@/lib/bank-context";
 import { backToUploads } from "@/lib/desk-back";
 import { loadTemplateLibrary } from "@/lib/load-template-library";
 import { prisma } from "@/lib/db";
+import { isOwnerAdmin } from "@/lib/owner-admin";
 import { ROLE_ADMIN } from "@/lib/roles";
 import { SHEET_FIELDS, type FieldKey, type FieldMapping } from "@/lib/sheet-fields";
 import { templateLibraryNotes } from "@/lib/template-library";
@@ -97,7 +98,6 @@ export default async function UploadBatchPage({
     savedCount: library.templates.length,
     approvedCount: approvedTemplates.length,
     elsewhere: library.elsewhere,
-    canWrite: isAdmin && bank.active,
   });
   const requestedTemplate = query.template?.trim() ?? "";
   const selectedTemplate =
@@ -199,7 +199,13 @@ export default async function UploadBatchPage({
           templates={approvedTemplates.map((template) => ({
             id: template.id,
             name: templateChoiceLabel(
-              { name: template.name, bankId: template.bankId, bankName: template.bank.name },
+              {
+                name: template.name,
+                bankId: template.bankId,
+                bankName: template.bank.name,
+                seedKey: template.seedKey,
+                dltTemplateId: template.dltTemplateId,
+              },
               bank.id,
             ),
             dltTemplateId: template.dltTemplateId,
@@ -207,8 +213,8 @@ export default async function UploadBatchPage({
             body: template.body,
           }))}
           selectedId={selectedTemplate?.id ?? ""}
-          canEdit={isAdmin && bank.active}
           libraryNotes={libraryNotes}
+          showVendorDetail={isOwnerAdmin(user)}
         />
 
         {isAdmin && bank.active && batch.saved ? (

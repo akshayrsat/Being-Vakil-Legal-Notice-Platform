@@ -304,10 +304,11 @@ export function DashboardHome({ user }: { user: SignedInUser }) {
           </CardHeader>
           <CardContent>
             <p className="leading-7 text-foreground">
-              Firm staff choose a bank, upload a spreadsheet, and write a notice template. They can
-              review a send, confirm a dry run, then search or download a status report. The audit log
-              records who did that. A bank viewer can look and download a report for their own bank.
-              They cannot change a file, a template, or a send, and they cannot open the audit log. A
+              Firm staff choose a bank, upload a spreadsheet, and select an approved notice template.
+              They do not write templates here. They can review a send, confirm a dry run, then search
+              or download a status report. The audit log records who did that. A bank viewer can look
+              and download a report for their own bank. They cannot change a file or a send, and they
+              cannot open the audit log. A
               dry run stays marked Dry run. MSG91 is not called unless the keys are set up on this
               computer.
             </p>

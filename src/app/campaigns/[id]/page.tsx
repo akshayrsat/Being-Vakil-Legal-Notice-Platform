@@ -38,6 +38,7 @@ import { personHistoryHref } from "@/lib/delivery-report";
 import { loanSearchHref } from "@/lib/loan-timeline";
 import { noticeLinkOpensByNumber } from "@/lib/public-notice";
 import { scopedBankId, withBank } from "@/lib/report-bank";
+import { isOwnerAdmin } from "@/lib/owner-admin";
 import { ROLE_ADMIN } from "@/lib/roles";
 
 export const metadata: Metadata = {
@@ -61,6 +62,7 @@ export default async function CampaignPage({
   const { id } = await params;
   const query = await searchParams;
   const isAdmin = user.role === ROLE_ADMIN;
+  const showVendorDetail = isOwnerAdmin(user);
   const scope = scopedBankId(user, query.bank);
   const channelFilter = isSendChannel((query.channel ?? "").toUpperCase())
     ? (query.channel ?? "").toUpperCase()
@@ -210,7 +212,7 @@ export default async function CampaignPage({
             <CardTitle>{campaign.templateName}</CardTitle>
             <CardDescription>
               {campaign.batch.fileName}. {people} {people === 1 ? "person" : "people"} in this send.
-              {campaign.dltTemplateId ? ` DLT id ${campaign.dltTemplateId}.` : ""}
+              {showVendorDetail && campaign.dltTemplateId ? ` DLT id ${campaign.dltTemplateId}.` : ""}
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-3 text-sm leading-6">

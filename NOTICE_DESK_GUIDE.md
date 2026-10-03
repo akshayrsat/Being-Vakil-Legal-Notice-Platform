@@ -56,7 +56,7 @@ Then start the site:
 npm run dev
 ```
 
-The first start creates a small database on your computer, two practice users, three practice banks, and three Approved notice templates for Northwind Housing Finance. Those templates are the firm’s live MSG91 legal notices (SMS, email, and WhatsApp). You may see a line that says Prisma is skipping environment variable loading. That line is normal. Wait until the terminal says the site is ready, then open a browser and go to:
+The first start creates a small database on your computer, two practice users, three practice banks, and three Approved notice templates. Those templates are the firm’s live MSG91 legal notices (SMS, email, and WhatsApp). Every bank can select them. The templates page does not label them as written for a practice bank. You may see a line that says Prisma is skipping environment variable loading. That line is normal. Wait until the terminal says the site is ready, then open a browser and go to:
 
 [http://localhost:4317](http://localhost:4317)
 
@@ -66,7 +66,7 @@ Leave the terminal window open while you use the site. Closing it, or pressing C
 
 The site uses port **4317** (not the usual 3000) so it is less likely to clash with another program.
 
-Each time you run `npm run dev`, the two practice passwords are set back to the ones in this guide, and the three practice banks are reset. A bank you added yourself, with a different short code, stays. The bank an Admin last chose also stays. The three MSG91 notice templates are stored on Northwind and marked Approved, so every bank can select that wording. Restarting puts the wording back. A template you added yourself stays. A spreadsheet you uploaded stays. A send you confirmed stays. The three practice public notices are put back. Live send stays off.
+Each time you run `npm run dev`, the two practice passwords are set back to the ones in this guide, and the three practice banks are reset. A bank you added yourself, with a different short code, stays. The bank an Admin last chose also stays. The three MSG91 notice templates are marked Approved, so every bank can select that wording. The templates page does not credit a practice bank for them. Restarting puts the wording back. A template you added on a bank of your own stays. A leftover practice template on Northwind, Meridian, or Harbour is removed if no send uses it. A spreadsheet you uploaded stays. A send you confirmed stays. The three practice public notices are put back. Live send stays off.
 
 ## Open a practice notice
 
@@ -163,9 +163,9 @@ A spreadsheet you upload is kept when you restart the site. It is wiped only if 
 
 ## Notice templates
 
-Approved notice wording is shared by the firm. While you work on any bank, including a bank you just added, **Select approved template** lists every Approved template. The three MSG91 templates are stored for **Northwind Housing Finance** and marked Approved, so they also appear for Meridian and for a new bank. Select them on the bank you are working on. Adding a bank lists them immediately.
+Approved notice wording is the firm library. While you work on any bank, including a bank you just added, **Select approved template** lists those templates. The three notice templates are marked Approved, so they appear for Test Bank, Meridian, and a bank you just added. A bank user and a legal coordinator see the template name and the channel (SMS, email, or WhatsApp). The owner admin also sees the reference id. The list does not say the wording was written for a practice bank. Select them on the bank you are working on. Adding a bank lists them immediately.
 
-A draft stays on the bank it was written for. Only that bank lists the draft.
+Staff do not write templates in Notice Desk. There is no **New template** button and no form for a draft. Open a row to read the name and the channel. The owner admin also sees the reference id and the short stored note.
 
 A spreadsheet, the people in it, a send, a delivery row, and a notice stay on one bank. Sharing a template shares the wording only. People, spreadsheets, sends, and notices remain on their own bank.
 
@@ -177,19 +177,11 @@ The Approved library matches the live MSG91 templates:
 
 Live send still reads the MSG91 settings in `.env` and in code. It does not send the library id by itself, and it stays off unless `MSG91_LIVE_SEND=true`.
 
-### Add or change a template (Admin only)
+### Read a template
 
-1. Sign in as Admin and choose a bank.
-2. Press **Templates**, then **New template**.
-3. Type a name, such as `Practice demand notice`.
-4. Type a DLT template id if you have one. Any short id is accepted here. The site does not check it with a phone company.
-5. Tick **SMS**, **Email**, or **WhatsApp**. You can tick more than one. Tick at least one.
-6. Write the notice. Press a placeholder button, such as **Customer name**, to insert `{{customer_name}}` where that person’s detail should go. Other placeholders include `{{loan_number}}`, `{{outstanding_amount}}`, `{{mobile}}`, and `{{email}}`.
-7. Leave the status on **Draft** while you are still writing. A draft is saved, but it cannot be used to fill a notice.
-8. When the wording is ready, set the status to **Approved**. Approved needs a DLT template id. That wording can then be selected for every bank.
-9. Press **Save template**.
-
-To change one, press **Edit** on its row, or choose it under **Select approved template**. An inactive bank can still show templates, but you cannot save changes until the bank you are working on is active.
+1. Sign in and choose a bank.
+2. Press **Templates**.
+3. Open **Legal notice (SMS)**, **Legal notice (email)**, or **Legal notice (WhatsApp)**. You see the name and the channel. The owner admin also sees the reference id. You cannot change them.
 
 ### See the notice filled in
 
@@ -203,7 +195,7 @@ Upload the practice file, save the column match, and choose **Legal notice (emai
 
 ## Prepare a send (dry run)
 
-A send belongs to the bank you are working on. It uses one saved spreadsheet for that bank and one **Approved** template. The template may have been written for another bank. Draft templates are not listed. The people on the send are only the people in that spreadsheet.
+A send belongs to the bank you are working on. It uses one saved spreadsheet for that bank and one approved MSG91 template. The same three templates are listed for every bank. The people on the send are only the people in that spreadsheet.
 
 1. Sign in as Admin and choose a bank that already has a saved spreadsheet. The MSG91 templates are already Approved, so you do not need a template saved on that same bank.
 2. Press **Campaigns**, then **Prepare a send**. You can also press **Prepare a send** on an open spreadsheet.
@@ -225,7 +217,7 @@ To allow a live send later, fill in `MSG91_AUTH_KEY` and set `MSG91_LIVE_SEND=tr
 
 Sign in as the Bank Viewer. Press **Uploads**. You see files for Northwind Housing Finance only, and only after an Admin has uploaded one for that bank. Open a file to see the column match, the people, and the filled notice. There is no button to upload or to change the match.
 
-Press **Templates**. You see the Approved MSG91 templates, including **Legal notice (SMS)**, **Legal notice (email)**, and **Legal notice (WhatsApp)**. Open one to read it. There is no **New template** button and no **Save template** button.
+Press **Templates**. You see **Legal notice (SMS)**, **Legal notice (email)**, and **Legal notice (WhatsApp)**, each with its channel. You do not see a vendor name or a template id. There is no **New template** button and no form to write a template.
 
 Press **Campaigns**. After an Admin has confirmed a send for Northwind, you can open it and see the dry-run result. There is no **Prepare a send** button and no **Confirm dry run** button. Press **Find a person** to search Northwind only. There is no bank dropdown. **Download CSV** is for Northwind only. There is no **Prepare follow-up** button. There is no **Audit** button. Opening the audit address shows a short message that the page is for firm staff, and no events.
 
@@ -302,7 +294,7 @@ Copy the email and password from this page. Capitals matter in the password. `ad
 In the terminal, press Ctrl+C to stop the site, then run `npm run dev` again.
 
 **You changed a practice password, a practice bank, or a practice template and it came back**  
-That is expected. Starting the site again resets the two practice passwords, the three practice banks (NWH, MCB, and HCR), and the three MSG91 templates. Those templates stay Approved, so every bank can select them. A template you created yourself stays. Live send is not turned on.
+That is expected. Starting the site again resets the two practice passwords, the three practice banks (NWH, MCB, and HCR), and the three MSG91 templates. Those templates stay Approved, so every bank can select them, and they are not labeled with a practice bank. A template you created on a bank of your own stays. Live send is not turned on.
 
 **“A bank with the short code … already exists”**  
 Pick a different short code. NWH, MCB, and HCR are already used.
@@ -329,8 +321,8 @@ You do not need to open these to use the site. This list is so a person can see 
 - `prisma/schema.prisma` — the list of things we store: banks, people, spreadsheets, notice templates, sends, the audit log, and each signed-in visit.
 - `samples/notice-recipients.xlsx` — a practice Excel file of three test recipients.
 - `scripts/make-sample-workbook.mjs` — rebuilds that practice Excel file if you need a fresh copy.
-- `prisma/seed.ts` — creates the practice users, the practice banks, and the three MSG91 templates. It also moves any leftover practice Approved names back to Draft.
-- `scripts/align-msg91-library.ts` — the same template update for an existing database, including Cloud SQL. It does not reset passwords and does not turn live send on. Run `npx tsx scripts/align-msg91-library.ts`.
+- `prisma/seed.ts` — creates the practice users, the practice banks, and the three MSG91 templates. It also deletes unreferenced practice templates. A template a send already uses is taken out of Approved and left in place.
+- `scripts/align-msg91-library.ts` — the same template update for an existing database, including Cloud SQL. Safe to run twice. It does not reset passwords, banks, people, notices, or campaigns, and it does not turn live send on. Run `npx tsx scripts/align-msg91-library.ts`.
 - `prisma.config.ts` — tells the database tool to run that practice-user script.
 - `prisma/dev.db` — the actual database file. It appears on your computer after the first start. It is not copied when someone downloads the project.
 - `src/app/page.tsx` — the front door. It sends you to sign-in or to the dashboard.
@@ -350,13 +342,11 @@ You do not need to open these to use the site. This list is so a person can see 
 - `src/app/audit/page.tsx` — the Security / Audit list for firm staff.
 - `src/app/api/msg91/webhook/route.ts` — where MSG91 can report delivered, read, or failed, once a secret is set.
 - `src/app/login/otp/page.tsx` — the one-time code page, used only when MSG91 is set up.
-- `src/app/templates/page.tsx` — the list of notice templates for the current bank.
-- `src/app/templates/new/page.tsx` — where firm staff write a new template.
-- `src/app/templates/[id]/page.tsx` — read or edit one template.
+- `src/app/templates/page.tsx` — the list of the firm’s approved MSG91 templates.
+- `src/app/templates/[id]/page.tsx` — read one approved MSG91 template.
 - `src/app/actions/auth.ts` — checks the password and signs you in or out.
 - `src/app/actions/banks.ts` — adds a bank, marks it active or inactive, and sets the bank an Admin is working on.
 - `src/app/actions/uploads.ts` — reads an Excel file and saves the matched people under the current bank.
-- `src/app/actions/templates.ts` — saves a notice template under the current bank.
 - `src/app/actions/campaigns.ts` — saves a send, confirms the dry run, and prepares a follow-up without sending it.
 - `src/app/layout.tsx` — the shared frame around every page (fonts and page title).
 - `src/app/error.tsx` — the plain message you see if a page cannot open.
@@ -368,8 +358,7 @@ You do not need to open these to use the site. This list is so a person can see 
 - `src/components/upload-form.tsx` — the button that picks an Excel file.
 - `src/components/column-mapper.tsx` — the dropdowns that match spreadsheet columns to notice fields.
 - `src/components/recipient-preview.tsx` — the table of the first people after a match is saved.
-- `src/components/template-form.tsx` — the boxes for a template’s name, DLT id, channels, and notice text.
-- `src/components/template-readout.tsx` — the same template, read-only, for a bank viewer.
+- `src/components/template-readout.tsx` — an approved template, read-only.
 - `src/components/notice-merge-preview.tsx` — the filled-in notice for the first few people.
 - `src/components/campaign-form.tsx` — the spreadsheet, template, and channel choices for a send.
 - `src/components/confirm-campaign.tsx` — the button that confirms a dry run.
@@ -383,7 +372,7 @@ You do not need to open these to use the site. This list is so a person can see 
 - `src/lib/roles.ts` — the words we show for Admin and Bank Viewer.
 - `src/lib/demo-accounts.ts` — the two practice emails and passwords.
 - `src/lib/demo-banks.ts` — the three practice banks.
-- `src/lib/demo-templates.ts` — the three Approved MSG91 templates stored on Northwind.
+- `src/lib/demo-templates.ts` — the three approved MSG91 templates. The page does not credit a practice bank for them.
 - `src/lib/banks.ts` — checks that a bank name and short code are usable.
 - `src/lib/bank-context.ts` — which bank later work (such as a spreadsheet) must be filed under.
 - `src/lib/sheet-fields.ts` — the notice fields a spreadsheet can fill, such as name, mobile, and loan number.

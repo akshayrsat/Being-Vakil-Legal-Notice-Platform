@@ -5,7 +5,12 @@ import {
   approvedTemplatesForBank,
   otherBankApprovedSummary,
   sortTemplatesByName,
+  templateDetailCard,
   templateLibraryNotes,
+  templateMissingCopy,
+  templatesEmptyLibrary,
+  templatesListCard,
+  templatesListIntro,
   type BankTemplateRow,
 } from "./template-library";
 
@@ -71,7 +76,7 @@ test("fifteen approved templates all remain selectable, sorted A to Z", () => {
 test("other banks keep their approved names, and this bank is left out of that note", () => {
   const elsewhere = otherBankApprovedSummary(
     [
-      { bankId: "nwh", status: "APPROVED", name: "Legal notice (SMS)" },
+      { bankId: "nwh", status: "APPROVED", name: "Northwind ledger notice" },
       { bankId: "nwh", status: "DRAFT", name: "Hidden draft" },
       { bankId: "test-bank", status: "APPROVED", name: "Test Bank notice" },
       { bankId: "mcb", status: "APPROVED", name: "Meridian notice" },
@@ -88,11 +93,52 @@ test("other banks keep their approved names, and this bank is left out of that n
     elsewhere.map((bank) => bank.bankCode),
     ["MCB", "NWH"],
   );
-  assert.deepEqual(elsewhere[1]?.names, ["Legal notice (SMS)"]);
+  assert.deepEqual(elsewhere[1]?.names, ["Northwind ledger notice"]);
   assert.equal(
     elsewhere.some((bank) => bank.names.includes("Test Bank notice")),
     false,
   );
+});
+
+test("firm library rows are not described as wording from Northwind", () => {
+  const elsewhere = otherBankApprovedSummary(
+    [
+      {
+        bankId: "nwh",
+        status: "APPROVED",
+        name: "Legal notice (SMS)",
+        seedKey: "nwh-loan-recall-sms",
+        dltTemplateId: "6abf5af2e9226c340a0548e2",
+      },
+      {
+        bankId: "nwh",
+        status: "APPROVED",
+        name: "Legal notice (email)",
+        seedKey: "nwh-borrower-email",
+        dltTemplateId: "legal_notice_non_payment",
+      },
+      {
+        bankId: "nwh",
+        status: "APPROVED",
+        name: "Legal notice (WhatsApp)",
+        seedKey: "msg91-legal-notice-whatsapp",
+        dltTemplateId: "legal_notice_link",
+      },
+    ],
+    [
+      { id: "nwh", name: "Northwind Housing Finance", code: "NWH" },
+      { id: "test-bank", name: "Test Bank", code: "MH" },
+    ],
+    "test-bank",
+  );
+  assert.deepEqual(elsewhere, []);
+  const notes = templateLibraryNotes({
+    bankName: "Test Bank",
+    savedCount: 3,
+    approvedCount: 3,
+    elsewhere,
+  });
+  assert.doesNotMatch(notes.join(" "), /Northwind|Meridian|Harbour/);
 });
 
 test("an empty working bank explains the upload and lists approved wording from another bank", () => {
@@ -100,7 +146,6 @@ test("an empty working bank explains the upload and lists approved wording from 
     bankName: "Test Bank (MH)",
     savedCount: 0,
     approvedCount: 0,
-    canWrite: true,
     elsewhere: [
       {
         bankId: "nwh",
@@ -120,15 +165,33 @@ test("an empty working bank explains the upload and lists approved wording from 
   assert.doesNotMatch(text, /Switch to that bank/);
 });
 
-test("drafts on this bank are called out when nothing is approved yet", () => {
+test("an empty library does not ask staff to write a template", () => {
   const notes = templateLibraryNotes({
-    bankName: "Test Bank (MH)",
-    savedCount: 2,
+    bankName: "Test Bank",
+    savedCount: 0,
     approvedCount: 0,
-    canWrite: true,
     elsewhere: [],
   });
-  assert.match(notes.join(" "), /2 saved drafts/);
+  const text = notes.join(" ");
+  assert.match(text, /does not save notice wording/);
+  assert.match(text, /approved notice templates/);
+  assert.match(text, /does not write a template/);
+  assert.doesNotMatch(text, /Write a template|New template|saved draft|MSG91|DLT|Facebook/);
+});
+
+test("bank users and coordinators see the template name and channel, and the owner sees the reference", () => {
+  const intro = templatesListIntro("Test Bank", false);
+  const card = templatesListCard(false);
+  const detail = templateDetailCard(false);
+  const plain = [intro, card, detail, templatesEmptyLibrary(), templateMissingCopy()].join(" ");
+  assert.match(intro, /Test Bank/);
+  assert.match(intro, /does not write a template/);
+  assert.match(card, /name and the channel/);
+  assert.doesNotMatch(plain, /MSG91|DLT|Facebook|legal_notice_|6abf5af2/);
+  const owner = [templatesListIntro("Test Bank", true), templatesListCard(true), templateDetailCard(true)].join(" ");
+  assert.match(owner, /MSG91 or Facebook/);
+  assert.match(owner, /approved on DLT/);
+  assert.match(owner, /reference id/);
 });
 
 test("prepare-send back returns to the spreadsheet when one was opened, and ignores a bad id", () => {

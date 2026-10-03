@@ -54,7 +54,6 @@ export default async function NewCampaignPage({
     savedCount: library.templates.length,
     approvedCount: templates.length,
     elsewhere: library.elsewhere,
-    canWrite: true,
   });
   const ready = bank.active && batches.length > 0 && templates.length > 0;
 
@@ -113,17 +112,9 @@ export default async function NewCampaignPage({
                     {note}
                   </p>
                 ))}
-                <div className="flex flex-wrap gap-2">
-                  <Link href="/templates" className={buttonVariants({ className: "h-11 px-4" })}>
-                    Go to templates
-                  </Link>
-                  <Link
-                    href="/templates/new"
-                    className={buttonVariants({ variant: "outline", className: "h-11 px-4" })}
-                  >
-                    New template
-                  </Link>
-                </div>
+                <Link href="/templates" className={buttonVariants({ className: "h-11 w-fit px-4" })}>
+                  Go to templates
+                </Link>
               </div>
             ) : ready ? (
               <div className="flex flex-col gap-4">
@@ -141,6 +132,8 @@ export default async function NewCampaignPage({
                       name: template.name,
                       bankId: template.bankId,
                       bankName: template.bank.name,
+                      seedKey: template.seedKey,
+                      dltTemplateId: template.dltTemplateId,
                     },
                     bank.id,
                   ),

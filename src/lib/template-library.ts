@@ -3,6 +3,7 @@
 // A draft stays on the bank it was written for.
 // A spreadsheet upload is a list of people. It does not create a template.
 
+import { isFirmLibraryTemplate } from "./demo-templates";
 import { isApprovedTemplateStatus } from "./templates";
 
 export type NamedTemplate = {
@@ -38,13 +39,21 @@ export function approvedTemplatesForBank<T extends BankTemplateRow>(templates: T
 }
 
 export function otherBankApprovedSummary(
-  rows: Array<{ bankId: string; status: string; name: string }>,
+  rows: Array<{
+    bankId: string;
+    status: string;
+    name: string;
+    seedKey?: string | null;
+    dltTemplateId?: string | null;
+  }>,
   banks: Array<{ id: string; name: string; code: string }>,
   workingBankId: string,
 ): OtherBankApproved[] {
   const namesByBank = new Map<string, string[]>();
   for (const row of rows) {
     if (row.bankId === workingBankId || !isApprovedTemplateStatus(row.status)) continue;
+    // Firm MSG91 rows are not "wording from another bank".
+    if (isFirmLibraryTemplate(row)) continue;
     const names = namesByBank.get(row.bankId) ?? [];
     names.push(row.name);
     namesByBank.set(row.bankId, names);
@@ -72,24 +81,13 @@ export function templateLibraryNotes(input: {
   savedCount: number;
   approvedCount: number;
   elsewhere: OtherBankApproved[];
-  canWrite: boolean;
 }): string[] {
   const notes: string[] = [];
-  const drafts = Math.max(0, input.savedCount - input.approvedCount);
 
   if (input.approvedCount === 0) {
     notes.push(
-      input.canWrite
-        ? `Uploading a spreadsheet saves the people for ${input.bankName}. It does not save notice wording. Write a template and mark it Approved. Approved wording can be selected for every bank.`
-        : `${input.bankName} has no Approved template yet. Notice wording is saved by the firm. A spreadsheet upload does not add a template.`,
+      `Uploading a spreadsheet saves the people for ${input.bankName}. It does not save notice wording. The list is the firm’s approved notice templates. This site does not write a template.`,
     );
-    if (input.canWrite && drafts > 0) {
-      notes.push(
-        drafts === 1
-          ? `${input.bankName} has 1 saved draft. Mark it Approved to select it for a send.`
-          : `${input.bankName} has ${drafts} saved drafts. Mark one Approved to select it for a send.`,
-      );
-    }
   }
 
   if (input.elsewhere.length > 0) {
@@ -105,4 +103,34 @@ export function templateLibraryNotes(input: {
   }
 
   return notes;
+}
+
+export function templatesListIntro(bankName: string, showVendorDetail: boolean): string {
+  const shared = `These are the firm’s approved notice templates. Every bank, including ${bankName}, can select them.`;
+  const vendor = showVendorDetail
+    ? " SMS templates are approved on DLT. WhatsApp templates are created on MSG91 or Facebook."
+    : "";
+  return `${shared}${vendor} This page does not write a template. Spreadsheets and the people in them stay on ${bankName}.`;
+}
+
+export function templatesListCard(showVendorDetail: boolean): string {
+  if (showVendorDetail) {
+    return "Approved templates are listed A to Z, with the channel and the reference id. Open one to read it. The same three are available for every bank.";
+  }
+  return "Approved templates are listed A to Z. Each row shows the name and the channel. Open one to read it. The same three are available for every bank.";
+}
+
+export function templatesEmptyLibrary(): string {
+  return "No approved template is in the library yet.";
+}
+
+export function templateDetailCard(showVendorDetail: boolean): string {
+  if (showVendorDetail) {
+    return "The name, the channel, and the template reference. This page does not change them.";
+  }
+  return "The name and the channel. This page does not change the template.";
+}
+
+export function templateMissingCopy(): string {
+  return "That template is not one of the firm’s approved notice templates.";
 }

@@ -1,5 +1,6 @@
-// Approved wording is listed for every bank. Drafts stay on the bank they were written for.
-// Spreadsheets and people are not loaded here.
+// The firm’s approved notice templates. Staff do not write templates on this page.
+// Bank users and legal coordinators see the name and the channel.
+// The owner admin also sees the reference id. Sending still uses the stored id.
 
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -17,17 +18,15 @@ import {
 import { getCurrentUser } from "@/lib/auth";
 import { workingBank } from "@/lib/bank-context";
 import { loadTemplateLibrary } from "@/lib/load-template-library";
+import { isOwnerAdmin } from "@/lib/owner-admin";
 import { ROLE_ADMIN } from "@/lib/roles";
-import { templateLibraryNotes } from "@/lib/template-library";
 import {
-  channelLabels,
-  isApprovedTemplateStatus,
-  listTemplatesForBank,
-  parseChannels,
-  selectableApprovedTemplates,
-  templateChoiceLabel,
-  templateStatusLabel,
-} from "@/lib/templates";
+  templateLibraryNotes,
+  templatesEmptyLibrary,
+  templatesListCard,
+  templatesListIntro,
+} from "@/lib/template-library";
+import { staffTemplateLibraryView } from "@/lib/templates";
 
 export const metadata: Metadata = {
   title: "Templates",
@@ -39,6 +38,7 @@ export default async function TemplatesPage() {
 
   const bank = workingBank(user);
   const isAdmin = user.role === ROLE_ADMIN;
+  const showVendorDetail = isOwnerAdmin(user);
 
   return (
     <div className="flex min-h-full flex-col">
@@ -48,9 +48,7 @@ export default async function TemplatesPage() {
           <h1 className="font-serif text-4xl tracking-tight">Notice templates</h1>
           <p className="mt-3 text-base leading-7 text-muted-foreground">
             {bank
-              ? isAdmin
-                ? `Approved wording is shared. While you work on ${bank.name}, you can select any Approved template. A draft stays on the bank it was written for. Spreadsheets and the people in them stay on ${bank.name}.`
-                : `Approved notice wording, plus drafts for ${bank.name}. You can read them. You cannot change them.`
+              ? templatesListIntro(bank.name, showVendorDetail)
               : "Choose a bank before opening notice templates."}
           </p>
         </div>
@@ -60,8 +58,8 @@ export default async function TemplatesPage() {
             <CardHeader>
               <CardTitle>No bank selected</CardTitle>
               <CardDescription>
-                Choose a bank first. Approved wording can be used for any bank. A spreadsheet stays
-                on the bank you choose.
+                Choose a bank first. The approved templates can be used for any bank. A spreadsheet
+                stays on the bank you choose.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -81,8 +79,8 @@ export default async function TemplatesPage() {
           <TemplateLibrary
             bankId={bank.id}
             bankName={bank.name}
-            canWrite={isAdmin && bank.active}
-            isAdmin={isAdmin}
+            inactive={isAdmin && !bank.active}
+            showVendorDetail={showVendorDetail}
           />
         )}
       </main>
@@ -93,23 +91,34 @@ export default async function TemplatesPage() {
 async function TemplateLibrary({
   bankId,
   bankName,
-  canWrite,
-  isAdmin,
+  inactive,
+  showVendorDetail,
 }: {
   bankId: string;
   bankName: string;
-  canWrite: boolean;
-  isAdmin: boolean;
+  inactive: boolean;
+  showVendorDetail: boolean;
 }) {
-  const library = await loadTemplateLibrary(bankId, isAdmin);
-  const templates = listTemplatesForBank(library.templates, bankId);
-  const approved = selectableApprovedTemplates(templates);
+  const library = await loadTemplateLibrary(bankId, false);
+  const view = staffTemplateLibraryView(
+    library.templates.map((template) => ({
+      id: template.id,
+      name: template.name,
+      bankId: template.bankId,
+      bankName: template.bank.name,
+      status: template.status,
+      channels: template.channels,
+      dltTemplateId: template.dltTemplateId,
+      seedKey: template.seedKey,
+    })),
+    bankId,
+    { showVendorDetail },
+  );
   const notes = templateLibraryNotes({
     bankName,
-    savedCount: templates.length,
-    approvedCount: approved.length,
+    savedCount: view.saved.length,
+    approvedCount: view.saved.length,
     elsewhere: library.elsewhere,
-    canWrite,
   });
 
   return (
@@ -117,38 +126,20 @@ async function TemplateLibrary({
       <Card>
         <CardHeader>
           <CardTitle>Templates for {bankName}</CardTitle>
-          <CardDescription>
-            {canWrite
-              ? "Write a new template, or select an Approved one. Approved templates are listed A to Z for every bank."
-              : "Approved templates are listed A to Z. You can open one to read it."}
-          </CardDescription>
+          <CardDescription>{templatesListCard(showVendorDetail)}</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
-          <div className="flex flex-wrap items-end gap-3">
-            {canWrite ? (
-              <Link href="/templates/new" className={buttonVariants({ className: "h-11 px-4" })}>
-                New template
-              </Link>
-            ) : isAdmin ? (
-              <Link href="/banks" className={buttonVariants({ variant: "outline", className: "h-11 px-4" })}>
-                Go to banks
-              </Link>
-            ) : null}
-            <ApprovedTemplateSelect
-              templates={approved.map((template) => ({
-                id: template.id,
-                label: templateChoiceLabel(
-                  { name: template.name, bankId: template.bankId, bankName: template.bank.name },
-                  bankId,
-                ),
-              }))}
-            />
-          </div>
-          {approved.length > 0 ? (
+          <ApprovedTemplateSelect
+            templates={view.saved.map((template) => ({
+              id: template.id,
+              label: template.name,
+            }))}
+          />
+          {view.saved.length > 0 ? (
             <p className="text-sm leading-6 text-muted-foreground">
-              {approved.length === 1
+              {view.saved.length === 1
                 ? "1 Approved template can be selected for every bank."
-                : `${approved.length} Approved templates can be selected for every bank.`}
+                : `${view.saved.length} Approved templates can be selected for every bank.`}
             </p>
           ) : null}
           {notes.map((note) => (
@@ -156,72 +147,37 @@ async function TemplateLibrary({
               {note}
             </p>
           ))}
-          {isAdmin && !canWrite ? (
+          {inactive ? (
             <p className="text-sm leading-6 text-muted-foreground">
-              This bank is inactive. You can still read Approved wording. Mark the bank active
-              before adding a template.
+              This bank is inactive. You can still read the approved templates.
             </p>
           ) : null}
         </CardContent>
       </Card>
 
       <section className="flex flex-col gap-3">
-        <h2 className="font-serif text-2xl">Saved wording</h2>
-        {templates.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            {canWrite
-              ? "No templates yet. Add one above and mark it Approved to list it for every bank."
-              : "No templates yet."}
-          </p>
+        <h2 className="font-serif text-2xl">Approved templates</h2>
+        {view.saved.length === 0 ? (
+          <p className="text-sm text-muted-foreground">{templatesEmptyLibrary()}</p>
         ) : (
           <ul className="flex flex-col gap-3">
-            {templates.map((template) => {
-              const approvedRow = isApprovedTemplateStatus(template.status);
-              const channels = channelLabels(parseChannels(template.channels));
-              const writtenFor =
-                template.bankId === bankId ? "Written for this bank" : `Written for ${template.bank.name}`;
-              return (
-                <li
-                  key={template.id}
-                  className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-card px-4 py-4 ring-1 ring-foreground/10"
+            {view.saved.map((template) => (
+              <li
+                key={template.id}
+                className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-card px-4 py-4 ring-1 ring-foreground/10"
+              >
+                <div>
+                  <p className="font-medium">{template.name}</p>
+                  <p className="mt-1 text-sm text-muted-foreground">{template.detail}</p>
+                </div>
+                <Link
+                  href={`/templates/${template.id}`}
+                  className={buttonVariants({ variant: "outline", className: "h-11 px-4" })}
                 >
-                  <div>
-                    <p className="font-medium">{template.name}</p>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      <span className={approvedRow ? "font-medium text-foreground" : ""}>
-                        {templateStatusLabel(template.status)}
-                      </span>
-                      {channels ? (
-                        <>
-                          <span className="mx-2">·</span>
-                          {channels}
-                        </>
-                      ) : null}
-                      {template.dltTemplateId ? (
-                        <>
-                          <span className="mx-2">·</span>
-                          DLT {template.dltTemplateId}
-                        </>
-                      ) : null}
-                      <span className="mx-2">·</span>
-                      {writtenFor}
-                      {approvedRow ? (
-                        <>
-                          <span className="mx-2">·</span>
-                          Available for every bank
-                        </>
-                      ) : null}
-                    </p>
-                  </div>
-                  <Link
-                    href={`/templates/${template.id}`}
-                    className={buttonVariants({ variant: "outline", className: "h-11 px-4" })}
-                  >
-                    {canWrite ? "Edit" : "View"}
-                  </Link>
-                </li>
-              );
-            })}
+                  View
+                </Link>
+              </li>
+            ))}
           </ul>
         )}
       </section>

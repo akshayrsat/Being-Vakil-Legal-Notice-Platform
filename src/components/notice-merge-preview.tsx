@@ -31,8 +31,8 @@ export function NoticeMergePreview({
   rows,
   templates,
   selectedId,
-  canEdit,
   libraryNotes = [],
+  showVendorDetail = false,
 }: {
   batchId: string;
   bankName: string;
@@ -41,8 +41,8 @@ export function NoticeMergePreview({
   rows: Array<NoticeRecipient & { rowNumber: number; customerName: string }>;
   templates: ApprovedTemplate[];
   selectedId: string;
-  canEdit: boolean;
   libraryNotes?: string[];
+  showVendorDetail?: boolean;
 }) {
   const selected = templates.find((template) => template.id === selectedId) ?? null;
   const sample = rows.slice(0, SAMPLE_COUNT);
@@ -53,9 +53,8 @@ export function NoticeMergePreview({
       <CardHeader>
         <CardTitle>Filled notice</CardTitle>
         <CardDescription>
-          Choose an approved template. The list is the firm’s Approved wording, for every bank.
-          The first {SAMPLE_COUNT} people are from this spreadsheet for {bankName} only. Drafts are
-          not listed. Nothing is sent.
+          Choose an approved notice template. The same templates are listed for every bank. The first{" "}
+          {SAMPLE_COUNT} people are from this spreadsheet for {bankName} only. Nothing is sent.
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
@@ -79,36 +78,22 @@ export function NoticeMergePreview({
           <div className="flex flex-col gap-3">
             {(libraryNotes.length > 0
               ? libraryNotes
-              : [
-                  canEdit
-                    ? "No approved template yet. Write one, mark it Approved, then come back. An Approved template is listed for every bank."
-                    : "The firm has not approved a template yet.",
-                ]
+              : ["The firm’s approved notice templates are not in the library yet. This page does not write a template."]
             ).map((note) => (
               <p key={note} className="text-sm leading-6 text-muted-foreground">
                 {note}
               </p>
             ))}
-            {canEdit ? (
-              <div className="flex flex-wrap gap-2">
-                <Link href="/templates" className={buttonVariants({ className: "h-11 w-fit px-4" })}>
-                  Go to templates
-                </Link>
-                <Link
-                  href="/templates/new"
-                  className={buttonVariants({ variant: "outline", className: "h-11 w-fit px-4" })}
-                >
-                  New template
-                </Link>
-              </div>
-            ) : null}
+            <Link href="/templates" className={buttonVariants({ className: "h-11 w-fit px-4" })}>
+              Go to templates
+            </Link>
           </div>
         ) : selected ? (
           <>
             <TemplatePicker batchId={batchId} templates={templates} selectedId={selected.id} />
             <p className="text-sm text-muted-foreground">
               {channelLabels(channels) || "No channel"}
-              {selected.dltTemplateId ? ` · DLT id ${selected.dltTemplateId}` : ""}
+              {showVendorDetail && selected.dltTemplateId ? ` · DLT id ${selected.dltTemplateId}` : ""}
               <span className="mx-2">·</span>
               Showing {sample.length} of {total} saved {total === 1 ? "person" : "people"}.
             </p>
@@ -121,15 +106,21 @@ export function NoticeMergePreview({
                       <p className="font-medium">{row.customerName}</p>
                       <p className="text-sm text-muted-foreground">Row {row.rowNumber}</p>
                     </div>
-                    <div className="px-3 py-3 text-sm leading-6 whitespace-pre-wrap">
-                      <NoticeText parts={filled.parts} />
-                    </div>
-                    {filled.missingLabels.length > 0 ? (
+                    {showVendorDetail ? (
+                      <div className="px-3 py-3 text-sm leading-6 whitespace-pre-wrap">
+                        <NoticeText parts={filled.parts} />
+                      </div>
+                    ) : (
+                      <p className="px-3 py-3 text-sm text-muted-foreground">
+                        {selected.name}. {channelLabels(channels) || "No channel"}.
+                      </p>
+                    )}
+                    {showVendorDetail && filled.missingLabels.length > 0 ? (
                       <p className="px-3 pb-3 text-sm text-muted-foreground">
                         Empty for this person: {filled.missingLabels.join(", ")}.
                       </p>
                     ) : null}
-                    {filled.unknownTokens.length > 0 ? (
+                    {showVendorDetail && filled.unknownTokens.length > 0 ? (
                       <p className="px-3 pb-3 text-sm text-muted-foreground">
                         Unknown placeholder{filled.unknownTokens.length === 1 ? "" : "s"}:{" "}
                         {filled.unknownTokens.map((token) => `{{${token}}}`).join(", ")}.
@@ -143,7 +134,7 @@ export function NoticeMergePreview({
               href={`/templates/${selected.id}`}
               className={buttonVariants({ variant: "outline", className: "h-11 w-fit px-4" })}
             >
-              {canEdit ? "Edit this template" : "View this template"}
+              View this template
             </Link>
           </>
         ) : null}
