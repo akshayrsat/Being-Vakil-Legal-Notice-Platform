@@ -126,9 +126,9 @@ export function templatesEmptyLibrary(): string {
 
 export function templateDetailCard(showVendorDetail: boolean): string {
   if (showVendorDetail) {
-    return "The name, the channel, and the template reference. This page does not change them.";
+    return "The name, the channel, the template reference, and the message. This page does not change them.";
   }
-  return "The name and the channel. This page does not change the template.";
+  return "The name, the channel, and the message. This page does not change the template.";
 }
 
 export function templateMissingCopy(): string {

@@ -1,12 +1,16 @@
+import { EMAIL_TEMPLATE_BODY, WHATSAPP_TEMPLATE_BODY } from "./msg91";
+import { smsApprovedTemplateBody } from "./notice-link";
+
 // Firm Approved library. These three rows match the live MSG91 templates staff send today.
 // A template row has to belong to some bank, so a missing row is stored on the bank marked
 // forViewer. That bank is not the author. The templates page lists these three for every
 // bank and does not print "Written for" that bank.
 // Starting the site again puts this wording back. Templates you add yourself are left alone.
 //
-// Live MSG91 send does not read these dltTemplateId values. SMS uses MSG91_SMS_FLOW_ID,
+// Live send still uses the ids in src/lib/msg91.ts: SMS uses MSG91_SMS_FLOW_ID,
 // email uses EMAIL_TEMPLATE_SLUG (or MSG91_EMAIL_TEMPLATE_ID), and WhatsApp uses
-// WHATSAPP_TEMPLATE_NAME in src/lib/msg91.ts. The ids here are what staff see in the library.
+// WHATSAPP_TEMPLATE_NAME. Those ids are not rewritten here. The body on each row is
+// the approved message, with the variables left where that template reads them.
 //
 // seedKey nwh-loan-recall-sms and nwh-borrower-email are kept on purpose. A re-seed
 // updates those existing rows instead of leaving the old practice names Approved.
@@ -42,20 +46,9 @@ export const RETIRED_PRACTICE_DLT_IDS = [
   "1107165400000000002",
 ] as const;
 
-const SMS_BODY = [
-  "Legal notice (SMS). Live SMS uses the MSG91 flow Legal_Notice_12092026 (sender BVAKIL), not this free text.",
-  "Merge variables: customer_name {{customer_name}}, bank_name {{bank_name}}, notice_number {{notice_number}}.",
-].join(" ");
-
-const EMAIL_BODY = [
-  "Legal notice (email). Live email uses the MSG91 template legal_notice_non_payment, not this free text.",
-  "Variables: contact_name {{customer_name}}, loan_account {{loan_number}}, notice_id {{notice_link}}, notice_link {{notice_link}}.",
-].join(" ");
-
-const WHATSAPP_BODY = [
-  "Legal notice (WhatsApp). Live WhatsApp uses the MSG91 template legal_notice_link, not this free text.",
-  "Variables: customer name {{customer_name}}, bank name {{bank_name}}, notice path notice-{{notice_number}} for https://www.notice.beingvakil.in/ (the first URL variable).",
-].join(" ");
+const SMS_BODY = smsApprovedTemplateBody();
+const EMAIL_BODY = EMAIL_TEMPLATE_BODY;
+const WHATSAPP_BODY = WHATSAPP_TEMPLATE_BODY;
 
 export const DEMO_TEMPLATES: DemoTemplate[] = [
   {
@@ -146,4 +139,23 @@ export function isFirmLibraryTemplate(template: {
   if (dlt && DEMO_TEMPLATES.some((item) => item.dltTemplateId === dlt)) return true;
   const name = (template.name ?? "").trim();
   return Boolean(name) && DEMO_TEMPLATES.some((item) => item.name === name);
+}
+
+// The message shown for a firm template. A stored note that only says live send
+// ignores free text is replaced by the approved wording.
+export function firmTemplateMessage(template: {
+  seedKey?: string | null;
+  dltTemplateId?: string | null;
+  name?: string | null;
+  body?: string | null;
+}): string {
+  if (!isFirmLibraryTemplate(template)) return template.body ?? "";
+  const seed = (template.seedKey ?? "").trim();
+  const dlt = (template.dltTemplateId ?? "").trim();
+  const name = (template.name ?? "").trim();
+  const match =
+    DEMO_TEMPLATES.find((item) => seed && item.seedKey === seed) ??
+    DEMO_TEMPLATES.find((item) => dlt && item.dltTemplateId === dlt) ??
+    DEMO_TEMPLATES.find((item) => name && item.name === name);
+  return match?.body ?? template.body ?? "";
 }

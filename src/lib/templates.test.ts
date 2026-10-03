@@ -321,6 +321,7 @@ test("there is no page or action for writing a template", () => {
   assert.match(copy, /does not write a template/);
   const detail = readFileSync(new URL("../app/templates/[id]/page.tsx", import.meta.url), "utf8");
   assert.match(detail, /showVendorDetail \? template\.dltTemplateId : ""/);
-  assert.match(detail, /showVendorDetail \? template\.body : ""/);
+  assert.match(detail, /firmTemplateMessage\(template\)/);
+  assert.doesNotMatch(detail, /showVendorDetail \? template\.body/);
   assert.doesNotMatch(detail, /MSG91|Facebook|legal_notice_|6abf5af2/);
 });

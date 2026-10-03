@@ -1,5 +1,6 @@
 // Read one approved notice template. Staff do not write or edit templates here.
-// The reference id and stored note are shown only to the owner admin.
+// The message is shown to everyone who can open the page.
+// The reference id is shown only to the owner admin.
 
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
@@ -17,7 +18,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { workingBank } from "@/lib/bank-context";
 import { backToTemplates } from "@/lib/desk-back";
 import { prisma } from "@/lib/db";
-import { firmLibraryTemplateWhere } from "@/lib/demo-templates";
+import { firmLibraryTemplateWhere, firmTemplateMessage } from "@/lib/demo-templates";
 import { isOwnerAdmin } from "@/lib/owner-admin";
 import { isBankUser } from "@/lib/roles";
 import { templateDetailCard, templateMissingCopy } from "@/lib/template-library";
@@ -97,7 +98,7 @@ export default async function TemplatePage({ params }: { params: Promise<{ id: s
               status={template.status}
               showVendorDetail={showVendorDetail}
               dltTemplateId={showVendorDetail ? template.dltTemplateId : ""}
-              body={showVendorDetail ? template.body : ""}
+              body={firmTemplateMessage(template)}
             />
           </CardContent>
         </Card>

@@ -1,8 +1,7 @@
 // A template shown without a form.
-// Bank users and legal coordinators see the name and the channel.
-// The owner admin also sees the reference id and the stored note.
+// Everyone who can open it sees the name, the channel, and the message.
+// The owner admin also sees the reference id.
 
-import { placeholderToken } from "@/lib/notice-placeholders";
 import { channelLabels, templateStatusLabel, type TemplateChannel } from "@/lib/templates";
 
 export function TemplateReadout({
@@ -44,22 +43,13 @@ export function TemplateReadout({
           </div>
         ) : null}
       </div>
-      {showVendorDetail ? (
-        <div>
-          <p className="text-muted-foreground">Notice text</p>
-          <p className="mt-1 whitespace-pre-wrap rounded-lg bg-muted/60 px-3 py-3 text-foreground">
-            {body || "This template has no text."}
-          </p>
-        </div>
-      ) : null}
-      {showVendorDetail ? (
-        <p className="text-muted-foreground">
-          Placeholders look like {placeholderToken("customer_name")}. You cannot change this
-          template.
+      <div>
+        <p className="text-muted-foreground">Message</p>
+        <p className="mt-1 whitespace-pre-wrap rounded-lg bg-muted/60 px-3 py-3 text-foreground">
+          {body || "This template has no text."}
         </p>
-      ) : (
-        <p className="text-muted-foreground">You cannot change this template.</p>
-      )}
+      </div>
+      <p className="text-muted-foreground">You cannot change this template.</p>
     </div>
   );
 }

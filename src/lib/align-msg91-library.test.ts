@@ -298,6 +298,12 @@ test("Cloud SQL align keeps the three live templates and drops practice rows", {
     assert.equal(keptSms?.name, "Legal notice (SMS)");
     assert.equal(keptEmail?.name, "Legal notice (email)");
     assert.equal(keptWhatsapp?.name, "Legal notice (WhatsApp)");
+    assert.equal(keptSms?.body, SMS.body);
+    assert.equal(keptEmail?.body, EMAIL.body);
+    assert.equal(keptWhatsapp?.body, WHATSAPP.body);
+    assert.doesNotMatch(keptSms?.body ?? "", /not this free text/);
+    assert.doesNotMatch(keptEmail?.body ?? "", /not this free text/);
+    assert.doesNotMatch(keptWhatsapp?.body ?? "", /not this free text/);
 
     const usedAfter = await db.noticeTemplate.findUnique({ where: { id: used.id } });
     assert.equal(usedAfter?.status, "DRAFT");
