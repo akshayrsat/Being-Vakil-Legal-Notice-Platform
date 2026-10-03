@@ -163,9 +163,9 @@ A spreadsheet you upload is kept when you restart the site. It is wiped only if 
 
 ## Notice templates
 
-Approved notice wording is the firm’s MSG91 library. While you work on any bank, including a bank you just added, **Select approved template** lists those templates. The three MSG91 templates are marked Approved, so they appear for Test Bank, Meridian, and a bank you just added. The list shows the template name and the live id. It does not say the wording was written for a practice bank. Select them on the bank you are working on. Adding a bank lists them immediately.
+Approved notice wording is the firm library. While you work on any bank, including a bank you just added, **Select approved template** lists those templates. The three notice templates are marked Approved, so they appear for Test Bank, Meridian, and a bank you just added. A bank user and a legal coordinator see the template name and the channel (SMS, email, or WhatsApp). The owner admin also sees the reference id. The list does not say the wording was written for a practice bank. Select them on the bank you are working on. Adding a bank lists them immediately.
 
-Staff do not write templates in Notice Desk. There is no **New template** button and no form for a draft. SMS templates are approved on DLT. WhatsApp templates are created on MSG91 or Facebook. Email uses the MSG91 template. Open a row to read it.
+Staff do not write templates in Notice Desk. There is no **New template** button and no form for a draft. Open a row to read the name and the channel. The owner admin also sees the reference id and the short stored note.
 
 A spreadsheet, the people in it, a send, a delivery row, and a notice stay on one bank. Sharing a template shares the wording only. People, spreadsheets, sends, and notices remain on their own bank.
 
@@ -181,7 +181,7 @@ Live send still reads the MSG91 settings in `.env` and in code. It does not send
 
 1. Sign in and choose a bank.
 2. Press **Templates**.
-3. Open **Legal notice (SMS)**, **Legal notice (email)**, or **Legal notice (WhatsApp)**. You can read the name, the live id, and the short note. You cannot change them.
+3. Open **Legal notice (SMS)**, **Legal notice (email)**, or **Legal notice (WhatsApp)**. You see the name and the channel. The owner admin also sees the reference id. You cannot change them.
 
 ### See the notice filled in
 
@@ -217,7 +217,7 @@ To allow a live send later, fill in `MSG91_AUTH_KEY` and set `MSG91_LIVE_SEND=tr
 
 Sign in as the Bank Viewer. Press **Uploads**. You see files for Northwind Housing Finance only, and only after an Admin has uploaded one for that bank. Open a file to see the column match, the people, and the filled notice. There is no button to upload or to change the match.
 
-Press **Templates**. You see the Approved MSG91 templates: **Legal notice (SMS)**, **Legal notice (email)**, and **Legal notice (WhatsApp)**. Open one to read it. There is no **New template** button and no form to write a template.
+Press **Templates**. You see **Legal notice (SMS)**, **Legal notice (email)**, and **Legal notice (WhatsApp)**, each with its channel. You do not see a vendor name or a template id. There is no **New template** button and no form to write a template.
 
 Press **Campaigns**. After an Admin has confirmed a send for Northwind, you can open it and see the dry-run result. There is no **Prepare a send** button and no **Confirm dry run** button. Press **Find a person** to search Northwind only. There is no bank dropdown. **Download CSV** is for Northwind only. There is no **Prepare follow-up** button. There is no **Audit** button. Opening the audit address shows a short message that the page is for firm staff, and no events.
 

@@ -267,14 +267,27 @@ test("Test Bank staff see only the three live notices and no practice bank", () 
   );
   assert.deepEqual(
     view.saved.map((row) => row.detail),
+    ["Email", "SMS", "WhatsApp"],
+  );
+  const visible = JSON.stringify(view);
+  assert.doesNotMatch(visible, /Northwind|Meridian|Harbour|Written for|Test Bank draft|Branch circular/);
+  assert.doesNotMatch(visible, /MSG91|DLT|Facebook|legal_notice_non_payment|legal_notice_link|6abf5af2/);
+  const ownerView = staffTemplateLibraryView(
+    stored.map((template) => ({
+      ...template,
+      bankName: "Northwind Housing Finance",
+    })),
+    TEST_BANK,
+    { showVendorDetail: true },
+  );
+  assert.deepEqual(
+    ownerView.saved.map((row) => row.detail),
     [
       "Approved · Email · DLT legal_notice_non_payment · Available for every bank",
       "Approved · SMS · DLT 6abf5af2e9226c340a0548e2 · Available for every bank",
       "Approved · WhatsApp · DLT legal_notice_link · Available for every bank",
     ],
   );
-  const visible = JSON.stringify(view);
-  assert.doesNotMatch(visible, /Northwind|Meridian|Harbour|Written for|Test Bank draft|Branch circular/);
   assert.equal(
     templatePageKicker({
       workingBankName: "Test Bank",
@@ -301,6 +314,13 @@ test("there is no page or action for writing a template", () => {
     assert.doesNotMatch(source, /templates\/new/);
     assert.doesNotMatch(source, /saveTemplate/);
   }
-  assert.match(page, /does not write a template/);
-  assert.match(page, /MSG91 or Facebook/);
+  assert.match(page, /templatesListIntro/);
+  assert.match(page, /isOwnerAdmin/);
+  assert.doesNotMatch(page, /MSG91|DLT|Facebook|legal_notice_|6abf5af2/);
+  const copy = readFileSync(new URL("./template-library.ts", import.meta.url), "utf8");
+  assert.match(copy, /does not write a template/);
+  const detail = readFileSync(new URL("../app/templates/[id]/page.tsx", import.meta.url), "utf8");
+  assert.match(detail, /showVendorDetail \? template\.dltTemplateId : ""/);
+  assert.match(detail, /showVendorDetail \? template\.body : ""/);
+  assert.doesNotMatch(detail, /MSG91|Facebook|legal_notice_|6abf5af2/);
 });

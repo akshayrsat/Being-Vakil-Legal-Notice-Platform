@@ -169,12 +169,13 @@ export function savedTemplateParts(
     name?: string | null;
   },
   workingBankId: string,
+  showVendorDetail = false,
 ): string[] {
   const parts = [templateStatusLabel(template.status)];
   const channels = channelLabels(parseChannels(template.channels));
   if (channels) parts.push(channels);
   const dlt = template.dltTemplateId.trim();
-  if (dlt) parts.push(`DLT ${dlt}`);
+  if (showVendorDetail && dlt) parts.push(`DLT ${dlt}`);
   const credit = templateBankCredit(template, workingBankId);
   if (credit) parts.push(credit);
   if (isApprovedTemplateStatus(template.status)) parts.push("Available for every bank");
@@ -192,14 +193,17 @@ export type StaffTemplateRow = {
   seedKey?: string | null;
 };
 
-// What the templates page lists: the live MSG91 rows only. Drafts and other wording stay off this page.
+// What the templates page lists: the live firm rows only. Drafts and other wording stay off this page.
+// showVendorDetail is for the owner admin. Everyone else gets the channel label only.
 export function staffTemplateLibraryView(
   templates: readonly StaffTemplateRow[],
   workingBankId: string,
+  options?: { showVendorDetail?: boolean },
 ): {
   choiceLabels: string[];
   saved: Array<{ id: string; name: string; detail: string }>;
 } {
+  const showVendorDetail = options?.showVendorDetail === true;
   const listed = selectableApprovedTemplates(
     listTemplatesForBank(templates, workingBankId).filter((template) => isFirmLibraryTemplate(template)),
   );
@@ -219,7 +223,9 @@ export function staffTemplateLibraryView(
     saved: listed.map((template) => ({
       id: template.id,
       name: template.name,
-      detail: savedTemplateParts(template, workingBankId).join(" · "),
+      detail: showVendorDetail
+        ? savedTemplateParts(template, workingBankId, true).join(" · ")
+        : channelLabels(parseChannels(template.channels)) || "No channel",
     })),
   };
 }

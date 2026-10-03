@@ -5,7 +5,12 @@ import {
   approvedTemplatesForBank,
   otherBankApprovedSummary,
   sortTemplatesByName,
+  templateDetailCard,
   templateLibraryNotes,
+  templateMissingCopy,
+  templatesEmptyLibrary,
+  templatesListCard,
+  templatesListIntro,
   type BankTemplateRow,
 } from "./template-library";
 
@@ -169,10 +174,24 @@ test("an empty library does not ask staff to write a template", () => {
   });
   const text = notes.join(" ");
   assert.match(text, /does not save notice wording/);
-  assert.match(text, /approved on DLT/);
-  assert.match(text, /MSG91 or Facebook/);
+  assert.match(text, /approved notice templates/);
   assert.match(text, /does not write a template/);
-  assert.doesNotMatch(text, /Write a template|New template|saved draft/);
+  assert.doesNotMatch(text, /Write a template|New template|saved draft|MSG91|DLT|Facebook/);
+});
+
+test("bank users and coordinators see the template name and channel, and the owner sees the reference", () => {
+  const intro = templatesListIntro("Test Bank", false);
+  const card = templatesListCard(false);
+  const detail = templateDetailCard(false);
+  const plain = [intro, card, detail, templatesEmptyLibrary(), templateMissingCopy()].join(" ");
+  assert.match(intro, /Test Bank/);
+  assert.match(intro, /does not write a template/);
+  assert.match(card, /name and the channel/);
+  assert.doesNotMatch(plain, /MSG91|DLT|Facebook|legal_notice_|6abf5af2/);
+  const owner = [templatesListIntro("Test Bank", true), templatesListCard(true), templateDetailCard(true)].join(" ");
+  assert.match(owner, /MSG91 or Facebook/);
+  assert.match(owner, /approved on DLT/);
+  assert.match(owner, /reference id/);
 });
 
 test("prepare-send back returns to the spreadsheet when one was opened, and ignores a bad id", () => {

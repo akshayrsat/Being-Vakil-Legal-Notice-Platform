@@ -23,6 +23,7 @@ import { workingBank } from "@/lib/bank-context";
 import { backToUploads } from "@/lib/desk-back";
 import { loadTemplateLibrary } from "@/lib/load-template-library";
 import { prisma } from "@/lib/db";
+import { isOwnerAdmin } from "@/lib/owner-admin";
 import { ROLE_ADMIN } from "@/lib/roles";
 import { SHEET_FIELDS, type FieldKey, type FieldMapping } from "@/lib/sheet-fields";
 import { templateLibraryNotes } from "@/lib/template-library";
@@ -213,6 +214,7 @@ export default async function UploadBatchPage({
           }))}
           selectedId={selectedTemplate?.id ?? ""}
           libraryNotes={libraryNotes}
+          showVendorDetail={isOwnerAdmin(user)}
         />
 
         {isAdmin && bank.active && batch.saved ? (

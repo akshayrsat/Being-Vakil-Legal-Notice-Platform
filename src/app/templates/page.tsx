@@ -1,6 +1,6 @@
-// The firm’s approved MSG91 templates. Staff do not write templates on this page.
-// SMS is approved on DLT. WhatsApp is created on MSG91 or Facebook.
-// Spreadsheets and people are not loaded here.
+// The firm’s approved notice templates. Staff do not write templates on this page.
+// Bank users and legal coordinators see the name and the channel.
+// The owner admin also sees the reference id. Sending still uses the stored id.
 
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -18,8 +18,14 @@ import {
 import { getCurrentUser } from "@/lib/auth";
 import { workingBank } from "@/lib/bank-context";
 import { loadTemplateLibrary } from "@/lib/load-template-library";
+import { isOwnerAdmin } from "@/lib/owner-admin";
 import { ROLE_ADMIN } from "@/lib/roles";
-import { templateLibraryNotes } from "@/lib/template-library";
+import {
+  templateLibraryNotes,
+  templatesEmptyLibrary,
+  templatesListCard,
+  templatesListIntro,
+} from "@/lib/template-library";
 import { staffTemplateLibraryView } from "@/lib/templates";
 
 export const metadata: Metadata = {
@@ -32,6 +38,7 @@ export default async function TemplatesPage() {
 
   const bank = workingBank(user);
   const isAdmin = user.role === ROLE_ADMIN;
+  const showVendorDetail = isOwnerAdmin(user);
 
   return (
     <div className="flex min-h-full flex-col">
@@ -41,7 +48,7 @@ export default async function TemplatesPage() {
           <h1 className="font-serif text-4xl tracking-tight">Notice templates</h1>
           <p className="mt-3 text-base leading-7 text-muted-foreground">
             {bank
-              ? `These are the firm’s approved MSG91 templates. Every bank, including ${bank.name}, can select them. SMS templates are approved on DLT. WhatsApp templates are created on MSG91 or Facebook. This page does not write a template. Spreadsheets and the people in them stay on ${bank.name}.`
+              ? templatesListIntro(bank.name, showVendorDetail)
               : "Choose a bank before opening notice templates."}
           </p>
         </div>
@@ -51,8 +58,8 @@ export default async function TemplatesPage() {
             <CardHeader>
               <CardTitle>No bank selected</CardTitle>
               <CardDescription>
-                Choose a bank first. The approved MSG91 templates can be used for any bank. A
-                spreadsheet stays on the bank you choose.
+                Choose a bank first. The approved templates can be used for any bank. A spreadsheet
+                stays on the bank you choose.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -69,7 +76,12 @@ export default async function TemplatesPage() {
             </CardContent>
           </Card>
         ) : (
-          <TemplateLibrary bankId={bank.id} bankName={bank.name} inactive={isAdmin && !bank.active} />
+          <TemplateLibrary
+            bankId={bank.id}
+            bankName={bank.name}
+            inactive={isAdmin && !bank.active}
+            showVendorDetail={showVendorDetail}
+          />
         )}
       </main>
     </div>
@@ -80,10 +92,12 @@ async function TemplateLibrary({
   bankId,
   bankName,
   inactive,
+  showVendorDetail,
 }: {
   bankId: string;
   bankName: string;
   inactive: boolean;
+  showVendorDetail: boolean;
 }) {
   const library = await loadTemplateLibrary(bankId, false);
   const view = staffTemplateLibraryView(
@@ -98,6 +112,7 @@ async function TemplateLibrary({
       seedKey: template.seedKey,
     })),
     bankId,
+    { showVendorDetail },
   );
   const notes = templateLibraryNotes({
     bankName,
@@ -111,10 +126,7 @@ async function TemplateLibrary({
       <Card>
         <CardHeader>
           <CardTitle>Templates for {bankName}</CardTitle>
-          <CardDescription>
-            Approved MSG91 templates are listed A to Z. Open one to read it. The same three are
-            available for every bank.
-          </CardDescription>
+          <CardDescription>{templatesListCard(showVendorDetail)}</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           <ApprovedTemplateSelect
@@ -146,7 +158,7 @@ async function TemplateLibrary({
       <section className="flex flex-col gap-3">
         <h2 className="font-serif text-2xl">Approved templates</h2>
         {view.saved.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No approved MSG91 template is in the library yet.</p>
+          <p className="text-sm text-muted-foreground">{templatesEmptyLibrary()}</p>
         ) : (
           <ul className="flex flex-col gap-3">
             {view.saved.map((template) => (

@@ -1,20 +1,24 @@
-// A template shown without a form. Bank viewers, and an inactive bank, use this.
+// A template shown without a form.
+// Bank users and legal coordinators see the name and the channel.
+// The owner admin also sees the reference id and the stored note.
 
 import { placeholderToken } from "@/lib/notice-placeholders";
 import { channelLabels, templateStatusLabel, type TemplateChannel } from "@/lib/templates";
 
 export function TemplateReadout({
   name,
-  dltTemplateId,
+  dltTemplateId = "",
   channels,
   status,
-  body,
+  body = "",
+  showVendorDetail = false,
 }: {
   name: string;
-  dltTemplateId: string;
+  dltTemplateId?: string;
   channels: TemplateChannel[];
   status: string;
-  body: string;
+  body?: string;
+  showVendorDetail?: boolean;
 }) {
   return (
     <div className="flex flex-col gap-4 text-sm leading-6">
@@ -22,30 +26,40 @@ export function TemplateReadout({
         <p className="text-muted-foreground">Name</p>
         <p className="font-medium">{name}</p>
       </div>
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className={showVendorDetail ? "grid gap-4 sm:grid-cols-3" : undefined}>
+        {showVendorDetail ? (
+          <div>
+            <p className="text-muted-foreground">Status</p>
+            <p className="font-medium">{templateStatusLabel(status)}</p>
+          </div>
+        ) : null}
         <div>
-          <p className="text-muted-foreground">Status</p>
-          <p className="font-medium">{templateStatusLabel(status)}</p>
-        </div>
-        <div>
-          <p className="text-muted-foreground">Channels</p>
+          <p className="text-muted-foreground">Channel</p>
           <p className="font-medium">{channelLabels(channels) || "None"}</p>
         </div>
+        {showVendorDetail ? (
+          <div>
+            <p className="text-muted-foreground">DLT template id</p>
+            <p className="font-medium break-all">{dltTemplateId || "Not set"}</p>
+          </div>
+        ) : null}
+      </div>
+      {showVendorDetail ? (
         <div>
-          <p className="text-muted-foreground">DLT template id</p>
-          <p className="font-medium break-all">{dltTemplateId || "Not set"}</p>
+          <p className="text-muted-foreground">Notice text</p>
+          <p className="mt-1 whitespace-pre-wrap rounded-lg bg-muted/60 px-3 py-3 text-foreground">
+            {body || "This template has no text."}
+          </p>
         </div>
-      </div>
-      <div>
-        <p className="text-muted-foreground">Notice text</p>
-        <p className="mt-1 whitespace-pre-wrap rounded-lg bg-muted/60 px-3 py-3 text-foreground">
-          {body || "This template has no text."}
+      ) : null}
+      {showVendorDetail ? (
+        <p className="text-muted-foreground">
+          Placeholders look like {placeholderToken("customer_name")}. You cannot change this
+          template.
         </p>
-      </div>
-      <p className="text-muted-foreground">
-        Placeholders look like {placeholderToken("customer_name")}. You cannot change this
-        template.
-      </p>
+      ) : (
+        <p className="text-muted-foreground">You cannot change this template.</p>
+      )}
     </div>
   );
 }

@@ -1,4 +1,5 @@
-// Read one approved MSG91 template. Staff do not write or edit templates here.
+// Read one approved notice template. Staff do not write or edit templates here.
+// The reference id and stored note are shown only to the owner admin.
 
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
@@ -17,6 +18,8 @@ import { workingBank } from "@/lib/bank-context";
 import { backToTemplates } from "@/lib/desk-back";
 import { prisma } from "@/lib/db";
 import { firmLibraryTemplateWhere } from "@/lib/demo-templates";
+import { isOwnerAdmin } from "@/lib/owner-admin";
+import { templateDetailCard, templateMissingCopy } from "@/lib/template-library";
 import { parseChannels, templatePageKicker } from "@/lib/templates";
 
 export const metadata: Metadata = {
@@ -30,6 +33,7 @@ export default async function TemplatePage({ params }: { params: Promise<{ id: s
   const bank = workingBank(user);
   if (!bank) redirect("/templates");
 
+  const showVendorDetail = isOwnerAdmin(user);
   const { id } = await params;
   const template = await prisma.noticeTemplate.findFirst({
     where: { id, ...firmLibraryTemplateWhere() },
@@ -53,9 +57,7 @@ export default async function TemplatePage({ params }: { params: Promise<{ id: s
         <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-4 px-4 py-8 sm:px-6">
           <BackLinks links={[backToTemplates()]} />
           <h1 className="font-serif text-3xl">Template not found</h1>
-          <p className="leading-7 text-muted-foreground">
-            That template is not one of the firm’s approved MSG91 templates.
-          </p>
+          <p className="leading-7 text-muted-foreground">{templateMissingCopy()}</p>
         </main>
       </div>
     );
@@ -84,18 +86,16 @@ export default async function TemplatePage({ params }: { params: Promise<{ id: s
         <Card>
           <CardHeader>
             <CardTitle>Template</CardTitle>
-            <CardDescription>
-              SMS templates are approved on DLT. WhatsApp templates are created on MSG91 or
-              Facebook. Email uses the MSG91 template. This page does not change them.
-            </CardDescription>
+            <CardDescription>{templateDetailCard(showVendorDetail)}</CardDescription>
           </CardHeader>
           <CardContent>
             <TemplateReadout
               name={template.name}
-              dltTemplateId={template.dltTemplateId}
               channels={parseChannels(template.channels)}
               status={template.status}
-              body={template.body}
+              showVendorDetail={showVendorDetail}
+              dltTemplateId={showVendorDetail ? template.dltTemplateId : ""}
+              body={showVendorDetail ? template.body : ""}
             />
           </CardContent>
         </Card>

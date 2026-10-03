@@ -340,9 +340,31 @@ test("Cloud SQL align keeps the three live templates and drops practice rows", {
     );
     const visible = JSON.stringify(view);
     assert.doesNotMatch(visible, /Northwind|Meridian|Harbour|Written for/);
-    assert.match(visible, new RegExp(MSG91_SMS_FLOW_ID));
-    assert.match(visible, new RegExp(MSG91_EMAIL_TEMPLATE_ID));
-    assert.match(visible, new RegExp(MSG91_WHATSAPP_TEMPLATE_ID));
+    assert.deepEqual(
+      view.saved.map((row) => row.detail),
+      ["Email", "SMS", "WhatsApp"],
+    );
+    assert.doesNotMatch(visible, new RegExp(MSG91_SMS_FLOW_ID));
+    assert.doesNotMatch(visible, new RegExp(MSG91_EMAIL_TEMPLATE_ID));
+    assert.doesNotMatch(visible, new RegExp(MSG91_WHATSAPP_TEMPLATE_ID));
+    const ownerView = staffTemplateLibraryView(
+      rows.map((row) => ({
+        id: row.id,
+        name: row.name,
+        bankId: row.bankId,
+        bankName: row.bank.name,
+        status: row.status,
+        channels: row.channels,
+        dltTemplateId: row.dltTemplateId,
+        seedKey: row.seedKey,
+      })),
+      testBank.id,
+      { showVendorDetail: true },
+    );
+    const ownerVisible = JSON.stringify(ownerView);
+    assert.match(ownerVisible, new RegExp(MSG91_SMS_FLOW_ID));
+    assert.match(ownerVisible, new RegExp(MSG91_EMAIL_TEMPLATE_ID));
+    assert.match(ownerVisible, new RegExp(MSG91_WHATSAPP_TEMPLATE_ID));
 
     assert.equal((await db.bank.findMany()).length, 4);
     assert.equal((await db.user.findUnique({ where: { id: user.id } }))?.passwordHash, "kept-password-hash");

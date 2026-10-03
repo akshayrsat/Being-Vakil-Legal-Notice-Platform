@@ -86,7 +86,7 @@ export function templateLibraryNotes(input: {
 
   if (input.approvedCount === 0) {
     notes.push(
-      `Uploading a spreadsheet saves the people for ${input.bankName}. It does not save notice wording. The list is the firm’s approved MSG91 templates. SMS templates are approved on DLT. WhatsApp templates are created on MSG91 or Facebook. This site does not write a template.`,
+      `Uploading a spreadsheet saves the people for ${input.bankName}. It does not save notice wording. The list is the firm’s approved notice templates. This site does not write a template.`,
     );
   }
 
@@ -103,4 +103,34 @@ export function templateLibraryNotes(input: {
   }
 
   return notes;
+}
+
+export function templatesListIntro(bankName: string, showVendorDetail: boolean): string {
+  const shared = `These are the firm’s approved notice templates. Every bank, including ${bankName}, can select them.`;
+  const vendor = showVendorDetail
+    ? " SMS templates are approved on DLT. WhatsApp templates are created on MSG91 or Facebook."
+    : "";
+  return `${shared}${vendor} This page does not write a template. Spreadsheets and the people in them stay on ${bankName}.`;
+}
+
+export function templatesListCard(showVendorDetail: boolean): string {
+  if (showVendorDetail) {
+    return "Approved templates are listed A to Z, with the channel and the reference id. Open one to read it. The same three are available for every bank.";
+  }
+  return "Approved templates are listed A to Z. Each row shows the name and the channel. Open one to read it. The same three are available for every bank.";
+}
+
+export function templatesEmptyLibrary(): string {
+  return "No approved template is in the library yet.";
+}
+
+export function templateDetailCard(showVendorDetail: boolean): string {
+  if (showVendorDetail) {
+    return "The name, the channel, and the template reference. This page does not change them.";
+  }
+  return "The name and the channel. This page does not change the template.";
+}
+
+export function templateMissingCopy(): string {
+  return "That template is not one of the firm’s approved notice templates.";
 }

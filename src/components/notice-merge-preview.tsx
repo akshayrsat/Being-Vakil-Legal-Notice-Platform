@@ -32,6 +32,7 @@ export function NoticeMergePreview({
   templates,
   selectedId,
   libraryNotes = [],
+  showVendorDetail = false,
 }: {
   batchId: string;
   bankName: string;
@@ -41,6 +42,7 @@ export function NoticeMergePreview({
   templates: ApprovedTemplate[];
   selectedId: string;
   libraryNotes?: string[];
+  showVendorDetail?: boolean;
 }) {
   const selected = templates.find((template) => template.id === selectedId) ?? null;
   const sample = rows.slice(0, SAMPLE_COUNT);
@@ -51,7 +53,7 @@ export function NoticeMergePreview({
       <CardHeader>
         <CardTitle>Filled notice</CardTitle>
         <CardDescription>
-          Choose an approved MSG91 template. The same templates are listed for every bank. The first{" "}
+          Choose an approved notice template. The same templates are listed for every bank. The first{" "}
           {SAMPLE_COUNT} people are from this spreadsheet for {bankName} only. Nothing is sent.
         </CardDescription>
       </CardHeader>
@@ -76,7 +78,7 @@ export function NoticeMergePreview({
           <div className="flex flex-col gap-3">
             {(libraryNotes.length > 0
               ? libraryNotes
-              : ["The firm’s approved MSG91 templates are not in the library yet. This page does not write a template."]
+              : ["The firm’s approved notice templates are not in the library yet. This page does not write a template."]
             ).map((note) => (
               <p key={note} className="text-sm leading-6 text-muted-foreground">
                 {note}
@@ -91,7 +93,7 @@ export function NoticeMergePreview({
             <TemplatePicker batchId={batchId} templates={templates} selectedId={selected.id} />
             <p className="text-sm text-muted-foreground">
               {channelLabels(channels) || "No channel"}
-              {selected.dltTemplateId ? ` · DLT id ${selected.dltTemplateId}` : ""}
+              {showVendorDetail && selected.dltTemplateId ? ` · DLT id ${selected.dltTemplateId}` : ""}
               <span className="mx-2">·</span>
               Showing {sample.length} of {total} saved {total === 1 ? "person" : "people"}.
             </p>
@@ -104,15 +106,21 @@ export function NoticeMergePreview({
                       <p className="font-medium">{row.customerName}</p>
                       <p className="text-sm text-muted-foreground">Row {row.rowNumber}</p>
                     </div>
-                    <div className="px-3 py-3 text-sm leading-6 whitespace-pre-wrap">
-                      <NoticeText parts={filled.parts} />
-                    </div>
-                    {filled.missingLabels.length > 0 ? (
+                    {showVendorDetail ? (
+                      <div className="px-3 py-3 text-sm leading-6 whitespace-pre-wrap">
+                        <NoticeText parts={filled.parts} />
+                      </div>
+                    ) : (
+                      <p className="px-3 py-3 text-sm text-muted-foreground">
+                        {selected.name}. {channelLabels(channels) || "No channel"}.
+                      </p>
+                    )}
+                    {showVendorDetail && filled.missingLabels.length > 0 ? (
                       <p className="px-3 pb-3 text-sm text-muted-foreground">
                         Empty for this person: {filled.missingLabels.join(", ")}.
                       </p>
                     ) : null}
-                    {filled.unknownTokens.length > 0 ? (
+                    {showVendorDetail && filled.unknownTokens.length > 0 ? (
                       <p className="px-3 pb-3 text-sm text-muted-foreground">
                         Unknown placeholder{filled.unknownTokens.length === 1 ? "" : "s"}:{" "}
                         {filled.unknownTokens.map((token) => `{{${token}}}`).join(", ")}.
