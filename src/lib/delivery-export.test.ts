@@ -222,7 +222,7 @@ test("a read receipt is marked read, and another bank is left out", () => {
 });
 
 test("an empty bank id exports a header and no rows", () => {
-  const table = parseCsv(deliveryExportCsv({ id: "  ", name: "Northwind Housing Finance" }, [sample()]));
+  const table = parseCsv(deliveryExportCsv({ id: "  " }, [sample()]));
   assert.equal(table.length, 1);
   assert.equal(csvHasCustomer(table, "Asha Rao"), false);
 });
