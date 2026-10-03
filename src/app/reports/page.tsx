@@ -8,6 +8,7 @@ import { workingBank } from "@/lib/bank-context";
 import { SEND_CHANNELS } from "@/lib/campaign-plan";
 import { sendChannelLabel } from "@/lib/campaigns";
 import {
+  channelShowsOpens,
   listReportFiles,
   loadDeskReport,
   loadReportNotices,
@@ -15,6 +16,7 @@ import {
   reportFileLabel,
   reportFiltersApplied,
   reportFiltersToSearch,
+  type ChannelReport,
 } from "@/lib/desk-reports";
 import { resolveReportBank } from "@/lib/report-bank";
 import { isOwnerAdmin } from "@/lib/owner-admin";
@@ -55,7 +57,7 @@ export default async function ReportsPage({
         <h1 className="font-serif text-4xl tracking-tight">Reports</h1>
         <p className="mt-3 max-w-2xl text-base leading-7 text-muted-foreground">
           {technical
-            ? "Failure rates, opens, notice links, and Speed Post returns. A dry run is counted apart from a live failure. Delivery CSV is one row for each person and channel, for this bank only."
+            ? "Failure rates and delivery. Email and WhatsApp also show opened and not opened. A dry run is counted apart from a live failure. The delivery Excel is one row for each person, for this bank only."
             : "Delivery status for notices already sent, for this bank only. You can download the report."}
         </p>
       </div>
@@ -142,6 +144,50 @@ function ReportDownloads({ search }: { search: string }) {
   );
 }
 
+function ChannelTable({
+  rows,
+  showOpens,
+  dryRunLabel,
+}: {
+  rows: ChannelReport[];
+  showOpens: boolean;
+  dryRunLabel: string;
+}) {
+  if (rows.length === 0) return null;
+  return (
+    <section className="overflow-x-auto rounded-lg ring-1 ring-foreground/10">
+      <table className="w-full min-w-[46rem] border-collapse text-left text-sm">
+        <thead className="bg-muted/70">
+          <tr>
+            <th className="px-3 py-2 font-medium">Channel</th>
+            <th className="px-3 py-2 font-medium">Attempted</th>
+            <th className="px-3 py-2 font-medium">Failed or bounced</th>
+            <th className="px-3 py-2 font-medium">Failure rate</th>
+            <th className="px-3 py-2 font-medium">Delivered</th>
+            {showOpens ? <th className="px-3 py-2 font-medium">Opened</th> : null}
+            {showOpens ? <th className="px-3 py-2 font-medium">Not opened</th> : null}
+            <th className="px-3 py-2 font-medium">{dryRunLabel}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={row.channel} className="border-t border-border">
+              <td className="px-3 py-2 font-medium">{row.label}</td>
+              <td className="px-3 py-2">{row.attempted}</td>
+              <td className="px-3 py-2">{row.failed}</td>
+              <td className="px-3 py-2">{row.failureRate}</td>
+              <td className="px-3 py-2">{row.delivered}</td>
+              {showOpens ? <td className="px-3 py-2">{row.opened}</td> : null}
+              {showOpens ? <td className="px-3 py-2">{row.unopened}</td> : null}
+              <td className="px-3 py-2">{row.dryRun}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </section>
+  );
+}
+
 async function ReportBody({
   bankId,
   bankName,
@@ -197,36 +243,16 @@ async function ReportBody({
           </table>
         </section>
       ) : null}
-      {report.channels.length > 0 ? (
-        <section className="overflow-x-auto rounded-lg ring-1 ring-foreground/10">
-          <table className="w-full min-w-[46rem] border-collapse text-left text-sm">
-            <thead className="bg-muted/70">
-              <tr>
-                <th className="px-3 py-2 font-medium">Channel</th>
-                <th className="px-3 py-2 font-medium">Attempted</th>
-                <th className="px-3 py-2 font-medium">Failed or bounced</th>
-                <th className="px-3 py-2 font-medium">Failure rate</th>
-                <th className="px-3 py-2 font-medium">Opened</th>
-                <th className="px-3 py-2 font-medium">Not opened</th>
-                <th className="px-3 py-2 font-medium">{technical ? "Dry run" : "Not sent"}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {report.channels.map((row) => (
-                <tr key={row.channel} className="border-t border-border">
-                  <td className="px-3 py-2 font-medium">{row.label}</td>
-                  <td className="px-3 py-2">{row.attempted}</td>
-                  <td className="px-3 py-2">{row.failed}</td>
-                  <td className="px-3 py-2">{row.failureRate}</td>
-                  <td className="px-3 py-2">{row.channel === "SMS" ? "—" : row.opened}</td>
-                  <td className="px-3 py-2">{row.channel === "SMS" ? "—" : row.unopened}</td>
-                  <td className="px-3 py-2">{row.dryRun}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </section>
-      ) : null}
+      <ChannelTable
+        rows={report.channels.filter((row) => !channelShowsOpens(row.channel))}
+        showOpens={false}
+        dryRunLabel={technical ? "Dry run" : "Not sent"}
+      />
+      <ChannelTable
+        rows={report.channels.filter((row) => channelShowsOpens(row.channel))}
+        showOpens
+        dryRunLabel={technical ? "Dry run" : "Not sent"}
+      />
 
       {filters.channel !== "SPEED_POST" ? (
         <section className="grid gap-3 sm:grid-cols-2">

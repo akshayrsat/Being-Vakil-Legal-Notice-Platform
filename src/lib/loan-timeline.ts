@@ -313,7 +313,7 @@ export function assembleTimeline(input: {
       href: `/campaigns/${row.campaign.id}?bank=${encodeURIComponent(input.bankId)}`,
       hrefLabel: "Open send",
     });
-    if (row.openedAt) {
+    if (row.openedAt && row.channel !== "SMS") {
       events.push({
         id: `opened-${row.id}`,
         at: row.openedAt,

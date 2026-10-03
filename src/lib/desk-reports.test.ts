@@ -1,16 +1,20 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  channelShowsOpens,
+  channelSummaryMetrics,
   readReportFilters,
   reportCampaignWhere,
   reportFileId,
   reportFileLabel,
   reportFiltersApplied,
   reportFiltersToSearch,
+  reportSummaryCsv,
+  type DeskReport,
 } from "./desk-reports";
 
 test("a download waits until a channel or a date is applied", () => {
-  assert.equal(reportFiltersApplied({ channel: "", from: "", to: "" }), false);
+  assert.equal(reportFiltersApplied({ file: "", channel: "", from: "", to: "" }), false);
   assert.equal(reportFiltersApplied(readReportFilters(new URLSearchParams("bank=bank-a"))), false);
   assert.equal(reportFiltersApplied(readReportFilters(new URLSearchParams("channel="))), false);
   assert.equal(reportFiltersApplied(readReportFilters(new URLSearchParams("channel=PIGEON&from=not-a-date"))), false);
@@ -60,4 +64,69 @@ test("a file filter stays on this bank, with the channel dates", () => {
   assert.equal(JSON.stringify(where).includes("bank-b"), false);
   assert.equal(reportFileLabel("people.xlsx", new Date("2026-10-01T18:30:00.000Z"), false), "people.xlsx");
   assert.match(reportFileLabel("people.xlsx", new Date("2026-10-01T18:30:00.000Z"), true), /^people\.xlsx · /);
+});
+
+const report: DeskReport = {
+  channels: [
+    {
+      channel: "SMS",
+      label: "SMS",
+      attempted: 3,
+      failed: 1,
+      failureRate: "33%",
+      delivered: 2,
+      opened: null,
+      unopened: null,
+      skipped: 0,
+      dryRun: 0,
+    },
+    {
+      channel: "EMAIL",
+      label: "Email",
+      attempted: 2,
+      failed: 0,
+      failureRate: "0%",
+      delivered: 1,
+      opened: 1,
+      unopened: 1,
+      skipped: 0,
+      dryRun: 0,
+    },
+    {
+      channel: "WHATSAPP",
+      label: "WhatsApp",
+      attempted: 1,
+      failed: 0,
+      failureRate: "0%",
+      delivered: 1,
+      opened: 0,
+      unopened: 1,
+      skipped: 0,
+      dryRun: 0,
+    },
+  ],
+  linkOpened: 0,
+  linkNotOpened: 1,
+  speedPost: [],
+  speedPostTotal: 0,
+};
+
+test("SMS summary uses Delivered and does not list opens", () => {
+  assert.equal(channelShowsOpens("SMS"), false);
+  assert.equal(channelShowsOpens("EMAIL"), true);
+  const metrics = channelSummaryMetrics(report.channels[0]).map((row) => row.metric);
+  assert.deepEqual(metrics, ["Attempted", "Failed or bounced", "Failure rate", "Delivered"]);
+
+  const csv = reportSummaryCsv("Northwind", report);
+  assert.match(csv, /Northwind,Digital,SMS,Delivered,2/);
+  assert.match(csv, /Northwind,Digital,SMS,Failed or bounced,1/);
+  assert.equal(csv.includes("SMS,Opened"), false);
+  assert.equal(csv.includes("SMS,Not opened"), false);
+  assert.equal(csv.includes("Handed over"), false);
+  assert.equal(csv.includes("MSG91"), false);
+  assert.match(csv, /Northwind,Digital,Email,Delivered,1/);
+  assert.match(csv, /Northwind,Digital,Email,Opened,1/);
+  assert.match(csv, /Northwind,Digital,Email,Not opened,1/);
+  assert.match(csv, /Northwind,Digital,WhatsApp,Opened,0/);
+  assert.match(csv, /Northwind,Digital,WhatsApp,Not opened,1/);
 });

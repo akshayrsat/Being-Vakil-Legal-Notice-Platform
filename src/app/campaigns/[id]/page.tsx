@@ -394,7 +394,7 @@ export default async function CampaignPage({
                 Status
                 <select
                   name="status"
-                  defaultValue={statusFilter === "SENT" ? "DELIVERED" : statusFilter}
+                  defaultValue={statusFilter}
                   className="h-11 rounded-lg border border-input bg-card px-3 text-sm font-normal"
                 >
                   <option value="">All statuses</option>
@@ -446,7 +446,7 @@ export default async function CampaignPage({
                           <td className="px-2 py-2">{sendChannelLabel(row.channel)}</td>
                           <td className="px-2 py-2">
                             <p>{deliveryStatusLabel(row.status, technical)}</p>
-                            <MessageOpened openedAt={row.openedAt} />
+                            <MessageOpened openedAt={row.openedAt} channel={row.channel} />
                             <NoticeLinkOpened open={linkOpens.get(row.noticeNumber)} />
                           </td>
                           <td className="px-2 py-2 text-muted-foreground">

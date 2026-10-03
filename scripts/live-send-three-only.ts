@@ -273,10 +273,16 @@ async function main() {
               })
             : undefined,
       });
+      const savedStatus = result.ok ? (channel === "SMS" ? "SENT" : "DELIVERED") : "FAILED";
+      const savedDetail = result.ok
+        ? channel === "SMS"
+          ? "Sent to the operator."
+          : "Handed to MSG91."
+        : result.error;
       await prisma.campaignDelivery.update({
         where: { id: row.id },
         data: result.ok
-          ? { status: "DELIVERED", detail: "Handed to MSG91.", providerId: result.providerId }
+          ? { status: savedStatus, detail: savedDetail, providerId: result.providerId }
           : { status: "FAILED", detail: result.error },
       });
       results.push({
@@ -284,8 +290,8 @@ async function main() {
         channel,
         to,
         notice: row.noticeNumber,
-        status: result.ok ? "DELIVERED" : "FAILED",
-        detail: result.ok ? "Handed to MSG91." : result.error,
+        status: savedStatus,
+        detail: savedDetail,
         providerId: result.ok ? result.providerId : "",
         publicUrl: row.noticeNumber ? noticePublicUrl(row.noticeNumber) : "",
       });
@@ -293,7 +299,7 @@ async function main() {
     }
 
     const failed = results.filter((r) => r.status === "FAILED").length;
-    const sentish = results.filter((r) => r.status === "DELIVERED").length;
+    const sentish = results.filter((r) => r.status === "DELIVERED" || r.status === "SENT").length;
     await prisma.campaign.update({
       where: { id: campaign.id },
       data: {

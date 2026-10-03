@@ -135,7 +135,7 @@ export default async function PersonHistoryPage({
                 {row.detail ? (
                   <p className="mt-1 text-sm text-muted-foreground">{hideVendorWording(row.detail, technical)}</p>
                 ) : null}
-                <MessageOpened openedAt={row.openedAt} className="mt-1 text-sm text-muted-foreground" />
+                <MessageOpened openedAt={row.openedAt} channel={row.channel} className="mt-1 text-sm text-muted-foreground" />
                 <NoticeLinkOpened
                   open={linkOpens.get(row.noticeNumber)}
                   className="mt-1 text-sm text-muted-foreground"

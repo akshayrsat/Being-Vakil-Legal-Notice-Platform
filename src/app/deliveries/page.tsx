@@ -174,7 +174,7 @@ async function Results({
                     <td className="px-3 py-2">
                       <p>{deliveryStatusLabel(row.status, technical)}</p>
                       <p className="text-muted-foreground">{hideVendorWording(row.detail, technical) || "—"}</p>
-                      <MessageOpened openedAt={row.openedAt} />
+                      <MessageOpened openedAt={row.openedAt} channel={row.channel} />
                       <NoticeLinkOpened open={linkOpens.get(row.noticeNumber)} />
                     </td>
                     <td className="px-3 py-2">
