@@ -8,6 +8,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { getCurrentUser } from "@/lib/auth";
 import { workingBank } from "@/lib/bank-context";
 import { loadAccountTimeline, searchLoanMatches } from "@/lib/loan-timeline";
+import { personExcelFilename, personExcelHref } from "@/lib/person-excel";
 import { resolveReportBank } from "@/lib/report-bank";
 import { isOwnerAdmin } from "@/lib/owner-admin";
 import { canChooseBank, isBankUser } from "@/lib/roles";
@@ -117,15 +118,27 @@ async function Timeline({
 }) {
   const timeline = await loadAccountTimeline({ bankId, loan, account, technical });
   if (!timeline) return null;
+  const excelHref = personExcelHref(bankId, loan, account);
   return (
     <section className="flex flex-col gap-3">
-      <div>
-        <h2 className="font-serif text-2xl">{timeline.customerName}</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {[timeline.loanNumber && `Loan ${timeline.loanNumber}`, timeline.customerId && `Account ${timeline.customerId}`]
-            .filter(Boolean)
-            .join(" · ")}
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="font-serif text-2xl">{timeline.customerName}</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {[timeline.loanNumber && `Loan ${timeline.loanNumber}`, timeline.customerId && `Account ${timeline.customerId}`]
+              .filter(Boolean)
+              .join(" · ")}
+          </p>
+        </div>
+        {excelHref ? (
+          <a
+            href={excelHref}
+            download={personExcelFilename(loan || account)}
+            className={buttonVariants({ variant: "outline", className: "h-11 px-4" })}
+          >
+            Download Excel
+          </a>
+        ) : null}
       </div>
       <LoanTimelineList timeline={timeline} />
     </section>
