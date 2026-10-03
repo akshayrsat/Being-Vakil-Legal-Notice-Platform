@@ -128,7 +128,7 @@ export function deliveryExportWhere(
 ): Prisma.CampaignDeliveryWhereInput | null {
   const campaign = campaignWhere(bankId, filters, options);
   if (!campaign) return null;
-  return { bankId: campaign.bankId, campaign };
+  return { bankId: bankId.trim(), campaign };
 }
 
 export function speedPostExportWhere(
