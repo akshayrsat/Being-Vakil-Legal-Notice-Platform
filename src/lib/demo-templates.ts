@@ -1,6 +1,7 @@
 // Firm Approved library. These three rows match the live MSG91 templates staff send today.
-// They are stored on the bank marked forViewer (Northwind) and marked Approved, so every
-// bank can select the wording. They are not copied onto each bank.
+// A template row has to belong to some bank, so a missing row is stored on the bank marked
+// forViewer. That bank is not the author. The templates page lists these three for every
+// bank and does not print "Written for" that bank.
 // Starting the site again puts this wording back. Templates you add yourself are left alone.
 //
 // Live MSG91 send does not read these dltTemplateId values. SMS uses MSG91_SMS_FLOW_ID,
@@ -11,14 +12,14 @@
 // updates those existing rows instead of leaving the old practice names Approved.
 // The WhatsApp row is a new seedKey because the old library had no WhatsApp-only template.
 
-import { TEMPLATE_APPROVED } from "./templates";
+export const FIRM_LIBRARY_STATUS = "APPROVED";
 
 export type DemoTemplate = {
   seedKey: string;
   name: string;
   dltTemplateId: string;
   channels: string[];
-  status: typeof TEMPLATE_APPROVED;
+  status: typeof FIRM_LIBRARY_STATUS;
   body: string;
 };
 
@@ -62,7 +63,7 @@ export const DEMO_TEMPLATES: DemoTemplate[] = [
     name: "Legal notice (SMS)",
     dltTemplateId: MSG91_SMS_FLOW_ID,
     channels: ["SMS"],
-    status: TEMPLATE_APPROVED,
+    status: FIRM_LIBRARY_STATUS,
     body: SMS_BODY,
   },
   {
@@ -70,7 +71,7 @@ export const DEMO_TEMPLATES: DemoTemplate[] = [
     name: "Legal notice (email)",
     dltTemplateId: MSG91_EMAIL_TEMPLATE_ID,
     channels: ["EMAIL"],
-    status: TEMPLATE_APPROVED,
+    status: FIRM_LIBRARY_STATUS,
     body: EMAIL_BODY,
   },
   {
@@ -78,10 +79,28 @@ export const DEMO_TEMPLATES: DemoTemplate[] = [
     name: "Legal notice (WhatsApp)",
     dltTemplateId: MSG91_WHATSAPP_TEMPLATE_ID,
     channels: ["WHATSAPP"],
-    status: TEMPLATE_APPROVED,
+    status: FIRM_LIBRARY_STATUS,
     body: WHATSAPP_BODY,
   },
 ];
+
+export function firmLibraryTemplateWhere(): {
+  status: typeof FIRM_LIBRARY_STATUS;
+  OR: Array<
+    | { seedKey: { in: string[] } }
+    | { dltTemplateId: { in: string[] } }
+    | { name: { in: string[] } }
+  >;
+} {
+  return {
+    status: FIRM_LIBRARY_STATUS,
+    OR: [
+      { seedKey: { in: DEMO_TEMPLATES.map((template) => template.seedKey) } },
+      { dltTemplateId: { in: DEMO_TEMPLATES.map((template) => template.dltTemplateId) } },
+      { name: { in: DEMO_TEMPLATES.map((template) => template.name) } },
+    ],
+  };
+}
 
 export function demoTemplateWrite(template: DemoTemplate) {
   return {
@@ -93,16 +112,38 @@ export function demoTemplateWrite(template: DemoTemplate) {
   };
 }
 
-export function isRetiredPracticeTemplate(template: {
+export function matchesRetiredPracticeIdentity(template: {
   name: string;
   dltTemplateId: string;
-  status: string;
 }): boolean {
-  if (template.status.trim().toUpperCase() !== TEMPLATE_APPROVED) return false;
   const name = template.name.trim();
   const dlt = template.dltTemplateId.trim();
   return (
     (RETIRED_PRACTICE_TEMPLATE_NAMES as readonly string[]).includes(name) ||
     (RETIRED_PRACTICE_DLT_IDS as readonly string[]).includes(dlt)
   );
+}
+
+export function isRetiredPracticeTemplate(template: {
+  name: string;
+  dltTemplateId: string;
+  status: string;
+}): boolean {
+  if (template.status.trim().toUpperCase() !== FIRM_LIBRARY_STATUS) return false;
+  return matchesRetiredPracticeIdentity(template);
+}
+
+// The firm library is the three live MSG91 rows. Staff should recognise them by name
+// and by the live id, and the page must not credit the bank row that stores them.
+export function isFirmLibraryTemplate(template: {
+  seedKey?: string | null;
+  dltTemplateId?: string | null;
+  name?: string | null;
+}): boolean {
+  const seed = (template.seedKey ?? "").trim();
+  if (seed && DEMO_TEMPLATES.some((item) => item.seedKey === seed)) return true;
+  const dlt = (template.dltTemplateId ?? "").trim();
+  if (dlt && DEMO_TEMPLATES.some((item) => item.dltTemplateId === dlt)) return true;
+  const name = (template.name ?? "").trim();
+  return Boolean(name) && DEMO_TEMPLATES.some((item) => item.name === name);
 }

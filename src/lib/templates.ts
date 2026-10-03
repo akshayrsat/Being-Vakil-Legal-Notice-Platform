@@ -3,6 +3,7 @@
 // Spreadsheets, people, sends, and notices are not templates and stay on one bank.
 
 import type { Prisma } from "@prisma/client";
+import { isFirmLibraryTemplate } from "./demo-templates";
 
 export const TEMPLATE_DRAFT = "DRAFT";
 export const TEMPLATE_APPROVED = "APPROVED";
@@ -125,12 +126,124 @@ export function selectableApprovedTemplates<T extends { status: string; name: st
 }
 
 export function templateChoiceLabel(
-  template: { name: string; bankId: string; bankName: string },
+  template: {
+    name: string;
+    bankId: string;
+    bankName: string;
+    seedKey?: string | null;
+    dltTemplateId?: string | null;
+  },
   workingBankId: string,
 ): string {
-  if (template.bankId === workingBankId) return template.name;
+  // The firm MSG91 rows are shared wording. Do not suffix the bank that stores them.
+  if (template.bankId === workingBankId || isFirmLibraryTemplate(template)) return template.name;
   const bankName = template.bankName.trim();
   return bankName ? `${template.name} (${bankName})` : template.name;
+}
+
+// Null means the row must not credit a bank. Firm library rows always return null.
+export function templateBankCredit(
+  template: {
+    bankId: string;
+    bankName: string;
+    seedKey?: string | null;
+    dltTemplateId?: string | null;
+    name?: string | null;
+  },
+  workingBankId: string,
+): string | null {
+  if (isFirmLibraryTemplate(template)) return null;
+  if (template.bankId === workingBankId) return "Written for this bank";
+  const bankName = template.bankName.trim();
+  return bankName ? `Written for ${bankName}` : null;
+}
+
+export function savedTemplateParts(
+  template: {
+    status: string;
+    channels: string;
+    dltTemplateId: string;
+    bankId: string;
+    bankName: string;
+    seedKey?: string | null;
+    name?: string | null;
+  },
+  workingBankId: string,
+): string[] {
+  const parts = [templateStatusLabel(template.status)];
+  const channels = channelLabels(parseChannels(template.channels));
+  if (channels) parts.push(channels);
+  const dlt = template.dltTemplateId.trim();
+  if (dlt) parts.push(`DLT ${dlt}`);
+  const credit = templateBankCredit(template, workingBankId);
+  if (credit) parts.push(credit);
+  if (isApprovedTemplateStatus(template.status)) parts.push("Available for every bank");
+  return parts;
+}
+
+export type StaffTemplateRow = {
+  id: string;
+  name: string;
+  bankId: string;
+  bankName: string;
+  status: string;
+  channels: string;
+  dltTemplateId: string;
+  seedKey?: string | null;
+};
+
+// What the templates page lists: the live MSG91 rows only. Drafts and other wording stay off this page.
+export function staffTemplateLibraryView(
+  templates: readonly StaffTemplateRow[],
+  workingBankId: string,
+): {
+  choiceLabels: string[];
+  saved: Array<{ id: string; name: string; detail: string }>;
+} {
+  const listed = selectableApprovedTemplates(
+    listTemplatesForBank(templates, workingBankId).filter((template) => isFirmLibraryTemplate(template)),
+  );
+  return {
+    choiceLabels: listed.map((template) =>
+      templateChoiceLabel(
+        {
+          name: template.name,
+          bankId: template.bankId,
+          bankName: template.bankName,
+          seedKey: template.seedKey,
+          dltTemplateId: template.dltTemplateId,
+        },
+        workingBankId,
+      ),
+    ),
+    saved: listed.map((template) => ({
+      id: template.id,
+      name: template.name,
+      detail: savedTemplateParts(template, workingBankId).join(" · "),
+    })),
+  };
+}
+
+export function templatePageKicker(input: {
+  workingBankName: string;
+  workingBankId: string;
+  templateBankId: string;
+  templateBankName: string;
+  seedKey?: string | null;
+  dltTemplateId?: string | null;
+  name?: string | null;
+}): string {
+  if (
+    isFirmLibraryTemplate({
+      seedKey: input.seedKey,
+      dltTemplateId: input.dltTemplateId,
+      name: input.name,
+    })
+  ) {
+    return "Available for every bank";
+  }
+  if (input.templateBankId === input.workingBankId) return input.workingBankName;
+  return `${input.workingBankName} · written for ${input.templateBankName}`;
 }
 
 export function templateNamesMatch(left: string, right: string): boolean {
@@ -162,20 +275,6 @@ export function approvedNameTaken(
       template.id !== exceptId &&
       templateNamesMatch(template.name, name),
   );
-}
-
-export function templateFormNote(input: {
-  isNew: boolean;
-  status: string;
-  homeBankName: string;
-}): string {
-  if (input.isNew) {
-    return `A draft is kept on ${input.homeBankName}. Mark it Approved when the wording is ready. An Approved template can be selected for every bank. A spreadsheet and the people in it stay on one bank. Nothing is sent from this page.`;
-  }
-  if (input.status === TEMPLATE_APPROVED) {
-    return `This template is Approved, so every bank can select this wording. It was written for ${input.homeBankName}. Saving changes the shared wording only. People, spreadsheets, and sends stay on their own bank. Nothing is sent from this page.`;
-  }
-  return `This draft stays on ${input.homeBankName} until you mark it Approved. After that, every bank can select it. Nothing is sent from this page.`;
 }
 
 // A send may use Approved wording from any bank.

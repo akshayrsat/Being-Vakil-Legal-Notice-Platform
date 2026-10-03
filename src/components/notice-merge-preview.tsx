@@ -31,7 +31,6 @@ export function NoticeMergePreview({
   rows,
   templates,
   selectedId,
-  canEdit,
   libraryNotes = [],
 }: {
   batchId: string;
@@ -41,7 +40,6 @@ export function NoticeMergePreview({
   rows: Array<NoticeRecipient & { rowNumber: number; customerName: string }>;
   templates: ApprovedTemplate[];
   selectedId: string;
-  canEdit: boolean;
   libraryNotes?: string[];
 }) {
   const selected = templates.find((template) => template.id === selectedId) ?? null;
@@ -53,9 +51,8 @@ export function NoticeMergePreview({
       <CardHeader>
         <CardTitle>Filled notice</CardTitle>
         <CardDescription>
-          Choose an approved template. The list is the firm’s Approved wording, for every bank.
-          The first {SAMPLE_COUNT} people are from this spreadsheet for {bankName} only. Drafts are
-          not listed. Nothing is sent.
+          Choose an approved MSG91 template. The same templates are listed for every bank. The first{" "}
+          {SAMPLE_COUNT} people are from this spreadsheet for {bankName} only. Nothing is sent.
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
@@ -79,29 +76,15 @@ export function NoticeMergePreview({
           <div className="flex flex-col gap-3">
             {(libraryNotes.length > 0
               ? libraryNotes
-              : [
-                  canEdit
-                    ? "No approved template yet. Write one, mark it Approved, then come back. An Approved template is listed for every bank."
-                    : "The firm has not approved a template yet.",
-                ]
+              : ["The firm’s approved MSG91 templates are not in the library yet. This page does not write a template."]
             ).map((note) => (
               <p key={note} className="text-sm leading-6 text-muted-foreground">
                 {note}
               </p>
             ))}
-            {canEdit ? (
-              <div className="flex flex-wrap gap-2">
-                <Link href="/templates" className={buttonVariants({ className: "h-11 w-fit px-4" })}>
-                  Go to templates
-                </Link>
-                <Link
-                  href="/templates/new"
-                  className={buttonVariants({ variant: "outline", className: "h-11 w-fit px-4" })}
-                >
-                  New template
-                </Link>
-              </div>
-            ) : null}
+            <Link href="/templates" className={buttonVariants({ className: "h-11 w-fit px-4" })}>
+              Go to templates
+            </Link>
           </div>
         ) : selected ? (
           <>
@@ -143,7 +126,7 @@ export function NoticeMergePreview({
               href={`/templates/${selected.id}`}
               className={buttonVariants({ variant: "outline", className: "h-11 w-fit px-4" })}
             >
-              {canEdit ? "Edit this template" : "View this template"}
+              View this template
             </Link>
           </>
         ) : null}

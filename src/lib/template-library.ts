@@ -3,6 +3,7 @@
 // A draft stays on the bank it was written for.
 // A spreadsheet upload is a list of people. It does not create a template.
 
+import { isFirmLibraryTemplate } from "./demo-templates";
 import { isApprovedTemplateStatus } from "./templates";
 
 export type NamedTemplate = {
@@ -38,13 +39,21 @@ export function approvedTemplatesForBank<T extends BankTemplateRow>(templates: T
 }
 
 export function otherBankApprovedSummary(
-  rows: Array<{ bankId: string; status: string; name: string }>,
+  rows: Array<{
+    bankId: string;
+    status: string;
+    name: string;
+    seedKey?: string | null;
+    dltTemplateId?: string | null;
+  }>,
   banks: Array<{ id: string; name: string; code: string }>,
   workingBankId: string,
 ): OtherBankApproved[] {
   const namesByBank = new Map<string, string[]>();
   for (const row of rows) {
     if (row.bankId === workingBankId || !isApprovedTemplateStatus(row.status)) continue;
+    // Firm MSG91 rows are not "wording from another bank".
+    if (isFirmLibraryTemplate(row)) continue;
     const names = namesByBank.get(row.bankId) ?? [];
     names.push(row.name);
     namesByBank.set(row.bankId, names);
@@ -72,24 +81,13 @@ export function templateLibraryNotes(input: {
   savedCount: number;
   approvedCount: number;
   elsewhere: OtherBankApproved[];
-  canWrite: boolean;
 }): string[] {
   const notes: string[] = [];
-  const drafts = Math.max(0, input.savedCount - input.approvedCount);
 
   if (input.approvedCount === 0) {
     notes.push(
-      input.canWrite
-        ? `Uploading a spreadsheet saves the people for ${input.bankName}. It does not save notice wording. Write a template and mark it Approved. Approved wording can be selected for every bank.`
-        : `${input.bankName} has no Approved template yet. Notice wording is saved by the firm. A spreadsheet upload does not add a template.`,
+      `Uploading a spreadsheet saves the people for ${input.bankName}. It does not save notice wording. The list is the firm’s approved MSG91 templates. SMS templates are approved on DLT. WhatsApp templates are created on MSG91 or Facebook. This site does not write a template.`,
     );
-    if (input.canWrite && drafts > 0) {
-      notes.push(
-        drafts === 1
-          ? `${input.bankName} has 1 saved draft. Mark it Approved to select it for a send.`
-          : `${input.bankName} has ${drafts} saved drafts. Mark one Approved to select it for a send.`,
-      );
-    }
   }
 
   if (input.elsewhere.length > 0) {

@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { existsSync, readFileSync } from "node:fs";
 import test from "node:test";
 import {
   approvedNameTaken,
@@ -6,9 +7,10 @@ import {
   listTemplatesForBank,
   selectableApprovedTemplates,
   sendScope,
+  staffTemplateLibraryView,
   templateChoiceLabel,
-  templateFormNote,
   templateListedForBank,
+  templatePageKicker,
   templateWording,
   templateWordingSelect,
   visibleTemplatesWhere,
@@ -92,10 +94,29 @@ test("Test Bank lists Northwind Approved wording and hides Northwind drafts", ()
   );
   assert.equal(
     templateChoiceLabel(
-      { name: choices[0].name, bankId: NORTHWIND, bankName: "Northwind Housing Finance" },
+      {
+        name: choices[0].name,
+        bankId: NORTHWIND,
+        bankName: "Northwind Housing Finance",
+        seedKey: "nwh-borrower-email",
+        dltTemplateId: "legal_notice_non_payment",
+      },
       TEST_BANK,
     ),
-    "Legal notice (email) (Northwind Housing Finance)",
+    "Legal notice (email)",
+  );
+  assert.equal(
+    templateChoiceLabel(
+      {
+        name: "Branch circular",
+        bankId: "mcb",
+        bankName: "Meridian Co-operative Bank",
+        seedKey: null,
+        dltTemplateId: "bank-specific",
+      },
+      TEST_BANK,
+    ),
+    "Branch circular (Meridian Co-operative Bank)",
   );
 
   assert.deepEqual(stored, before);
@@ -214,12 +235,72 @@ test("Northwind wording can be used on Test Bank only with Test Bank people", ()
   );
 });
 
-test("the form tells staff that only wording is shared", () => {
-  const note = templateFormNote({
-    isNew: false,
-    status: TEMPLATE_APPROVED,
-    homeBankName: "Northwind Housing Finance",
-  });
-  assert.match(note, /every bank can select this wording/);
-  assert.match(note, /People, spreadsheets, and sends stay on their own bank/);
+test("Test Bank staff see only the three live notices and no practice bank", () => {
+  const view = staffTemplateLibraryView(
+    [
+      ...stored.map((template) => ({
+        ...template,
+        bankName: template.bankId === NORTHWIND ? "Northwind Housing Finance" : "Test Bank",
+      })),
+      {
+        id: "branch",
+        bankId: TEST_BANK,
+        bankName: "Test Bank",
+        name: "Branch circular",
+        status: TEMPLATE_APPROVED,
+        body: "Local wording",
+        dltTemplateId: "bank-specific",
+        channels: '["EMAIL"]',
+        seedKey: null,
+      },
+    ],
+    TEST_BANK,
+  );
+  assert.deepEqual(view.choiceLabels, [
+    "Legal notice (email)",
+    "Legal notice (SMS)",
+    "Legal notice (WhatsApp)",
+  ]);
+  assert.deepEqual(
+    view.saved.map((row) => row.name),
+    ["Legal notice (email)", "Legal notice (SMS)", "Legal notice (WhatsApp)"],
+  );
+  assert.deepEqual(
+    view.saved.map((row) => row.detail),
+    [
+      "Approved · Email · DLT legal_notice_non_payment · Available for every bank",
+      "Approved · SMS · DLT 6abf5af2e9226c340a0548e2 · Available for every bank",
+      "Approved · WhatsApp · DLT legal_notice_link · Available for every bank",
+    ],
+  );
+  const visible = JSON.stringify(view);
+  assert.doesNotMatch(visible, /Northwind|Meridian|Harbour|Written for|Test Bank draft|Branch circular/);
+  assert.equal(
+    templatePageKicker({
+      workingBankName: "Test Bank",
+      workingBankId: TEST_BANK,
+      templateBankId: NORTHWIND,
+      templateBankName: "Northwind Housing Finance",
+      seedKey: "nwh-loan-recall-sms",
+      dltTemplateId: "6abf5af2e9226c340a0548e2",
+      name: "Legal notice (SMS)",
+    }),
+    "Available for every bank",
+  );
+});
+
+test("there is no page or action for writing a template", () => {
+  assert.equal(existsSync(new URL("../app/templates/new/page.tsx", import.meta.url)), false);
+  assert.equal(existsSync(new URL("../app/actions/templates.ts", import.meta.url)), false);
+  assert.equal(existsSync(new URL("../components/template-form.tsx", import.meta.url)), false);
+  const page = readFileSync(new URL("../app/templates/page.tsx", import.meta.url), "utf8");
+  const campaigns = readFileSync(new URL("../app/campaigns/new/page.tsx", import.meta.url), "utf8");
+  const preview = readFileSync(new URL("../components/notice-merge-preview.tsx", import.meta.url), "utf8");
+  for (const source of [page, campaigns, preview]) {
+    assert.doesNotMatch(source, /New template/);
+    assert.doesNotMatch(source, /templates\/new/);
+    assert.doesNotMatch(source, /saveTemplate/);
+  }
+  assert.match(page, /does not write a template/);
+  assert.match(page, /MSG91 or Facebook/);
 });

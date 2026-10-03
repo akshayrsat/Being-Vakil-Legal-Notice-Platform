@@ -3,10 +3,12 @@
 // Running this again sets the practice passwords back, and resets the practice banks.
 // Banks you add yourself, with a different short code, are left alone.
 // The bank viewer is always tied to the practice bank marked forViewer.
-// The MSG91 templates are stored on the bank viewer’s bank and marked Approved,
-// so every bank can select that wording. They are not copied onto other banks.
-// The same seed keys are updated in place, so the old practice names do not stay Approved.
-// Templates you add stay. This does not turn MSG91_LIVE_SEND on.
+// The MSG91 templates are marked Approved so every bank can select that wording.
+// A missing row is created on the bank viewer’s bank, because a template needs a
+// bank row. Existing rows stay where they are, and the templates page does not
+// credit that bank. The same seed keys are updated in place.
+// Templates you add on a real bank stay. Practice rows that nothing uses are
+// removed. This does not turn MSG91_LIVE_SEND on.
 
 import bcrypt from "bcryptjs";
 import { PrismaClient } from "@prisma/client";
@@ -76,7 +78,7 @@ async function main() {
   }
   const library = await alignMsg91Library(prisma, {
     bankIdForNew: viewerBankId,
-    moveExistingToBank: true,
+    moveExistingToBank: false,
   });
 
   console.log("Practice banks are ready.");
@@ -85,12 +87,15 @@ async function main() {
     const viewer = bank.forViewer ? " (bank viewer)" : "";
     console.log(`  ${bank.code}: ${bank.name} — ${status}${viewer}`);
   }
-  console.log("MSG91 templates are Approved, so every bank can select them.");
+  console.log("MSG91 templates are Approved for every bank.");
   for (const name of library.upserted) {
     console.log(`  ${name}`);
   }
   if (library.retired > 0) {
-    console.log(`Moved ${library.retired} leftover practice template(s) to Draft.`);
+    console.log(`Moved ${library.retired} practice template(s) out of Approved.`);
+  }
+  if (library.deleted > 0) {
+    console.log(`Deleted ${library.deleted} unreferenced practice template(s).`);
   }
 
   for (const notice of DEMO_NOTICES) {

@@ -1,6 +1,10 @@
-// One-shot, safe to run again. Updates the Approved MSG91 library rows in the
-// database named by DATABASE_URL (local SQLite or Cloud SQL).
-// Does not reset passwords, practice banks, notices, or MSG91_LIVE_SEND.
+// Safe to run twice. Keeps the three live MSG91 templates Approved, with their
+// live ids, in the database named by DATABASE_URL (local SQLite or Cloud SQL).
+// Does not present them as written for a practice bank: the app lists them as
+// the firm library. Deletes unreferenced practice template rows. A practice
+// template that a send or notice already uses is taken out of Approved and left
+// in place. Does not delete banks, people, notices, passwords, or campaigns,
+// and does not change MSG91_LIVE_SEND.
 //
 //   npx tsx scripts/align-msg91-library.ts
 
@@ -37,14 +41,19 @@ async function main() {
   }
 
   const result = await alignMsg91Library(prisma, { bankIdForNew: home, moveExistingToBank: false });
-  console.log("MSG91 library rows are Approved:");
+  console.log("MSG91 library rows are Approved for every bank:");
   for (const name of result.upserted) console.log(`  ${name}`);
   console.log(
     result.retired === 0
-      ? "No leftover practice Approved templates."
-      : `Moved ${result.retired} leftover practice template(s) to Draft.`,
+      ? "No practice template still needed to stay out of Approved."
+      : `Moved ${result.retired} practice template(s) out of Approved. Sends that use them were left in place.`,
   );
-  console.log("Passwords, banks, notices, and MSG91_LIVE_SEND were not changed.");
+  console.log(
+    result.deleted === 0
+      ? "No unreferenced practice templates to delete."
+      : `Deleted ${result.deleted} unreferenced practice template(s).`,
+  );
+  console.log("Passwords, banks, people, notices, campaigns, and MSG91_LIVE_SEND were not changed.");
 }
 
 main()
