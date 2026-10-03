@@ -1,45 +1,99 @@
-// The two kinds of people who can sign in, and the words we show for each.
-// ADMIN is firm staff. BANK_VIEWER is someone on the bank side.
+// Who can sign in.
+// Owner: one firm admin. Banks, the audit log, and the live-send switch.
+// Legal coordinator: can send notices and add a bank user for one bank.
+// Bank user: one bank, and only that bank.
+// ADMIN and BANK_VIEWER are the earlier names for owner and bank user. They still sign in.
 
+export const ROLE_OWNER = "OWNER";
+export const ROLE_COORDINATOR = "LEGAL_COORDINATOR";
+export const ROLE_BANK_USER = "BANK_USER";
 export const ROLE_ADMIN = "ADMIN";
 export const ROLE_BANK_VIEWER = "BANK_VIEWER";
 
-export type AppRole = typeof ROLE_ADMIN | typeof ROLE_BANK_VIEWER;
+export type AppRole =
+  | typeof ROLE_OWNER
+  | typeof ROLE_COORDINATOR
+  | typeof ROLE_BANK_USER
+  | typeof ROLE_ADMIN
+  | typeof ROLE_BANK_VIEWER;
 
 export function isAppRole(role: string): role is AppRole {
-  return role === ROLE_ADMIN || role === ROLE_BANK_VIEWER;
+  return (
+    role === ROLE_OWNER ||
+    role === ROLE_COORDINATOR ||
+    role === ROLE_BANK_USER ||
+    role === ROLE_ADMIN ||
+    role === ROLE_BANK_VIEWER
+  );
+}
+
+export function isOwner(role: string): boolean {
+  return role === ROLE_OWNER || role === ROLE_ADMIN;
+}
+
+export function isCoordinator(role: string): boolean {
+  return role === ROLE_COORDINATOR;
+}
+
+export function isBankUser(role: string): boolean {
+  return role === ROLE_BANK_USER || role === ROLE_BANK_VIEWER;
+}
+
+export function canSendNotices(role: string): boolean {
+  return isOwner(role) || isCoordinator(role);
+}
+
+export function canChooseBank(role: string): boolean {
+  return canSendNotices(role);
+}
+
+export function canManageFirm(role: string): boolean {
+  return isOwner(role);
+}
+
+export function canCreateLogins(role: string): boolean {
+  return isOwner(role) || isCoordinator(role);
+}
+
+export function usesAssignedBank(role: string): boolean {
+  return isBankUser(role);
 }
 
 export function roleTitle(role: string): string {
-  if (role === ROLE_ADMIN) return "Admin";
-  if (role === ROLE_BANK_VIEWER) return "Bank Viewer";
+  if (isOwner(role)) return "Owner";
+  if (isCoordinator(role)) return "Legal coordinator";
+  if (isBankUser(role)) return "Bank user";
+  if (role === "webhook") return "Status update";
   return "Unknown role";
 }
 
 export function roleAudience(role: string): string {
-  if (role === ROLE_ADMIN) return "Firm staff";
-  if (role === ROLE_BANK_VIEWER) return "Bank side";
+  if (canSendNotices(role)) return "Firm";
+  if (isBankUser(role)) return "One bank";
   return "Not recognised";
 }
 
 export function roleHeadline(role: string): string {
-  if (role === ROLE_ADMIN) return "You are signed in as Admin.";
-  if (role === ROLE_BANK_VIEWER) return "You are signed in as Bank Viewer.";
-  return "You are signed in, but this account has no recognised role.";
+  const title = roleTitle(role);
+  if (title === "Unknown role") return "You are signed in, but this account has no recognised role.";
+  return `You are signed in as ${title}.`;
 }
 
 export function roleSummary(role: string): string {
-  if (role === ROLE_ADMIN) {
-    return "You work for the law firm. Choose a bank, upload that bank’s spreadsheet, and prepare a send. Approved notice wording can be selected for any bank. A spreadsheet, its people, and a send stay on the bank you are working on. Without MSG91, a send is only a dry run. The audit log shows who did what.";
+  if (isOwner(role)) {
+    return "You are the owner. You can send a notice, add a bank, add a login, read the audit log, and turn live send on or off. A spreadsheet, its people, and a send stay on the bank you are working on.";
   }
-  if (role === ROLE_BANK_VIEWER) {
-    return "You are on the bank side. This login is tied to one bank. You can look at spreadsheets, templates, campaigns, and delivery status for that bank. You cannot upload, edit, or send.";
+  if (isCoordinator(role)) {
+    return "You can send a notice for the bank you are working on, and you can add a bank user for one bank. You cannot turn live send on or off, add a bank, or open the audit log.";
   }
-  return "Ask the firm administrator to check this account. It should be either Admin or Bank Viewer.";
+  if (isBankUser(role)) {
+    return "You can look at notices already sent for this one bank, including delivery status, and you can download that bank’s report. You cannot upload a spreadsheet, send a notice, change wording, add a login, or see another bank.";
+  }
+  return "Ask the owner to check this account. It should be an owner, a legal coordinator, or a bank user.";
 }
 
 export function roleAccent(role: string): "admin" | "viewer" | "unknown" {
-  if (role === ROLE_ADMIN) return "admin";
-  if (role === ROLE_BANK_VIEWER) return "viewer";
+  if (canSendNotices(role)) return "admin";
+  if (isBankUser(role)) return "viewer";
   return "unknown";
 }

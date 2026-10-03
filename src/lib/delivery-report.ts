@@ -5,6 +5,7 @@ import type { Prisma } from "@prisma/client";
 import { requiredBankId } from "./bank-data";
 import { isSendChannel } from "./campaign-plan";
 import { deliveryStatusLabel, isDeliveryStatus, sendChannelLabel, statusesForFilter } from "./campaigns";
+import { hideVendorWording } from "./staff-language";
 import { csvCell, formatIndiaDateTime, indiaDayRange } from "./india-day";
 
 export type DeliveryFilters = {
@@ -39,7 +40,11 @@ export function filtersToSearch(filters: DeliveryFilters, bankId: string): strin
   return params.toString();
 }
 
-export function deliveryWhere(bankId: string, filters: DeliveryFilters): Prisma.CampaignDeliveryWhereInput {
+export function deliveryWhere(
+  bankId: string,
+  filters: DeliveryFilters,
+  options?: { sentOnly?: boolean },
+): Prisma.CampaignDeliveryWhereInput {
   const scope = requiredBankId(bankId);
   const createdAt = createdAtRange(filters.from, filters.to);
   const where: Prisma.CampaignDeliveryWhereInput = {
@@ -48,6 +53,7 @@ export function deliveryWhere(bankId: string, filters: DeliveryFilters): Prisma.
       bankId: scope,
       ...(filters.campaignId ? { id: filters.campaignId } : {}),
       ...(createdAt ? { createdAt } : {}),
+      ...(options?.sentOnly ? { status: { not: "REVIEW" } } : {}),
     },
   };
   const text = filters.text;
@@ -93,10 +99,10 @@ export type ReportRow = {
   speedPostStatus: string;
 };
 
-export function reportCsv(rows: ReportRow[]): string {
+export function reportCsv(rows: ReportRow[], technical = false): string {
   const header = [
     "Bank",
-    "Campaign",
+    "Notice",
     "Date",
     "Customer name",
     "Mobile",
@@ -128,8 +134,8 @@ export function reportCsv(rows: ReportRow[]): string {
         row.loanNumber,
         row.customerId,
         sendChannelLabel(row.channel),
-        deliveryStatusLabel(row.status),
-        row.detail,
+        deliveryStatusLabel(row.status, technical),
+        hideVendorWording(row.detail, technical),
         String(row.rowNumber),
         row.noticeNumber,
         row.noticeUrl,

@@ -7,7 +7,7 @@ import { cookies } from "next/headers";
 import { unstable_rethrow } from "next/navigation";
 import { toBankSnapshot, type BankSnapshot } from "./banks";
 import { prisma } from "./db";
-import { ROLE_BANK_VIEWER } from "./roles";
+import { usesAssignedBank } from "./roles";
 
 export const SESSION_COOKIE = "noticedesk_session";
 export const OTP_COOKIE = "noticedesk_otp";
@@ -72,8 +72,9 @@ async function readSessionContext(): Promise<SessionContext | null> {
     return null;
   }
 
-  const bankRecord =
-    session.user.role === ROLE_BANK_VIEWER ? session.user.bank : session.user.selectedBank;
+  const bankRecord = usesAssignedBank(session.user.role)
+    ? session.user.bank
+    : session.user.selectedBank;
 
   return {
     sessionId: session.id,

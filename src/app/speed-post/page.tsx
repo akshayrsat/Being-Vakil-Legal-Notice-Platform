@@ -20,7 +20,7 @@ import { prisma } from "@/lib/db";
 import { formatIndiaDateTime } from "@/lib/india-day";
 import { indiaPostConfigured, isPostalStatus, POSTAL_STATUS_OPTIONS } from "@/lib/postal";
 import { resolveReportBank } from "@/lib/report-bank";
-import { ROLE_ADMIN } from "@/lib/roles";
+import { canSendNotices, isBankUser } from "@/lib/roles";
 
 export const metadata: Metadata = {
   title: "Speed Post",
@@ -33,9 +33,10 @@ export default async function SpeedPostPage({
 }) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
+  if (isBankUser(user.role)) redirect("/deliveries");
   const query = await searchParams;
   const bank = await resolveReportBank(user, query.bank ?? workingBank(user)?.id ?? "");
-  const isAdmin = user.role === ROLE_ADMIN;
+  const isAdmin = canSendNotices(user.role);
   const status = isPostalStatus((query.status ?? "").toUpperCase()) ? (query.status ?? "").toUpperCase() : "";
   const text = (query.q ?? "").trim().slice(0, 80);
   const campaignId = (query.campaign ?? "").trim();
@@ -151,7 +152,7 @@ async function ConsignmentList({
   if (rows.length === 0) {
     return (
       <EmptyState title="No Speed Post consignments">
-        Open a campaign and mark people as Speed Post, or import article numbers from a CSV.
+        Open a notice you already prepared and mark people as Speed Post, or import article numbers from a CSV.
       </EmptyState>
     );
   }

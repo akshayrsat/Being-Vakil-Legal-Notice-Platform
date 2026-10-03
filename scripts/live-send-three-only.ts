@@ -96,9 +96,10 @@ function assertAllowlisted(rows: { customerName: string; mobile1: string; email:
 }
 
 async function main() {
-  console.log("LIVE_SEND enabled?", isLiveSendEnabled());
-  if (!isLiveSendEnabled()) {
-    console.error(dryRunReason());
+  const liveSend = await isLiveSendEnabled();
+  console.log("LIVE_SEND enabled?", liveSend);
+  if (!liveSend) {
+    console.error(await dryRunReason());
     process.exit(1);
   }
   console.log("NOTICE_PUBLIC_BASE_URL", process.env.NOTICE_PUBLIC_BASE_URL);

@@ -14,7 +14,7 @@ import { uploadBatchWhere } from "@/lib/bank-data";
 import { workingBank } from "@/lib/bank-context";
 import { prisma } from "@/lib/db";
 import { parseXlsx, SheetReadError } from "@/lib/parse-xlsx";
-import { ROLE_ADMIN } from "@/lib/roles";
+import { canSendNotices } from "@/lib/roles";
 
 export type UploadFormState = { error: string } | null;
 
@@ -23,10 +23,10 @@ const MAX_BYTES = 5 * 1024 * 1024;
 async function adminBank() {
   const current = await getSessionContext();
   if (!current) redirect("/login");
-  if (current.user.role !== ROLE_ADMIN) {
+  if (!canSendNotices(current.user.role)) {
     return {
       ok: false as const,
-      error: "Only firm staff can upload a spreadsheet or change the column match.",
+      error: "Only the owner or a legal coordinator can upload a spreadsheet or change the column match.",
     };
   }
   const bank = workingBank(current.user);

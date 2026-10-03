@@ -12,12 +12,16 @@ export function backToTemplates(): BackTarget {
   return { href: "/templates", label: "Back to templates" };
 }
 
+export function backToSendNotice(): BackTarget {
+  return { href: "/send", label: "Back to send notice" };
+}
+
 export function backToUploads(): BackTarget {
-  return { href: "/uploads", label: "Back to uploads" };
+  return backToSendNotice();
 }
 
 export function backToCampaigns(): BackTarget {
-  return { href: "/campaigns", label: "Back to campaigns" };
+  return backToSendNotice();
 }
 
 export function backToSpreadsheet(batchId: string): BackTarget {

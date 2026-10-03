@@ -7,9 +7,11 @@ import { bankStatusLabel, type BankSnapshot } from "@/lib/banks";
 export function BankList({
   banks,
   currentBankId,
+  canManage = false,
 }: {
   banks: Array<BankSnapshot & { attachNoticePdf: boolean }>;
   currentBankId: string | null;
+  canManage?: boolean;
 }) {
   if (banks.length === 0) {
     return (
@@ -53,26 +55,32 @@ export function BankList({
                   </Button>
                 </form>
               )}
-              <form action={setBankActive}>
-                <input type="hidden" name="bankId" value={bank.id} />
-                <input type="hidden" name="active" value={bank.active ? "false" : "true"} />
-                <Button type="submit" variant="outline" className="h-11 px-4">
-                  {bank.active ? "Mark inactive" : "Mark active"}
-                </Button>
-              </form>
-              <form action={setAttachNoticePdf}>
-                <input type="hidden" name="bankId" value={bank.id} />
-                <input type="hidden" name="attachNoticePdf" value={bank.attachNoticePdf ? "false" : "true"} />
-                <Button type="submit" variant="outline" className="h-11 px-4">
-                  {bank.attachNoticePdf ? "Stop email PDFs" : "Attach notice PDF to email"}
-                </Button>
-              </form>
+              {canManage ? (
+                <form action={setBankActive}>
+                  <input type="hidden" name="bankId" value={bank.id} />
+                  <input type="hidden" name="active" value={bank.active ? "false" : "true"} />
+                  <Button type="submit" variant="outline" className="h-11 px-4">
+                    {bank.active ? "Mark inactive" : "Mark active"}
+                  </Button>
+                </form>
+              ) : null}
+              {canManage ? (
+                <form action={setAttachNoticePdf}>
+                  <input type="hidden" name="bankId" value={bank.id} />
+                  <input type="hidden" name="attachNoticePdf" value={bank.attachNoticePdf ? "false" : "true"} />
+                  <Button type="submit" variant="outline" className="h-11 px-4">
+                    {bank.attachNoticePdf ? "Stop email PDFs" : "Attach notice PDF to email"}
+                  </Button>
+                </form>
+              ) : null}
             </div>
-            <p className="mt-3 text-sm text-muted-foreground">
-              {bank.attachNoticePdf
-                ? "Live emails include a PDF of the notice. The clickable notice link is still sent."
-                : "Live emails do not attach a PDF. This is the default."}
-            </p>
+            {canManage ? (
+              <p className="mt-3 text-sm text-muted-foreground">
+                {bank.attachNoticePdf
+                  ? "Live emails include a PDF of the notice. The clickable notice link is still sent."
+                  : "Live emails do not attach a PDF. This is the default."}
+              </p>
+            ) : null}
           </li>
         );
       })}

@@ -49,7 +49,7 @@ export function CampaignForm({
   return (
     <form action={formAction} className="flex flex-col gap-5">
       <div className="flex flex-col gap-2">
-        <Label htmlFor="campaign-batch">Spreadsheet</Label>
+        <Label htmlFor="campaign-batch">Spreadsheet of people</Label>
         <select
           id="campaign-batch"
           name="batchId"
@@ -66,7 +66,7 @@ export function CampaignForm({
       </div>
 
       <div className="flex flex-col gap-2">
-        <Label htmlFor="campaign-template">Select approved template</Label>
+        <Label htmlFor="campaign-template">Approved notice wording</Label>
         <select
           id="campaign-template"
           name="templateId"
@@ -77,7 +77,7 @@ export function CampaignForm({
         >
           {templates.length > 1 ? (
             <option value="" disabled>
-              Choose an approved template
+              Choose the approved notice wording
             </option>
           ) : null}
           {templates.map((template) => (
@@ -87,12 +87,12 @@ export function CampaignForm({
           ))}
         </select>
         <p className="text-sm font-normal text-muted-foreground">
-          Approved templates, A to Z, for every bank. Drafts are not listed. The same list is on Templates.
+          Approved notice wording, A to Z, for every bank. Drafts are not listed. The same list is on Templates.
         </p>
       </div>
 
       <fieldset className="flex flex-col gap-3">
-        <legend className="text-sm font-medium">Channels</legend>
+        <legend className="text-sm font-medium">How to send it</legend>
         <div className="flex flex-col gap-2">
           {SEND_CHANNELS.map((channel) => (
             <label key={channel} className="flex items-center gap-2 text-sm">
@@ -114,7 +114,7 @@ export function CampaignForm({
           </label>
         </div>
         <p className="text-sm text-muted-foreground">
-          Channels start from the template. A person with no mobile is skipped for SMS and WhatsApp.
+          These start from the wording. A person with no mobile is skipped for SMS and WhatsApp.
           A person with no email is skipped for email. Speed Post cannot be ticked yet.
         </p>
       </fieldset>
@@ -129,7 +129,7 @@ export function CampaignForm({
       ) : null}
 
       <Button type="submit" className="h-11 w-full px-4 sm:w-fit" disabled={pending}>
-        {pending ? "Preparing…" : "Review send"}
+        {pending ? "Preparing…" : "Review who will get it"}
       </Button>
     </form>
   );

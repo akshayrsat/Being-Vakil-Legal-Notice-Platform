@@ -12,9 +12,10 @@ import { emailNoticeVars, noticePublicUrl } from "../src/lib/notice-link";
 const TO = "akshayrsat@gmail.com";
 
 async function main() {
-  console.log("LIVE_SEND enabled?", isLiveSendEnabled());
-  if (!isLiveSendEnabled()) {
-    console.error(dryRunReason());
+  const liveSend = await isLiveSendEnabled();
+  console.log("LIVE_SEND enabled?", liveSend);
+  if (!liveSend) {
+    console.error(await dryRunReason());
     process.exit(1);
   }
 

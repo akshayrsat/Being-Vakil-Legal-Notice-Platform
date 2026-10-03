@@ -62,13 +62,17 @@ export function reportFiltersToSearch(filters: ReportFilters, bankId: string): s
   return params.toString();
 }
 
-export async function loadDeskReport(bankId: string, filters: ReportFilters): Promise<DeskReport> {
+export async function loadDeskReport(
+  bankId: string,
+  filters: ReportFilters,
+  options?: { sentOnly?: boolean },
+): Promise<DeskReport> {
   const range = createdRange(filters.from, filters.to);
   const digital = filters.channel !== "SPEED_POST";
   const postal = !filters.channel || filters.channel === "SPEED_POST";
-  const channels = digital ? await channelReports(bankId, filters, range) : [];
-  const links = digital ? await linkReports(bankId, range) : { opened: 0, closed: 0 };
-  const speedPost = postal ? await speedPostReports(bankId, range) : [];
+  const channels = digital ? await channelReports(bankId, filters, range, options?.sentOnly) : [];
+  const links = digital ? await linkReports(bankId, range, options?.sentOnly) : { opened: 0, closed: 0 };
+  const speedPost = postal ? await speedPostReports(bankId, range, options?.sentOnly) : [];
   return {
     channels,
     linkOpened: links.opened,
@@ -100,6 +104,7 @@ async function channelReports(
   bankId: string,
   filters: ReportFilters,
   range: { gte?: Date; lte?: Date } | undefined,
+  sentOnly = false,
 ): Promise<ChannelReport[]> {
   const scope = requiredBankId(bankId);
   const channels = filters.channel && isSendChannel(filters.channel) ? [filters.channel] : [...SEND_CHANNELS];
@@ -108,7 +113,11 @@ async function channelReports(
     const where: Prisma.CampaignDeliveryWhereInput = {
       bankId: scope,
       channel,
-      campaign: { bankId: scope, ...(range ? { createdAt: range } : {}) },
+      campaign: {
+        bankId: scope,
+        ...(range ? { createdAt: range } : {}),
+        ...(sentOnly ? { status: { not: "REVIEW" } } : {}),
+      },
     };
     const [attempted, failed, handedOver, opened, skipped, dryRun] = await Promise.all([
       prisma.campaignDelivery.count({ where: { ...where, status: { in: [...ATTEMPTED] } } }),
@@ -139,8 +148,16 @@ async function channelReports(
   return reports;
 }
 
-async function linkReports(bankId: string, range: { gte?: Date; lte?: Date } | undefined) {
-  const where = { bankId: requiredBankId(bankId), ...(range ? { createdAt: range } : {}) };
+async function linkReports(
+  bankId: string,
+  range: { gte?: Date; lte?: Date } | undefined,
+  sentOnly = false,
+) {
+  const where = {
+    bankId: requiredBankId(bankId),
+    ...(range ? { createdAt: range } : {}),
+    ...(sentOnly ? { campaign: { status: { not: "REVIEW" as const } } } : {}),
+  };
   const [opened, closed] = await Promise.all([
     prisma.publicNotice.count({ where: { ...where, linkViewCount: { gt: 0 } } }),
     prisma.publicNotice.count({ where: { ...where, linkViewCount: 0 } }),
@@ -151,13 +168,19 @@ async function linkReports(bankId: string, range: { gte?: Date; lte?: Date } | u
 async function speedPostReports(
   bankId: string,
   range: { gte?: Date; lte?: Date } | undefined,
+  sentOnly = false,
 ): Promise<SpeedPostReport[]> {
   const rows = await Promise.all(
     POSTAL_STATUSES.map(async (status) => ({
       status,
       label: postalStatusLabel(status),
       count: await prisma.speedPostConsignment.count({
-        where: { bankId: requiredBankId(bankId), status, ...(range ? { updatedAt: range } : {}) },
+        where: {
+          bankId: requiredBankId(bankId),
+          status,
+          ...(range ? { updatedAt: range } : {}),
+          ...(sentOnly ? { campaign: { status: { not: "REVIEW" as const } } } : {}),
+        },
       }),
     })),
   );

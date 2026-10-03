@@ -12,6 +12,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { getCurrentUser } from "@/lib/auth";
 import { campaignWhere } from "@/lib/bank-data";
 import { deliveryStatusLabel, sendChannelLabel } from "@/lib/campaigns";
+import { hideVendorWording, seesVendorDetail } from "@/lib/staff-language";
 import { prisma } from "@/lib/db";
 import {
   deliveryWhere,
@@ -23,7 +24,7 @@ import { loanSearchHref } from "@/lib/loan-timeline";
 import { noticeLinkOpensByNumber } from "@/lib/public-notice";
 import { formatIndiaDateTime } from "@/lib/india-day";
 import { resolveReportBank } from "@/lib/report-bank";
-import { ROLE_ADMIN } from "@/lib/roles";
+import { canChooseBank, isBankUser } from "@/lib/roles";
 
 export const metadata: Metadata = {
   title: "Find a person",
@@ -45,7 +46,9 @@ export default async function DeliveriesPage({
     if (typeof value === "string") params.set(key, value);
   }
   const filters = readDeliveryFilters(params);
-  const isAdmin = user.role === ROLE_ADMIN;
+  const isAdmin = canChooseBank(user.role);
+  const bankUser = isBankUser(user.role);
+  const technical = seesVendorDetail(user);
   const bank = await resolveReportBank(user, params.get("bank") ?? "");
 
   return (
@@ -56,7 +59,9 @@ export default async function DeliveriesPage({
           <h1 className="font-serif text-4xl tracking-tight">Find a person</h1>
           <p className="mt-3 text-base leading-7 text-muted-foreground">
             {bank
-              ? `Search sends for ${bank.name}. A dry run stays marked Dry run. It is not called delivered.`
+              ? technical
+                ? `Search sends for ${bank.name}. A dry run stays marked Dry run. It is not called delivered.`
+                : `Notices already sent for ${bank.name}, and the delivery status of each one.`
               : "Choose a bank before searching."}
           </p>
         </div>
@@ -71,9 +76,10 @@ export default async function DeliveriesPage({
               action="/deliveries"
               filters={filters}
               bankId={bank.id}
-              campaigns={await campaignOptions(bank.id)}
+              campaigns={await campaignOptions(bank.id, bankUser)}
+              technical={technical}
             />
-            <Results bankId={bank.id} filters={filters} />
+            <Results bankId={bank.id} filters={filters} technical={technical} sentOnly={bankUser} />
           </>
         )}
       </main>
@@ -81,9 +87,9 @@ export default async function DeliveriesPage({
   );
 }
 
-async function campaignOptions(bankId: string) {
+async function campaignOptions(bankId: string, sentOnly: boolean) {
   const campaigns = await prisma.campaign.findMany({
-    where: campaignWhere(bankId),
+    where: { ...campaignWhere(bankId), ...(sentOnly ? { status: { not: "REVIEW" } } : {}) },
     orderBy: { createdAt: "desc" },
     select: { id: true, templateName: true, createdAt: true },
   });
@@ -96,12 +102,16 @@ async function campaignOptions(bankId: string) {
 async function Results({
   bankId,
   filters,
+  technical,
+  sentOnly,
 }: {
   bankId: string;
   filters: ReturnType<typeof readDeliveryFilters>;
+  technical: boolean;
+  sentOnly: boolean;
 }) {
   const rows = await prisma.campaignDelivery.findMany({
-    where: deliveryWhere(bankId, filters),
+    where: deliveryWhere(bankId, filters, { sentOnly }),
     include: {
       campaign: { select: { id: true, templateName: true, createdAt: true } },
     },
@@ -129,7 +139,9 @@ async function Results({
       </div>
       {rows.length === 0 ? (
         <EmptyState title="No rows matched">
-          Try a loan number from a dry run, such as LN10021, or clear the filters.
+          {technical
+            ? "Try a loan number from a dry run, such as LN10021, or clear the filters."
+            : "Try a loan number, such as LN10021, or clear the filters."}
         </EmptyState>
       ) : (
         <div className="overflow-x-auto rounded-lg ring-1 ring-foreground/10">
@@ -140,7 +152,7 @@ async function Results({
                 <th className="px-3 py-2 font-medium">Loan</th>
                 <th className="px-3 py-2 font-medium">Channel</th>
                 <th className="px-3 py-2 font-medium">Status</th>
-                <th className="px-3 py-2 font-medium">Campaign</th>
+                <th className="px-3 py-2 font-medium">Notice</th>
               </tr>
             </thead>
             <tbody>
@@ -160,8 +172,8 @@ async function Results({
                     </td>
                     <td className="px-3 py-2">{sendChannelLabel(row.channel)}</td>
                     <td className="px-3 py-2">
-                      <p>{deliveryStatusLabel(row.status)}</p>
-                      <p className="text-muted-foreground">{row.detail}</p>
+                      <p>{deliveryStatusLabel(row.status, technical)}</p>
+                      <p className="text-muted-foreground">{hideVendorWording(row.detail, technical) || "—"}</p>
                       <MessageOpened openedAt={row.openedAt} />
                       <NoticeLinkOpened open={linkOpens.get(row.noticeNumber)} />
                     </td>
@@ -170,7 +182,7 @@ async function Results({
                         {row.campaign.templateName}
                       </Link>
                       <p className="text-muted-foreground">{formatIndiaDateTime(row.campaign.createdAt)}</p>
-                      {loanHref ? (
+                      {!sentOnly && loanHref ? (
                         <Link href={loanHref} className="underline">
                           Loan timeline
                         </Link>

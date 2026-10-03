@@ -25,7 +25,7 @@ import { prisma } from "@/lib/db";
 import { personHistoryHref } from "@/lib/delivery-report";
 import { noticeLinkOpensByNumber } from "@/lib/public-notice";
 import { scopedBankId } from "@/lib/report-bank";
-import { ROLE_ADMIN } from "@/lib/roles";
+import { canSendNotices, isBankUser } from "@/lib/roles";
 
 export const metadata: Metadata = {
   title: "Reminders",
@@ -40,10 +40,11 @@ export default async function RemindersPage({
 }) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
+  if (isBankUser(user.role)) redirect("/deliveries");
 
   const { id } = await params;
   const query = await searchParams;
-  const isAdmin = user.role === ROLE_ADMIN;
+  const isAdmin = canSendNotices(user.role);
   const working = workingBank(user);
   const scope = scopedBankId(user, query.bank);
 
@@ -104,7 +105,7 @@ export default async function RemindersPage({
             <CardDescription>
               {campaign.status === "REVIEW"
                 ? "Confirm the send before preparing a follow-up."
-                : "Only skipped and failed rows are listed. A dry run that finished is not listed here."}
+                : "Only skipped and failed rows are listed. A notice that was recorded without being sent is not listed here."}
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">

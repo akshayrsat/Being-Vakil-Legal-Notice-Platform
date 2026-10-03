@@ -197,9 +197,9 @@ test("bank users and coordinators see the template name and channel, and the own
 test("prepare-send back returns to the spreadsheet when one was opened, and ignores a bad id", () => {
   assert.deepEqual(prepareSendBack("batch_1"), [
     { href: "/uploads/batch_1", label: "Back to spreadsheet" },
-    { href: "/campaigns", label: "Back to campaigns" },
+    { href: "/send", label: "Back to send notice" },
   ]);
-  assert.deepEqual(prepareSendBack(""), [{ href: "/campaigns", label: "Back to campaigns" }]);
-  assert.deepEqual(prepareSendBack("../admin"), [{ href: "/campaigns", label: "Back to campaigns" }]);
+  assert.deepEqual(prepareSendBack(""), [{ href: "/send", label: "Back to send notice" }]);
+  assert.deepEqual(prepareSendBack("../admin"), [{ href: "/send", label: "Back to send notice" }]);
   assert.equal(backToSpreadsheet("batch_1").href, "/uploads/batch_1");
 });

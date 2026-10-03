@@ -25,6 +25,8 @@ export const AUDIT_ACTIONS = [
   { id: "speedpost.update", label: "Updated Speed Post" },
   { id: "speedpost.import", label: "Imported Speed Post" },
   { id: "bank.pdf", label: "Changed notice PDF emails" },
+  { id: "live-send.update", label: "Changed live send" },
+  { id: "user.create", label: "Added a login" },
 ] as const;
 
 export type AuditActionId = (typeof AUDIT_ACTIONS)[number]["id"];
@@ -67,16 +69,27 @@ export async function recordAudit(event: AuditInput): Promise<void> {
   });
 }
 
+export function auditActor(user: { id: string; name: string; role: string } | null): {
+  actorId: string;
+  actorName: string;
+  actorRole: string;
+} | null {
+  if (!user) return null;
+  const actorName = user.name.trim().slice(0, 120);
+  const actorRole = user.role.trim().slice(0, 40);
+  if (!user.id || !actorName || !actorRole) return null;
+  return { actorId: user.id, actorName, actorRole };
+}
+
 export async function auditCurrentUser(
   event: Omit<AuditInput, "actorId" | "actorName" | "actorRole">,
 ): Promise<void> {
   const current = await getSessionContext();
-  if (!current) return;
+  const actor = auditActor(current?.user ?? null);
+  if (!current || !actor) return;
   await recordAudit({
     ...event,
-    actorId: current.user.id,
-    actorName: current.user.name,
-    actorRole: current.user.role,
+    ...actor,
     bankId: event.bankId === undefined ? current.user.bank?.id : event.bankId,
     bankName: event.bankName === undefined ? (current.user.bank?.name ?? "") : event.bankName,
   });

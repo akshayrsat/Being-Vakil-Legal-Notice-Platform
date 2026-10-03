@@ -12,6 +12,8 @@ import { noticePublicUrl } from "@/lib/notice-link";
 import { postalStatusLabel } from "@/lib/postal";
 import { noticeLinkOpensByNumber } from "@/lib/public-notice";
 import { scopedBankId } from "@/lib/report-bank";
+import { isBankUser } from "@/lib/roles";
+import { seesVendorDetail } from "@/lib/staff-language";
 
 export const dynamic = "force-dynamic";
 
@@ -36,12 +38,13 @@ export async function GET(
           id: true,
           bankId: true,
           templateName: true,
+          status: true,
           createdAt: true,
           bank: { select: { name: true, code: true } },
         },
       })
     : null;
-  if (!campaign) {
+  if (!campaign || (isBankUser(user.role) && campaign.status === "REVIEW")) {
     return new NextResponse("That send was not found.\n", { status: 404 });
   }
 
@@ -102,7 +105,7 @@ export async function GET(
     targetId: campaign.id,
   });
 
-  return new NextResponse(reportCsv(report), {
+  return new NextResponse(reportCsv(report, seesVendorDetail(user)), {
     headers: {
       "Content-Type": "text/csv; charset=utf-8",
       "Content-Disposition": `attachment; filename="notice-campaign-${campaign.bank.code}.csv"`,

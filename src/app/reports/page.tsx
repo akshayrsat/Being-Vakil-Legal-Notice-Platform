@@ -10,7 +10,8 @@ import { SEND_CHANNELS } from "@/lib/campaign-plan";
 import { sendChannelLabel } from "@/lib/campaigns";
 import { loadDeskReport, readReportFilters, reportFiltersToSearch } from "@/lib/desk-reports";
 import { resolveReportBank } from "@/lib/report-bank";
-import { ROLE_ADMIN } from "@/lib/roles";
+import { isOwnerAdmin } from "@/lib/owner-admin";
+import { canChooseBank, isBankUser } from "@/lib/roles";
 
 export const metadata: Metadata = {
   title: "Reports",
@@ -29,7 +30,9 @@ export default async function ReportsPage({
     if (typeof value === "string") params.set(key, value);
   }
   const filters = readReportFilters(params);
-  const isAdmin = user.role === ROLE_ADMIN;
+  const isAdmin = canChooseBank(user.role);
+  const technical = isOwnerAdmin(user);
+  const bankUser = isBankUser(user.role);
   const bank = await resolveReportBank(user, params.get("bank") ?? workingBank(user)?.id ?? "");
 
   return (
@@ -37,8 +40,9 @@ export default async function ReportsPage({
       <div>
         <h1 className="font-serif text-4xl tracking-tight">Reports</h1>
         <p className="mt-3 max-w-2xl text-base leading-7 text-muted-foreground">
-          Failure rates, opens, notice links, and Speed Post returns. A dry run is counted apart from a live failure.
-          Delivery CSV is one row for each person and channel, for this bank only.
+          {technical
+            ? "Failure rates, opens, notice links, and Speed Post returns. A dry run is counted apart from a live failure. Delivery CSV is one row for each person and channel, for this bank only."
+            : "Delivery status for notices already sent, for this bank only. You can download the report."}
         </p>
       </div>
 
@@ -94,7 +98,13 @@ export default async function ReportsPage({
               </Link>
             </div>
           </form>
-          <ReportBody bankId={bank.id} bankName={bank.name} filters={filters} />
+          <ReportBody
+            bankId={bank.id}
+            bankName={bank.name}
+            filters={filters}
+            technical={technical}
+            sentOnly={bankUser}
+          />
         </>
       )}
     </DeskShell>
@@ -105,12 +115,16 @@ async function ReportBody({
   bankId,
   bankName,
   filters,
+  technical,
+  sentOnly,
 }: {
   bankId: string;
   bankName: string;
   filters: ReturnType<typeof readReportFilters>;
+  technical: boolean;
+  sentOnly: boolean;
 }) {
-  const report = await loadDeskReport(bankId, filters);
+  const report = await loadDeskReport(bankId, filters, { sentOnly });
   const empty =
     report.channels.every((row) => row.attempted + row.skipped + row.dryRun === 0) &&
     report.linkOpened + report.linkNotOpened === 0 &&
@@ -118,7 +132,9 @@ async function ReportBody({
   if (empty) {
     return (
       <EmptyState title={`Nothing to report for ${bankName}`}>
-        Confirm a send, or widen the dates. Dry runs appear in the dry-run column and are not treated as failures.
+        {technical
+          ? "Confirm a send, or widen the dates. Dry runs appear in the dry-run column and are not treated as failures."
+          : "Widen the dates, or ask the firm to confirm a notice for this bank."}
       </EmptyState>
     );
   }
@@ -136,7 +152,7 @@ async function ReportBody({
                 <th className="px-3 py-2 font-medium">Failure rate</th>
                 <th className="px-3 py-2 font-medium">Opened</th>
                 <th className="px-3 py-2 font-medium">Not opened</th>
-                <th className="px-3 py-2 font-medium">Dry run</th>
+                <th className="px-3 py-2 font-medium">{technical ? "Dry run" : "Not sent"}</th>
               </tr>
             </thead>
             <tbody>

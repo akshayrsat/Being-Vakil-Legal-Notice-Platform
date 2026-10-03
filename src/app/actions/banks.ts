@@ -9,14 +9,21 @@ import { auditCurrentUser } from "@/lib/audit";
 import { getSessionContext } from "@/lib/auth";
 import { normalizeBankCode, normalizeBankName } from "@/lib/banks";
 import { prisma } from "@/lib/db";
-import { ROLE_ADMIN } from "@/lib/roles";
+import { canChooseBank, isOwner } from "@/lib/roles";
 
 export type BankFormState = { error: string } | null;
 
-async function requireAdmin() {
+async function requireOwner() {
   const current = await getSessionContext();
   if (!current) redirect("/login");
-  if (current.user.role !== ROLE_ADMIN) redirect("/dashboard");
+  if (!isOwner(current.user.role)) redirect("/dashboard");
+  return current;
+}
+
+async function requireChooser() {
+  const current = await getSessionContext();
+  if (!current) redirect("/login");
+  if (!canChooseBank(current.user.role)) redirect("/dashboard");
   return current;
 }
 
@@ -24,7 +31,7 @@ export async function createBank(
   _previous: BankFormState,
   formData: FormData,
 ): Promise<BankFormState> {
-  await requireAdmin();
+  await requireOwner();
 
   const name = normalizeBankName(String(formData.get("name") ?? ""));
   const code = normalizeBankCode(String(formData.get("code") ?? ""));
@@ -65,7 +72,7 @@ export async function createBank(
 }
 
 export async function selectBank(formData: FormData): Promise<void> {
-  const current = await requireAdmin();
+  const current = await requireChooser();
   const bankId = String(formData.get("bankId") ?? "");
   const bank = await prisma.bank.findUnique({ where: { id: bankId } });
   if (!bank) redirect("/banks");
@@ -88,7 +95,7 @@ export async function selectBank(formData: FormData): Promise<void> {
 }
 
 export async function setBankActive(formData: FormData): Promise<void> {
-  await requireAdmin();
+  await requireOwner();
   const bankId = String(formData.get("bankId") ?? "");
   const active = String(formData.get("active") ?? "") === "true";
   const bank = await prisma.bank.findUnique({ where: { id: bankId } });
@@ -111,7 +118,7 @@ export async function setBankActive(formData: FormData): Promise<void> {
 }
 
 export async function setAttachNoticePdf(formData: FormData): Promise<void> {
-  await requireAdmin();
+  await requireOwner();
   const bankId = String(formData.get("bankId") ?? "");
   const attach = String(formData.get("attachNoticePdf") ?? "") === "true";
   const bank = await prisma.bank.findUnique({ where: { id: bankId } });

@@ -16,9 +16,10 @@ const TARGETS = [
 ] as const;
 
 async function main() {
-  console.log("LIVE?", isLiveSendEnabled());
-  if (!isLiveSendEnabled()) {
-    console.error(dryRunReason());
+  const liveSend = await isLiveSendEnabled();
+  console.log("LIVE?", liveSend);
+  if (!liveSend) {
+    console.error(await dryRunReason());
     process.exit(1);
   }
 

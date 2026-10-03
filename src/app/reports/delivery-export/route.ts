@@ -7,6 +7,8 @@ import { getCurrentUser } from "@/lib/auth";
 import { deliveryExportCsv, loadDeliveryExportRows } from "@/lib/delivery-export";
 import { readReportFilters } from "@/lib/desk-reports";
 import { resolveReportBank } from "@/lib/report-bank";
+import { isBankUser } from "@/lib/roles";
+import { seesVendorDetail } from "@/lib/staff-language";
 
 export const dynamic = "force-dynamic";
 
@@ -19,7 +21,7 @@ export async function GET(request: Request) {
   const bank = await resolveReportBank(user, url.searchParams.get("bank") ?? "");
   if (!bank) return new NextResponse("Choose a bank first.\n", { status: 400 });
 
-  const rows = await loadDeliveryExportRows(bank.id, filters);
+  const rows = await loadDeliveryExportRows(bank.id, filters, { sentOnly: isBankUser(user.role) });
   await auditCurrentUser({
     action: "export",
     summary: `Downloaded a delivery CSV for ${bank.name}.`,
@@ -29,7 +31,7 @@ export async function GET(request: Request) {
   });
 
   const code = bank.code.replace(/[^A-Za-z0-9_-]/g, "") || "bank";
-  return new NextResponse(deliveryExportCsv(bank, rows), {
+  return new NextResponse(deliveryExportCsv(bank, rows, seesVendorDetail(user)), {
     headers: {
       "Content-Type": "text/csv; charset=utf-8",
       "Content-Disposition": `attachment; filename="notice-deliveries-${code}.csv"`,

@@ -2,27 +2,19 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ROLE_ADMIN } from "@/lib/roles";
-
-const LINKS = [
-  { href: "/dashboard", label: "Home" },
-  { href: "/uploads", label: "Uploads" },
-  { href: "/templates", label: "Templates" },
-  { href: "/campaigns", label: "Campaigns" },
-  { href: "/deliveries", label: "Tracking" },
-  { href: "/speed-post", label: "Speed Post" },
-  { href: "/loans", label: "Loans" },
-  { href: "/reports", label: "Reports" },
-];
+import { isSendNoticePath, SEND_NOTICE_HREF, workspaceNav } from "@/lib/send-notice";
 
 export function DeskNav({ role }: { role: string }) {
   const pathname = usePathname();
-  const links = role === ROLE_ADMIN ? [...LINKS, { href: "/banks", label: "Banks" }, { href: "/audit", label: "Audit" }] : LINKS;
+  const links = workspaceNav(role);
 
   return (
     <nav className="flex flex-wrap gap-1" aria-label="Workspace">
       {links.map((link) => {
-        const active = pathname === link.href || (link.href !== "/dashboard" && pathname.startsWith(`${link.href}/`));
+        const active =
+          link.href === SEND_NOTICE_HREF
+            ? isSendNoticePath(pathname)
+            : pathname === link.href || (link.href !== "/dashboard" && pathname.startsWith(`${link.href}/`));
         return (
           <Link
             key={link.href}

@@ -11,7 +11,7 @@ import { workingBank } from "@/lib/bank-context";
 import { prisma } from "@/lib/db";
 import { formatIndiaDateTime } from "@/lib/india-day";
 import { isWebhookConfigured } from "@/lib/msg91-webhook";
-import { ROLE_ADMIN, roleTitle } from "@/lib/roles";
+import { isOwner, roleTitle } from "@/lib/roles";
 
 export const metadata: Metadata = {
   title: "Security",
@@ -27,14 +27,14 @@ export default async function AuditPage({
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
-  if (user.role !== ROLE_ADMIN) {
+  if (!isOwner(user.role)) {
     return (
       <div className="flex min-h-full flex-col">
         <AppHeader user={user} />
         <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-4 px-4 py-8 sm:px-6">
           <h1 className="font-serif text-4xl tracking-tight">Security / Audit</h1>
           <p className="text-base leading-7 text-muted-foreground">
-            This page is for firm staff only. A bank login cannot read the audit log.
+            This page is for the owner. A legal coordinator or a bank user cannot read the audit log.
           </p>
           <Link
             href="/dashboard"
@@ -75,8 +75,8 @@ export default async function AuditPage({
         <div>
           <h1 className="font-serif text-4xl tracking-tight">Security / Audit</h1>
           <p className="mt-3 text-base leading-7 text-muted-foreground">
-            This list is only for firm staff. It records who signed in, changed a bank, uploaded a
-            file, saved a template, confirmed a send, prepared a follow-up, or downloaded a CSV. It
+            This list is for the owner. Each line names the person who signed in and their role.
+            It records a bank change, an upload, a template, a send, a new login, or a download. It
             does not store passwords or the MSG91 key.
           </p>
         </div>

@@ -19,15 +19,15 @@ import {
   postalStatusLabel,
   type PostalStatus,
 } from "@/lib/postal";
-import { ROLE_ADMIN } from "@/lib/roles";
+import { canSendNotices } from "@/lib/roles";
 
 export type SpeedPostFormState = { error: string; saved?: string } | null;
 
 async function adminBank() {
   const current = await getSessionContext();
   if (!current) redirect("/login");
-  if (current.user.role !== ROLE_ADMIN) {
-    return { ok: false as const, error: "Only firm staff can update Speed Post." };
+  if (!canSendNotices(current.user.role)) {
+    return { ok: false as const, error: "Only the owner or a legal coordinator can update Speed Post." };
   }
   const bank = workingBank(current.user);
   if (!bank) return { ok: false as const, error: "Choose a bank before updating Speed Post." };

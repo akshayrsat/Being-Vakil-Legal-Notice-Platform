@@ -7,6 +7,7 @@ import { AppHeader } from "@/components/app-header";
 import { BackLinks } from "@/components/back-link";
 import { ColumnMapper } from "@/components/column-mapper";
 import { NoticeMergePreview } from "@/components/notice-merge-preview";
+import { SendSteps } from "@/components/send-steps";
 import { RecipientPreview } from "@/components/recipient-preview";
 import { buttonVariants } from "@/components/ui/button";
 import {
@@ -24,9 +25,10 @@ import { backToUploads } from "@/lib/desk-back";
 import { loadTemplateLibrary } from "@/lib/load-template-library";
 import { prisma } from "@/lib/db";
 import { isOwnerAdmin } from "@/lib/owner-admin";
-import { ROLE_ADMIN } from "@/lib/roles";
+import { canSendNotices, isBankUser } from "@/lib/roles";
 import { SHEET_FIELDS, type FieldKey, type FieldMapping } from "@/lib/sheet-fields";
 import { templateLibraryNotes } from "@/lib/template-library";
+import { wordingHref } from "@/lib/send-notice";
 import { templateChoiceLabel } from "@/lib/templates";
 
 export const metadata: Metadata = {
@@ -44,11 +46,12 @@ export default async function UploadBatchPage({
 }) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
+  if (isBankUser(user.role)) redirect("/deliveries");
 
   const bank = workingBank(user);
   const { id } = await params;
   const query = await searchParams;
-  const isAdmin = user.role === ROLE_ADMIN;
+  const isAdmin = canSendNotices(user.role);
 
   if (!bank) {
     redirect("/uploads");
@@ -110,6 +113,7 @@ export default async function UploadBatchPage({
       <AppHeader user={user} />
       <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 px-4 py-8 sm:px-6">
         <BackLinks links={[backToUploads()]} />
+        <SendSteps current={1} />
         <div>
           <p className="text-sm text-muted-foreground">{bank.name}</p>
           <h1 className="mt-1 font-serif text-4xl tracking-tight">{batch.fileName}</h1>
@@ -218,12 +222,17 @@ export default async function UploadBatchPage({
         />
 
         {isAdmin && bank.active && batch.saved ? (
-          <Link
-            href={`/campaigns/new?batch=${batch.id}`}
-            className={buttonVariants({ className: "h-11 w-fit px-4" })}
-          >
-            Prepare a send
-          </Link>
+          <div className="flex flex-col gap-2">
+            <p className="text-sm text-muted-foreground">
+              Columns are matched. Next, choose the approved notice wording.
+            </p>
+            <Link
+              href={wordingHref(batch.id)}
+              className={buttonVariants({ className: "h-11 w-fit px-4" })}
+            >
+              Choose the notice wording
+            </Link>
+          </div>
         ) : null}
 
         <BackLinks links={[backToUploads()]} />
