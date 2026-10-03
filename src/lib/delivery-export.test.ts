@@ -1,9 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import ExcelJS from "exceljs";
 import {
   DELIVERY_EXPORT_COLUMNS,
   deliveryExportCsv,
   deliveryExportWhere,
+  deliveryExportXlsx,
   deliveryStatusWord,
   formatIstTimestamp,
   type DeliveryExportRow,
@@ -97,17 +99,17 @@ test("timestamps are India time, not UTC", () => {
   assert.equal(formatIstTimestamp(new Date("2026-10-02T18:29:00.000Z")), "02-10-2026 23:59 IST");
 });
 
-test("delivery CSV columns and one row per person and channel", () => {
-  const opened = new Date("2026-10-02T04:15:00.000Z");
-  const linkOpened = new Date("2026-10-02T05:45:00.000Z");
+test("one person is one row, with a status column for each channel", () => {
   const csv = deliveryExportCsv(BANK, [
     sample(),
     sample({
       channel: "EMAIL",
       status: "DELIVERED",
-      openedAt: opened,
-      linkOpenedAt: linkOpened,
-      linkViewCount: 3,
+      email: "asha@example.com",
+    }),
+    sample({
+      channel: "WHATSAPP",
+      status: "FAILED",
     }),
     sample({
       customerName: "Ravi Shah",
@@ -119,58 +121,53 @@ test("delivery CSV columns and one row per person and channel", () => {
       noticeNumber: "DEMO-LN10022",
       noticeUrl: "https://www.notice.beingvakil.in/notice-DEMO-LN10022",
     }),
+  ], true, [
+    {
+      bankId: "bank-a",
+      campaignBankId: "bank-a",
+      batchBankId: "bank-a",
+      uploadFileName: "northwind-oct.csv",
+      customerName: "Asha Rao",
+      loanNumber: "LN-10021",
+      noticeNumber: "DEMO-LN10021",
+      status: "IN_TRANSIT",
+      updatedAt: new Date("2026-10-02T18:30:00.000Z"),
+    },
   ]);
   const table = parseCsv(csv);
   assert.deepEqual(table[0], [...DELIVERY_EXPORT_COLUMNS]);
-  assert.equal(table.length, 4);
+  assert.equal(table.length, 3);
+  assert.equal(csv.includes("MSG91"), false);
 
-  const file = column(table, "Upload file");
-  const uploaded = column(table, "Uploaded at (IST)");
-  const name = column(table, "Customer name");
-  const loan = column(table, "Loan number");
+  const name = column(table, "Name");
   const mobile = column(table, "Mobile");
-  const email = column(table, "Email");
-  const channel = column(table, "Channel");
-  const campaign = column(table, "Notice");
-  const status = column(table, "Delivery status");
-  const openedAt = column(table, "Opened at (IST)");
-  const msg91 = column(table, "MSG91 open or read");
-  const linkAt = column(table, "Notice link opened at (IST)");
-  const views = column(table, "Notice link views");
+  const email = column(table, "Email address");
+  const loan = column(table, "Loan or account number");
   const notice = column(table, "Notice number");
-  const url = column(table, "Notice URL");
+  const link = column(table, "Notice link");
+  const sms = column(table, "SMS");
+  const mail = column(table, "Email");
+  const whatsapp = column(table, "WhatsApp");
+  const post = column(table, "Speed Post");
 
-  const ashaSms = table.find((row) => row[name] === "Asha Rao" && row[channel] === "SMS");
-  const ashaEmail = table.find((row) => row[name] === "Asha Rao" && row[channel] === "Email");
+  const asha = table.find((row) => row[name] === "Asha Rao");
   const ravi = table.find((row) => row[name] === "Ravi Shah");
-  assert.ok(ashaSms && ashaEmail && ravi);
+  assert.ok(asha && ravi);
+  assert.equal(asha[mobile], "9811111111");
+  assert.equal(asha[email], "asha@example.com");
+  assert.equal(asha[loan], "LN-10021");
+  assert.equal(asha[notice], "DEMO-LN10021");
+  assert.equal(asha[link], "https://www.notice.beingvakil.in/notice-DEMO-LN10021");
+  assert.equal(asha[sms], "dry run");
+  assert.equal(asha[mail], "delivered");
+  assert.equal(asha[whatsapp], "failed");
+  assert.equal(asha[post], "In transit");
 
-  assert.equal(ashaSms[file], "northwind-oct.csv");
-  assert.equal(ashaSms[uploaded], "02-10-2026 00:00 IST");
-  assert.equal(ashaSms[loan], "LN-10021");
-  assert.equal(ashaSms[mobile], "9811111111");
-  assert.equal(ashaSms[email], "");
-  assert.equal(ashaSms[campaign], "Legal notice");
-  assert.equal(ashaSms[status], "dry run");
-  assert.equal(ashaSms[openedAt], "");
-  assert.equal(ashaSms[msg91], "");
-  assert.equal(ashaSms[linkAt], "");
-  assert.equal(ashaSms[views], "");
-  assert.equal(ashaSms[notice], "DEMO-LN10021");
-  assert.equal(ashaSms[url], "https://www.notice.beingvakil.in/notice-DEMO-LN10021");
-
-  assert.equal(ashaEmail[mobile], "");
-  assert.equal(ashaEmail[email], "asha@example.com");
-  assert.equal(ashaEmail[status], "delivered");
-  assert.equal(ashaEmail[openedAt], "02-10-2026 09:45 IST");
-  assert.equal(ashaEmail[msg91], "open");
-  assert.equal(ashaEmail[linkAt], "02-10-2026 11:15 IST");
-  assert.equal(ashaEmail[views], "3");
-
-  assert.equal(ravi[channel], "WhatsApp");
-  assert.equal(ravi[status], "failed");
   assert.equal(ravi[mobile], "9822222222");
-  assert.equal(ravi[email], "");
+  assert.equal(ravi[email], "ravi@example.com");
+  assert.equal(ravi[sms], "");
+  assert.equal(ravi[whatsapp], "failed");
+  assert.equal(ravi[post], "");
 });
 
 test("a read receipt is marked read, and another bank is left out", () => {
@@ -208,12 +205,9 @@ test("a read receipt is marked read, and another bank is left out", () => {
   ]);
   const table = parseCsv(csv);
   assert.equal(table.length, 2);
-  const status = column(table, "Delivery status");
-  const msg91 = column(table, "MSG91 open or read");
-  const bank = column(table, "Bank");
-  assert.equal(table[1]?.[status], "read");
-  assert.equal(table[1]?.[msg91], "read");
-  assert.equal(table[1]?.[bank], "Northwind Housing Finance");
+  const mail = column(table, "Email");
+  assert.equal(table[1]?.[mail], "read");
+  assert.equal(csv.includes("MSG91"), false);
   assert.equal(csv.includes("Priya Otherbank"), false);
   assert.equal(csv.includes("OTHER-LOAN"), false);
   assert.equal(csv.includes("priya@otherbank.test"), false);
@@ -239,34 +233,95 @@ test("names that look like formulas are escaped", () => {
   assert.match(csv, /"LN,1"/);
 });
 
-test("newer uploads come first, then the person, then SMS before email", () => {
+test("a later status for the same channel replaces an earlier one, and people sort by name", () => {
   const older = new Date("2026-10-01T18:30:00.000Z");
   const newer = new Date("2026-10-02T18:30:00.000Z");
   const table = parseCsv(
     deliveryExportCsv(BANK, [
-      sample({ customerName: "Zara", channel: "EMAIL", uploadedAt: older, uploadFileName: "old.csv" }),
-      sample({ customerName: "Asha Rao", channel: "EMAIL", uploadedAt: newer, uploadFileName: "new.csv" }),
-      sample({ customerName: "Asha Rao", channel: "SMS", uploadedAt: newer, uploadFileName: "new.csv" }),
+      sample({ customerName: "Zara", channel: "EMAIL", status: "FAILED", uploadedAt: older, noticeNumber: "ZARA-1" }),
+      sample({ customerName: "Asha Rao", channel: "EMAIL", status: "FAILED", uploadedAt: older }),
+      sample({ customerName: "Asha Rao", channel: "EMAIL", status: "DELIVERED", uploadedAt: newer }),
+      sample({ customerName: "Asha Rao", channel: "SMS", status: "SENT", uploadedAt: newer }),
     ]),
   );
-  const name = column(table, "Customer name");
-  const channel = column(table, "Channel");
-  const file = column(table, "Upload file");
+  const name = column(table, "Name");
+  const mail = column(table, "Email");
+  const sms = column(table, "SMS");
   assert.deepEqual(
-    table.slice(1).map((row) => [row[file], row[name], row[channel]]),
-    [
-      ["new.csv", "Asha Rao", "SMS"],
-      ["new.csv", "Asha Rao", "Email"],
-      ["old.csv", "Zara", "Email"],
-    ],
+    table.slice(1).map((row) => row[name]),
+    ["Asha Rao", "Zara"],
   );
+  const asha = table.find((row) => row[name] === "Asha Rao");
+  assert.equal(asha?.[mail], "delivered");
+  assert.equal(asha?.[sms], "sent");
 });
 
-test("the delivery query is locked to one bank, channel, and India day", () => {
+test("a channel filter keeps people who used that channel and still shows the other statuses", () => {
+  const table = parseCsv(
+    deliveryExportCsv(
+      BANK,
+      [
+        sample({ channel: "SMS", status: "SENT" }),
+        sample({ channel: "EMAIL", status: "DELIVERED" }),
+        sample({
+          customerName: "Ravi Shah",
+          loanNumber: "LN-10022",
+          noticeNumber: "DEMO-LN10022",
+          channel: "WHATSAPP",
+          status: "FAILED",
+        }),
+      ],
+      true,
+      [],
+      "EMAIL",
+    ),
+  );
+  const name = column(table, "Name");
+  assert.deepEqual(
+    table.slice(1).map((row) => row[name]),
+    ["Asha Rao"],
+  );
+  assert.equal(table[1]?.[column(table, "SMS")], "sent");
+  assert.equal(table[1]?.[column(table, "Email")], "delivered");
+});
+
+test("a bank user sheet does not say dry run and does not name the vendor", () => {
+  const csv = deliveryExportCsv(BANK, [sample({ status: "SIMULATED_SENT" })], false);
+  const table = parseCsv(csv);
+  assert.equal(table[1]?.[column(table, "SMS")], "not sent");
+  assert.equal(csv.includes("MSG91"), false);
+  assert.equal(csv.includes("dry run"), false);
+});
+
+test("the excel sheet keeps each column separate and one person on one row", async () => {
+  const buffer = await deliveryExportXlsx(BANK, [
+    sample({ status: "SENT" }),
+    sample({ channel: "EMAIL", status: "DELIVERED" }),
+    sample({ channel: "WHATSAPP", status: "FAILED" }),
+  ]);
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.load(buffer as unknown as Parameters<ExcelJS.Xlsx["load"]>[0]);
+  const sheet = workbook.worksheets[0];
+  assert.ok(sheet);
+  assert.equal(sheet.columnCount, DELIVERY_EXPORT_COLUMNS.length);
+  assert.equal(sheet.rowCount, 2);
+  const header = DELIVERY_EXPORT_COLUMNS.map((_, index) => String(sheet.getRow(1).getCell(index + 1).value ?? ""));
+  assert.deepEqual(header, [...DELIVERY_EXPORT_COLUMNS]);
+  const person = DELIVERY_EXPORT_COLUMNS.map((_, index) => String(sheet.getRow(2).getCell(index + 1).value ?? ""));
+  assert.equal(person[0], "Asha Rao");
+  assert.equal(person[1], "9811111111");
+  assert.equal(person[2], "asha@example.com");
+  assert.equal(person[6], "sent");
+  assert.equal(person[7], "delivered");
+  assert.equal(person[8], "failed");
+  assert.equal(person.join("").includes("MSG91"), false);
+});
+
+test("the delivery query is locked to one bank, file, and India day", () => {
   const where = deliveryExportWhere("bank-a", { channel: "EMAIL", from: "2026-10-02", to: "2026-10-02" });
   assert.ok(where);
   assert.equal(where.bankId, "bank-a");
-  assert.equal(where.channel, "EMAIL");
+  assert.equal(where.channel, undefined);
   assert.deepEqual(where.campaign, {
     bankId: "bank-a",
     batch: { bankId: "bank-a" },
@@ -277,12 +332,25 @@ test("the delivery query is locked to one bank, channel, and India day", () => {
   const allChannels = deliveryExportWhere(" bank-a ", { channel: "", from: "", to: "" });
   assert.equal(allChannels?.bankId, "bank-a");
   assert.equal(allChannels?.channel, undefined);
-  assert.equal(deliveryExportWhere("bank-a", { channel: "NOT_A_CHANNEL", from: "", to: "" })?.channel, undefined);
-  assert.equal(deliveryExportWhere("bank-a", { channel: "SPEED_POST", from: "", to: "" }), null);
+  assert.ok(deliveryExportWhere("bank-a", { channel: "SPEED_POST", from: "", to: "" }));
   assert.equal(deliveryExportWhere("  ", { channel: "SMS", from: "", to: "" }), null);
+
+  const filed = deliveryExportWhere("bank-a", {
+    channel: "SMS",
+    from: "2026-10-02",
+    to: "",
+    file: "cmusaim530000js1rxftik03r",
+  });
+  assert.equal(filed?.channel, undefined);
+  assert.deepEqual(filed?.campaign, {
+    bankId: "bank-a",
+    batch: { bankId: "bank-a", id: "cmusaim530000js1rxftik03r" },
+    createdAt: indiaDayRange("2026-10-02", ""),
+  });
+  assert.equal(JSON.stringify(filed).includes("bank-b"), false);
 });
 
 function csvHasCustomer(table: string[][], customer: string): boolean {
-  const name = column(table, "Customer name");
+  const name = column(table, "Name");
   return table.slice(1).some((row) => row[name] === customer);
 }

@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { DeskShell } from "@/components/desk-shell";
 import { EmptyState } from "@/components/empty-state";
@@ -8,7 +7,15 @@ import { getCurrentUser } from "@/lib/auth";
 import { workingBank } from "@/lib/bank-context";
 import { SEND_CHANNELS } from "@/lib/campaign-plan";
 import { sendChannelLabel } from "@/lib/campaigns";
-import { loadDeskReport, readReportFilters, reportFiltersToSearch } from "@/lib/desk-reports";
+import {
+  listReportFiles,
+  loadDeskReport,
+  loadReportNotices,
+  readReportFilters,
+  reportFileLabel,
+  reportFiltersApplied,
+  reportFiltersToSearch,
+} from "@/lib/desk-reports";
 import { resolveReportBank } from "@/lib/report-bank";
 import { isOwnerAdmin } from "@/lib/owner-admin";
 import { canChooseBank, isBankUser } from "@/lib/roles";
@@ -29,11 +36,18 @@ export default async function ReportsPage({
   for (const [key, value] of Object.entries(raw)) {
     if (typeof value === "string") params.set(key, value);
   }
-  const filters = readReportFilters(params);
+  const requested = readReportFilters(params);
   const isAdmin = canChooseBank(user.role);
   const technical = isOwnerAdmin(user);
   const bankUser = isBankUser(user.role);
   const bank = await resolveReportBank(user, params.get("bank") ?? workingBank(user)?.id ?? "");
+  const files = bank ? await listReportFiles(bank.id) : [];
+  const fileNames = new Map<string, number>();
+  for (const file of files) fileNames.set(file.fileName, (fileNames.get(file.fileName) ?? 0) + 1);
+  const filters = {
+    ...requested,
+    file: files.some((file) => file.id === requested.file) ? requested.file : "",
+  };
 
   return (
     <DeskShell user={user}>
@@ -52,8 +66,19 @@ export default async function ReportsPage({
         </EmptyState>
       ) : (
         <>
-          <form action="/reports" method="get" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <form action="/reports" method="get" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <input type="hidden" name="bank" value={bank.id} />
+            <label className="flex flex-col gap-1 text-sm font-medium">
+              File
+              <select name="file" defaultValue={filters.file} className="h-11 rounded-lg border border-input bg-card px-3 text-sm font-normal">
+                <option value="">All files</option>
+                {files.map((file) => (
+                  <option key={file.id} value={file.id}>
+                    {reportFileLabel(file.fileName, file.createdAt, (fileNames.get(file.fileName) ?? 0) > 1)}
+                  </option>
+                ))}
+              </select>
+            </label>
             <label className="flex flex-col gap-1 text-sm font-medium">
               Channel
               <select name="channel" defaultValue={filters.channel} className="h-11 rounded-lg border border-input bg-card px-3 text-sm font-normal">
@@ -74,28 +99,13 @@ export default async function ReportsPage({
               To
               <input name="to" type="date" defaultValue={filters.to} className="h-11 rounded-lg border border-input bg-card px-3 text-sm font-normal" />
             </label>
-            <div className="flex flex-wrap gap-2 lg:col-span-3">
+            <div className="flex flex-wrap gap-2 lg:col-span-4">
               <button type="submit" className={buttonVariants({ className: "h-11 px-4" })}>
                 Apply
               </button>
-              <Link
-                href={`/reports/export?${reportFiltersToSearch(filters, bank.id)}`}
-                className={buttonVariants({ variant: "outline", className: "h-11 px-4" })}
-              >
-                Download summary CSV
-              </Link>
-              <Link
-                href={`/reports/delivery-export?${reportFiltersToSearch(filters, bank.id)}`}
-                className={buttonVariants({ variant: "outline", className: "h-11 px-4" })}
-              >
-                Download delivery CSV
-              </Link>
-              <Link
-                href={`/deliveries/export?${reportFiltersToSearch(filters, bank.id)}`}
-                className={buttonVariants({ variant: "outline", className: "h-11 px-4" })}
-              >
-                Download row CSV
-              </Link>
+              {reportFiltersApplied(filters) ? (
+                <ReportDownloads search={reportFiltersToSearch(filters, bank.id)} />
+              ) : null}
             </div>
           </form>
           <ReportBody
@@ -108,6 +118,27 @@ export default async function ReportsPage({
         </>
       )}
     </DeskShell>
+  );
+}
+
+function ReportDownloads({ search }: { search: string }) {
+  const links = [
+    { href: `/reports/export?${search}`, label: "Download summary CSV" },
+    { href: `/reports/delivery-export?${search}`, label: "Download delivery Excel" },
+    { href: `/deliveries/export?${search}`, label: "Download row CSV" },
+  ];
+  return (
+    <>
+      {links.map((link) => (
+        <a
+          key={link.label}
+          href={link.href}
+          className={buttonVariants({ variant: "outline", className: "h-11 px-4" })}
+        >
+          {link.label}
+        </a>
+      ))}
+    </>
   );
 }
 
@@ -125,7 +156,8 @@ async function ReportBody({
   sentOnly: boolean;
 }) {
   const report = await loadDeskReport(bankId, filters, { sentOnly });
-  const empty =
+  const notices = filters.file ? await loadReportNotices(bankId, filters, { sentOnly, technical }) : [];
+  const empty = notices.length === 0 &&
     report.channels.every((row) => row.attempted + row.skipped + row.dryRun === 0) &&
     report.linkOpened + report.linkNotOpened === 0 &&
     report.speedPostTotal === 0;
@@ -141,6 +173,30 @@ async function ReportBody({
 
   return (
     <div className="flex flex-col gap-6">
+      {filters.file ? (
+        <section className="overflow-x-auto rounded-lg ring-1 ring-foreground/10">
+          <table className="w-full min-w-[36rem] border-collapse text-left text-sm">
+            <thead className="bg-muted/70">
+              <tr>
+                <th className="px-3 py-2 font-medium">Person</th>
+                <th className="px-3 py-2 font-medium">Notice</th>
+                <th className="px-3 py-2 font-medium">Channel</th>
+                <th className="px-3 py-2 font-medium">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {notices.map((row, index) => (
+                <tr key={`${row.notice}-${row.channel}-${index}`} className="border-t border-border">
+                  <td className="px-3 py-2 font-medium">{row.person || "—"}</td>
+                  <td className="px-3 py-2">{row.notice || "—"}</td>
+                  <td className="px-3 py-2">{row.channel}</td>
+                  <td className="px-3 py-2">{row.status}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+      ) : null}
       {report.channels.length > 0 ? (
         <section className="overflow-x-auto rounded-lg ring-1 ring-foreground/10">
           <table className="w-full min-w-[46rem] border-collapse text-left text-sm">

@@ -9,6 +9,7 @@ import { csvCell, indiaDayRange } from "@/lib/india-day";
 import { noticePublicUrl } from "@/lib/notice-link";
 import { postalStatusLabel } from "@/lib/postal";
 import { noticeLinkOpensByNumber } from "@/lib/public-notice";
+import { reportFileBelongsToBank } from "@/lib/desk-reports";
 import { resolveReportBank } from "@/lib/report-bank";
 import { isBankUser } from "@/lib/roles";
 import { seesVendorDetail } from "@/lib/staff-language";
@@ -28,6 +29,9 @@ export async function GET(request: Request) {
   const bank = await resolveReportBank(user, url.searchParams.get("bank") ?? "");
   if (!bank) {
     return new NextResponse("Choose a bank first.\n", { status: 400 });
+  }
+  if (filters.file && !(await reportFileBelongsToBank(bank.id, filters.file))) {
+    return new NextResponse("That file is not on this bank.\n", { status: 400 });
   }
 
   if (filters.channel === "SPEED_POST") {
@@ -113,11 +117,17 @@ export async function GET(request: Request) {
 
 async function exportSpeedPost(
   bank: { id: string; name: string; code: string },
-  filters: { from: string; to: string },
+  filters: { from: string; to: string; file: string },
 ) {
   const range = indiaDayRange(filters.from, filters.to);
   const rows = await prisma.speedPostConsignment.findMany({
-    where: { bankId: bank.id, ...(range ? { updatedAt: range } : {}) },
+    where: {
+      bankId: bank.id,
+      ...(range ? { updatedAt: range } : {}),
+      ...(filters.file
+        ? { campaign: { bankId: bank.id, batch: { id: filters.file, bankId: bank.id } } }
+        : {}),
+    },
     orderBy: { updatedAt: "desc" },
     take: EXPORT_LIMIT,
   });
