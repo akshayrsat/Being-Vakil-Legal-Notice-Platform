@@ -187,6 +187,8 @@ test("bank users and coordinators see the template name and channel, and the own
   assert.match(intro, /Test Bank/);
   assert.match(intro, /does not write a template/);
   assert.match(card, /name and the channel/);
+  assert.match(detail, /message/);
+  assert.match(templateDetailCard(true), /message/);
   assert.doesNotMatch(plain, /MSG91|DLT|Facebook|legal_notice_|6abf5af2/);
   const owner = [templatesListIntro("Test Bank", true), templatesListCard(true), templateDetailCard(true)].join(" ");
   assert.match(owner, /MSG91 or Facebook/);

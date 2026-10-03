@@ -52,6 +52,11 @@ export function smsNoticeText(input: {
   return `Dear ${vars.customer_name}, ${vars.bank_name} has issued a legal notice. Notice no. ${vars.notice_number}. View: ${url}`;
 }
 
+// Same sentence as smsNoticeText. The three flow variables stay where Legal_Notice_12092026 reads them.
+export function smsApprovedTemplateBody(): string {
+  return `Dear {{customer_name}}, {{bank_name}} has issued a legal notice. Notice no. {{notice_number}}. View: ${PRODUCTION_BASE}/notice-{{notice_number}}`;
+}
+
 export function withNoticeLink(body: string, noticeNumber: string): string {
   const number = noticeNumber.trim();
   if (!number) return body;

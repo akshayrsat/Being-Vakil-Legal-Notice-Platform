@@ -168,13 +168,13 @@ A spreadsheet you upload is kept when you restart the site. It is wiped only if 
 
 Approved notice wording is the firm library. While you work on any bank, including a bank you just added, **Select approved template** lists those templates. The three notice templates are marked Approved, so they appear for Test Bank, Meridian, and a bank you just added. A bank user and a legal coordinator see the template name and the channel (SMS, email, or WhatsApp). The owner admin also sees the reference id. The list does not say the wording was written for a practice bank. Select them on the bank you are working on. Adding a bank lists them immediately.
 
-Staff do not write templates in Notice Desk. There is no **New template** button and no form for a draft. Open a row to read the name and the channel. The owner admin also sees the reference id and the short stored note.
+Staff do not write templates in Notice Desk. There is no **New template** button and no form for a draft. Open a row to read the name, the channel, and the message. The owner admin also sees the reference id.
 
 A spreadsheet, the people in it, a send, a delivery row, and a notice stay on one bank. Sharing a template shares the wording only. People, spreadsheets, sends, and notices remain on their own bank.
 
 The Approved library matches the live MSG91 templates:
 
-- **Legal notice (SMS)** — SMS only. Reference `6abf5af2e9226c340a0548e2` (MSG91 flow Legal_Notice_12092026, sender BVAKIL). Variables: customer name, bank name, and notice number. A live SMS uses that MSG91 flow, not the free text stored here.
+- **Legal notice (SMS)** — SMS only. Reference `6abf5af2e9226c340a0548e2` (MSG91 flow Legal_Notice_12092026, sender BVAKIL). The message is the approved SMS wording, with customer name, bank name, and notice number in the places that flow reads them.
 - **Legal notice (email)** — email only. Reference `legal_notice_non_payment`. Variables: contact name, loan account, and the notice link.
 - **Legal notice (WhatsApp)** — WhatsApp only. Reference `legal_notice_link`. Variables: customer name, bank name, and the notice path for `https://www.notice.beingvakil.in/`.
 
@@ -184,7 +184,7 @@ The owner turns live send on or off in **Settings**. That choice is kept after a
 
 1. Sign in and choose a bank.
 2. Press **Templates**.
-3. Open **Legal notice (SMS)**, **Legal notice (email)**, or **Legal notice (WhatsApp)**. You see the name and the channel. The owner admin also sees the reference id. You cannot change them.
+3. Open **Legal notice (SMS)**, **Legal notice (email)**, or **Legal notice (WhatsApp)**. You see the name, the channel, and the message. The owner admin also sees the reference id. You cannot change them.
 
 ### See the notice filled in
 

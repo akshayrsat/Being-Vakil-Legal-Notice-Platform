@@ -28,6 +28,27 @@ export type WhatsAppNoticeVars = {
 // notice_link (same URL), notice_code (bare id for a future template edit).
 export const EMAIL_TEMPLATE_SLUG = "legal_notice_non_payment";
 
+// Wording recorded for legal_notice_non_payment in MSG91_EMAIL.md.
+// Subject, then the body. The notice code is the link text; notice_link is the URL.
+// Live send also sets notice_id to that same URL.
+export const EMAIL_TEMPLATE_BODY = [
+  "Subject: Legal Notice Regarding Overdue Payment - Account {{loan_account}}",
+  "",
+  "Dear {{contact_name}},",
+  "",
+  "We have issued a legal notice due to non-repayment of dues on your loan account {{loan_account}}.",
+  "",
+  "Please find the attached notice: {{notice_code}}",
+  "{{notice_link}}",
+  "",
+  "Or open: {{notice_link}}",
+  "",
+  "Please contact us at your earliest convenience to avoid further action.",
+  "",
+  "Regards,",
+  "Team Being Vakil",
+].join("\n");
+
 export type EmailAttachment = {
   fileName: string;
   /** MSG91 data URI, data:application/pdf;base64,... */
@@ -50,6 +71,17 @@ export type DeliveryRequest = {
 // https://www.notice.beingvakil.in/{{1}} (e.g. notice-UWAT73Y72777).
 // Old legal_notice had a static example.com URL button and no URL variable.
 export const WHATSAPP_TEMPLATE_NAME = "legal_notice_link";
+
+// legal_notice_link is positional: body_1 is the customer name, body_2 is the bank name,
+// and the URL button is https://www.notice.beingvakil.in/{{1}} with {{1}} = notice-<id>.
+// The repo has no other sentence for this template.
+export const WHATSAPP_TEMPLATE_BODY = [
+  "{{customer_name}}",
+  "",
+  "{{bank_name}}",
+  "",
+  "https://www.notice.beingvakil.in/notice-{{notice_number}}",
+].join("\n");
 export const WHATSAPP_LANGUAGE = "en_US";
 export const WHATSAPP_TEMPLATE_NAMESPACE = "50ed4427_8a87_49c0_aad5_c2d3b8981e32";
 

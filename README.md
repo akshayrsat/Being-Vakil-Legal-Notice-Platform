@@ -38,7 +38,7 @@ The seeded library is the live MSG91 set: **Legal notice (SMS)** (`6abf5af2e9226
 - A bank user can read only the bank on their login. A `?bank=` parameter does not change that.
 - The owner and a legal coordinator use the bank chosen with **Use this bank** (`selectedBankId`). Spreadsheets, people, sends, tracking, bank-owned templates, Speed Post, loan history, and reports stay on that bank. A `?bank=` address cannot open a different bank. Switch on the Banks page first. Only the owner can add a bank or mark one active.
 - Opening a campaign, consignment, or CSV by id loads that row only when its `bankId` is the bank in use. Guessing another bank’s id returns “not found”.
-- The templates page lists the three approved notice templates for every bank. Bank users and legal coordinators see the name and the channel. The owner admin also sees the reference id. It does not show a practice-bank name and it does not share spreadsheets or recipient rows. Sending still uses the stored ids. The owner turns live send on or off in Settings. The switch starts on and overrides `MSG91_LIVE_SEND`.
+- The templates page lists the three approved notice templates for every bank. Opening one shows the name, the channel, and the message. The owner admin also sees the reference id. It does not show a practice-bank name and it does not share spreadsheets or recipient rows. Sending still uses the stored ids. The owner turns live send on or off in Settings. The switch starts on and overrides `MSG91_LIVE_SEND`.
 - The public letter at `/notice-<id>` stays open without sign-in. It shows that one notice and no one else’s.
 
 ## MSG91
