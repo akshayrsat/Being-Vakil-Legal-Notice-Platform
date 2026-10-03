@@ -59,8 +59,15 @@ test("the Approved library is the three live MSG91 templates", () => {
   assert.match(DEMO_TEMPLATES[1].body, /\{\{notice_code\}\}/);
   assert.doesNotMatch(DEMO_TEMPLATES[1].body, /not this free text|MSG91/);
   assert.equal(DEMO_TEMPLATES[2].body, WHATSAPP_TEMPLATE_BODY);
-  assert.match(DEMO_TEMPLATES[2].body, /\{\{customer_name\}\}/);
-  assert.match(DEMO_TEMPLATES[2].body, /\{\{bank_name\}\}/);
+  assert.match(DEMO_TEMPLATES[2].body, /Header: Legal Notice/);
+  assert.match(DEMO_TEMPLATES[2].body, /Dear \{\{customer_name\}\}/);
+  assert.match(
+    DEMO_TEMPLATES[2].body,
+    /non-repayment of dues to our client \{\{bank_name\}\}\. Please open the notice using the button below\./,
+  );
+  assert.match(DEMO_TEMPLATES[2].body, /- Team Being Vakil/);
+  assert.match(DEMO_TEMPLATES[2].body, /Footer: Ignore in case already paid\./);
+  assert.match(DEMO_TEMPLATES[2].body, /Button: View Legal Notice/);
   assert.match(DEMO_TEMPLATES[2].body, /https:\/\/www\.notice\.beingvakil\.in\/notice-\{\{notice_number\}\}/);
   assert.doesNotMatch(DEMO_TEMPLATES[2].body, /not this free text|MSG91/);
   const previousBase = process.env.NOTICE_PUBLIC_BASE_URL;

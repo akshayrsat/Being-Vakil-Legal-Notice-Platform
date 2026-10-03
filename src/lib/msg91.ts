@@ -72,14 +72,20 @@ export type DeliveryRequest = {
 // Old legal_notice had a static example.com URL button and no URL variable.
 export const WHATSAPP_TEMPLATE_NAME = "legal_notice_link";
 
-// legal_notice_link is positional: body_1 is the customer name, body_2 is the bank name,
-// and the URL button is https://www.notice.beingvakil.in/{{1}} with {{1}} = notice-<id>.
-// The repo has no other sentence for this template.
+// Approved legal_notice_link text. {{customer_name}} is body {{1}}, {{bank_name}} is body {{2}}.
+// The button opens https://www.notice.beingvakil.in/notice-<id>.
 export const WHATSAPP_TEMPLATE_BODY = [
-  "{{customer_name}}",
+  "Header: Legal Notice",
   "",
-  "{{bank_name}}",
+  "Dear {{customer_name}},",
   "",
+  "We have issued a legal notice due to non-repayment of dues to our client {{bank_name}}. Please open the notice using the button below.",
+  "",
+  "- Team Being Vakil",
+  "",
+  "Footer: Ignore in case already paid.",
+  "",
+  "Button: View Legal Notice",
   "https://www.notice.beingvakil.in/notice-{{notice_number}}",
 ].join("\n");
 export const WHATSAPP_LANGUAGE = "en_US";
