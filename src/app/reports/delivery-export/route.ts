@@ -5,7 +5,7 @@ import { NextResponse } from "next/server";
 import { auditCurrentUser } from "@/lib/audit";
 import { getCurrentUser } from "@/lib/auth";
 import { deliveryExportCsv, loadDeliveryExportRows } from "@/lib/delivery-export";
-import { readReportFilters } from "@/lib/desk-reports";
+import { readReportFilters, reportFiltersApplied } from "@/lib/desk-reports";
 import { resolveReportBank } from "@/lib/report-bank";
 import { isBankUser } from "@/lib/roles";
 import { seesVendorDetail } from "@/lib/staff-language";
@@ -18,6 +18,9 @@ export async function GET(request: Request) {
 
   const url = new URL(request.url);
   const filters = readReportFilters(url.searchParams);
+  if (!reportFiltersApplied(filters)) {
+    return new NextResponse("Choose a channel or a date, then press Apply, before downloading.\n", { status: 400 });
+  }
   const bank = await resolveReportBank(user, url.searchParams.get("bank") ?? "");
   if (!bank) return new NextResponse("Choose a bank first.\n", { status: 400 });
 

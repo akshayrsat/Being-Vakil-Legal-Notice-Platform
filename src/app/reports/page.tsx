@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { DeskShell } from "@/components/desk-shell";
 import { EmptyState } from "@/components/empty-state";
@@ -8,7 +7,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { workingBank } from "@/lib/bank-context";
 import { SEND_CHANNELS } from "@/lib/campaign-plan";
 import { sendChannelLabel } from "@/lib/campaigns";
-import { loadDeskReport, readReportFilters, reportFiltersToSearch } from "@/lib/desk-reports";
+import { loadDeskReport, readReportFilters, reportFiltersApplied, reportFiltersToSearch } from "@/lib/desk-reports";
 import { resolveReportBank } from "@/lib/report-bank";
 import { isOwnerAdmin } from "@/lib/owner-admin";
 import { canChooseBank, isBankUser } from "@/lib/roles";
@@ -78,24 +77,9 @@ export default async function ReportsPage({
               <button type="submit" className={buttonVariants({ className: "h-11 px-4" })}>
                 Apply
               </button>
-              <Link
-                href={`/reports/export?${reportFiltersToSearch(filters, bank.id)}`}
-                className={buttonVariants({ variant: "outline", className: "h-11 px-4" })}
-              >
-                Download summary CSV
-              </Link>
-              <Link
-                href={`/reports/delivery-export?${reportFiltersToSearch(filters, bank.id)}`}
-                className={buttonVariants({ variant: "outline", className: "h-11 px-4" })}
-              >
-                Download delivery CSV
-              </Link>
-              <Link
-                href={`/deliveries/export?${reportFiltersToSearch(filters, bank.id)}`}
-                className={buttonVariants({ variant: "outline", className: "h-11 px-4" })}
-              >
-                Download row CSV
-              </Link>
+              {reportFiltersApplied(filters) ? (
+                <ReportDownloads search={reportFiltersToSearch(filters, bank.id)} />
+              ) : null}
             </div>
           </form>
           <ReportBody
@@ -108,6 +92,27 @@ export default async function ReportsPage({
         </>
       )}
     </DeskShell>
+  );
+}
+
+function ReportDownloads({ search }: { search: string }) {
+  const links = [
+    { href: `/reports/export?${search}`, label: "Download summary CSV" },
+    { href: `/reports/delivery-export?${search}`, label: "Download delivery CSV" },
+    { href: `/deliveries/export?${search}`, label: "Download row CSV" },
+  ];
+  return (
+    <>
+      {links.map((link) => (
+        <a
+          key={link.label}
+          href={link.href}
+          className={buttonVariants({ variant: "outline", className: "h-11 px-4" })}
+        >
+          {link.label}
+        </a>
+      ))}
+    </>
   );
 }
 

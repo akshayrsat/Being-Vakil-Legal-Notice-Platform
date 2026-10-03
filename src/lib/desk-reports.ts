@@ -62,6 +62,11 @@ export function reportFiltersToSearch(filters: ReportFilters, bankId: string): s
   return params.toString();
 }
 
+// The bank id is always present. A download needs a channel and/or a from/to date from Apply.
+export function reportFiltersApplied(filters: ReportFilters): boolean {
+  return Boolean(filters.channel || filters.from || filters.to);
+}
+
 export async function loadDeskReport(
   bankId: string,
   filters: ReportFilters,
