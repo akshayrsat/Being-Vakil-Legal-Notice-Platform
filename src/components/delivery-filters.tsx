@@ -29,13 +29,13 @@ export function DeliveryFiltersForm({
         />
       </label>
       <label className="flex flex-col gap-1 text-sm font-medium">
-        Campaign
+        Notice
         <select
           name="campaign"
           defaultValue={filters.campaignId}
           className="h-11 rounded-lg border border-input bg-card px-3 text-sm font-normal"
         >
-          <option value="">All campaigns</option>
+          <option value="">All notices</option>
           {campaigns.map((campaign) => (
             <option key={campaign.id} value={campaign.id}>
               {campaign.name}

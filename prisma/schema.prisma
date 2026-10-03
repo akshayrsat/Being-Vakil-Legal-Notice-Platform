@@ -4,7 +4,8 @@
 // A Bank Viewer is tied to one bank (bankId). An Admin is not tied to a bank.
 // The Admin's selectedBankId is the bank they are working on right now.
 // A session is one signed-in visit. Signing out deletes it.
-// Allowed roles: ADMIN (firm staff) and BANK_VIEWER (bank side).
+// Allowed roles: OWNER, LEGAL_COORDINATOR, BANK_USER.
+// ADMIN and BANK_VIEWER remain so an existing login still opens.
 
 generator client {
   provider = "prisma-client-js"
@@ -22,6 +23,9 @@ datasource db {
 enum Role {
   ADMIN
   BANK_VIEWER
+  OWNER
+  LEGAL_COORDINATOR
+  BANK_USER
 }
 
 // Draft wording is not offered when filling a notice. Approved means the firm
@@ -343,6 +347,15 @@ model SpeedPostEvent {
 
   @@index([consignmentId])
   @@index([occurredAt])
+}
+
+// Firm-wide live send switch. One row, id "live-send".
+// No row means the switch starts on, because production sending is on.
+// After an admin saves, this row overrides MSG91_LIVE_SEND and survives a restart.
+model LiveSendSetting {
+  id        String   @id
+  enabled   Boolean
+  updatedAt DateTime @updatedAt
 }
 
 // Who did what. Firm staff can read this. A Bank Viewer cannot.

@@ -96,7 +96,7 @@ export type ReportRow = {
 export function reportCsv(rows: ReportRow[]): string {
   const header = [
     "Bank",
-    "Campaign",
+    "Notice",
     "Date",
     "Customer name",
     "Mobile",

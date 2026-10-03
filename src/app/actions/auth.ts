@@ -18,7 +18,7 @@ import {
 } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { isOtpEnabled, sendLoginOtp, verifyLoginOtp } from "@/lib/msg91";
-import { isAppRole, ROLE_ADMIN } from "@/lib/roles";
+import { canSendNotices, isAppRole, usesAssignedBank } from "@/lib/roles";
 import { STAFF_GATE_COOKIE, staffGateCookieOptions } from "@/lib/staff-gate";
 import { staffGateIsOpen } from "@/lib/staff-gate-session";
 
@@ -76,7 +76,7 @@ async function signInWithPassword(formData: FormData): Promise<SignInState> {
     };
   }
 
-  if (user.role === ROLE_ADMIN && isOtpEnabled()) {
+  if (canSendNotices(user.role) && isOtpEnabled()) {
     const sent = await sendLoginOtp();
     if (!sent.ok) return { error: sent.error };
 
@@ -169,7 +169,7 @@ async function startSession(userId: string): Promise<void> {
     include: { bank: true, selectedBank: true },
   });
   if (signedIn) {
-    const bank = signedIn.role === ROLE_ADMIN ? signedIn.selectedBank : signedIn.bank;
+    const bank = usesAssignedBank(signedIn.role) ? signedIn.bank : signedIn.selectedBank;
     const { recordAudit } = await import("@/lib/audit");
     await recordAudit({
       actorId: signedIn.id,

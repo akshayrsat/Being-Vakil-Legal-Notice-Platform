@@ -1,8 +1,8 @@
 // The owner admin is the only person who sees vendor names and template ids.
-// Bank viewers and other firm staff (legal coordinators) see the template name and the channel.
-// There is no owner column. An Admin whose email is on this list is the owner.
+// They are an owner (Owner, or the earlier Admin role) whose email is on OWNER_ADMIN_EMAILS.
+// A legal coordinator and a bank user see the template name and the channel, even if the email matches.
 
-import { ROLE_ADMIN } from "./roles";
+import { isOwner } from "./roles";
 
 const DEFAULT_OWNER_ADMIN_EMAILS = ["akshayrsathe@gmail.com", "akshayrsat@gmail.com"];
 
@@ -20,7 +20,7 @@ export function isOwnerAdmin(
   user: { role: string; email: string } | null | undefined,
   envValue?: string,
 ): boolean {
-  if (!user || user.role !== ROLE_ADMIN) return false;
+  if (!user || !isOwner(user.role)) return false;
   const email = user.email.trim().toLowerCase();
   if (!email) return false;
   return ownerAdminEmails(envValue).includes(email);

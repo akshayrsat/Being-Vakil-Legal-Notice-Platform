@@ -13,13 +13,18 @@ import {
 import { DEMO_NOTICES } from "@/lib/demo-notices";
 import { describeRuntimeGates } from "@/lib/env";
 import { msg91AuthKey } from "@/lib/msg91";
+import { confirmWarning } from "@/lib/send-notice";
 import { isWebhookConfigured } from "@/lib/msg91-webhook";
 import type { SignedInUser } from "@/lib/auth";
 import { noticePageHref } from "@/lib/notice-link";
 import { workingBank } from "@/lib/bank-context";
+import { isOwnerAdmin } from "@/lib/owner-admin";
 import { bankStatusLabel } from "@/lib/banks";
 import {
-  ROLE_ADMIN,
+  canChooseBank,
+  canCreateLogins,
+  canSendNotices,
+  isOwner,
   roleAccent,
   roleAudience,
   roleHeadline,
@@ -33,12 +38,15 @@ const accentClass = {
   unknown: "border-[#8a6232] bg-[#8a6232] text-[#fbf6ee]",
 } as const;
 
-export function DashboardHome({ user }: { user: SignedInUser }) {
+export function DashboardHome({ user, liveSendOn }: { user: SignedInUser; liveSendOn: boolean }) {
   const accent = roleAccent(user.role);
   const title = roleTitle(user.role);
-  const isAdmin = user.role === ROLE_ADMIN;
+  const isAdmin = canSendNotices(user.role);
+  const owner = isOwner(user.role);
+  const vendor = isOwnerAdmin(user);
+  const choosesBank = canChooseBank(user.role);
   const bank = workingBank(user);
-  const gates = isAdmin
+  const gates = vendor
     ? describeRuntimeGates({
         authKeySet: Boolean(msg91AuthKey()),
         webhookConfigured: isWebhookConfigured(),
@@ -98,7 +106,7 @@ export function DashboardHome({ user }: { user: SignedInUser }) {
               </p>
             )}
             <div className="flex flex-wrap gap-2">
-              {isAdmin ? (
+              {choosesBank ? (
                 <Link
                   href="/banks"
                   className={buttonVariants({ variant: "outline", className: "h-11 w-fit px-4" })}
@@ -106,7 +114,7 @@ export function DashboardHome({ user }: { user: SignedInUser }) {
                   {bank ? "Change bank" : "Choose a bank"}
                 </Link>
               ) : null}
-              {isAdmin ? (
+              {owner ? (
                 <Link
                   href="/audit"
                   className={buttonVariants({ variant: "outline", className: "h-11 w-fit px-4" })}
@@ -114,12 +122,20 @@ export function DashboardHome({ user }: { user: SignedInUser }) {
                   Security / Audit
                 </Link>
               ) : null}
-              {bank ? (
+              {canCreateLogins(user.role) ? (
                 <Link
-                  href="/uploads"
+                  href="/people"
                   className={buttonVariants({ variant: "outline", className: "h-11 w-fit px-4" })}
                 >
-                  {isAdmin ? "Upload a spreadsheet" : "View uploads"}
+                  Add a login
+                </Link>
+              ) : null}
+              {bank ? (
+                <Link
+                  href="/send"
+                  className={buttonVariants({ variant: "outline", className: "h-11 w-fit px-4" })}
+                >
+                  Send notice
                 </Link>
               ) : null}
               {bank ? (
@@ -130,12 +146,12 @@ export function DashboardHome({ user }: { user: SignedInUser }) {
                   {isAdmin ? "Notice templates" : "View templates"}
                 </Link>
               ) : null}
-              {bank ? (
+              {owner ? (
                 <Link
-                  href="/campaigns"
+                  href="/settings"
                   className={buttonVariants({ variant: "outline", className: "h-11 w-fit px-4" })}
                 >
-                  {isAdmin ? "Prepare a send" : "View campaigns"}
+                  Settings
                 </Link>
               ) : null}
               {bank ? (
@@ -152,14 +168,6 @@ export function DashboardHome({ user }: { user: SignedInUser }) {
                   className={buttonVariants({ variant: "outline", className: "h-11 w-fit px-4" })}
                 >
                   Speed Post
-                </Link>
-              ) : null}
-              {bank ? (
-                <Link
-                  href={`/loans?bank=${bank.id}`}
-                  className={buttonVariants({ variant: "outline", className: "h-11 w-fit px-4" })}
-                >
-                  Loan history
                 </Link>
               ) : null}
               {bank ? (
@@ -264,16 +272,16 @@ export function DashboardHome({ user }: { user: SignedInUser }) {
             <CardHeader>
               <CardTitle>Send gates</CardTitle>
               <CardDescription>
-                These switches live in the server environment. Their values are not shown here.
+                Live send is the switch in Settings. The other lines are server setup, and their
+                secret values are not shown here.
               </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-2 text-sm leading-6">
               <p>
-                {gates.liveSend
-                  ? "Live MSG91 send is on. Confirming a live campaign will hand messages to MSG91."
-                  : gates.liveFlag === "other"
-                    ? "Live MSG91 send is off. MSG91_LIVE_SEND must be the exact value true."
-                    : "Live MSG91 send is off. A key on its own does not send."}
+                {confirmWarning({
+                  switchOn: liveSendOn,
+                  authKeySet: Boolean(msg91AuthKey()),
+                })}
               </p>
               <p>
                 {gates.webhookConfigured
@@ -300,17 +308,13 @@ export function DashboardHome({ user }: { user: SignedInUser }) {
         <Card>
           <CardHeader>
             <CardTitle>This version</CardTitle>
-            <CardDescription>Sign-in, banks, uploads, templates, sends, public notice pages, Speed Post, loan history, reports, and an audit log are working.</CardDescription>
+            <CardDescription>Sign-in, banks, send notice, templates, public notice pages, Speed Post, loan history, reports, and an audit log are working.</CardDescription>
           </CardHeader>
           <CardContent>
             <p className="leading-7 text-foreground">
-              Firm staff choose a bank, upload a spreadsheet, and select an approved notice template.
-              They do not write templates here. They can review a send, confirm a dry run, then search
-              or download a status report. The audit log records who did that. A bank viewer can look
-              and download a report for their own bank. They cannot change a file or a send, and they
-              cannot open the audit log. A
-              dry run stays marked Dry run. MSG91 is not called unless the keys are set up on this
-              computer.
+              {vendor
+                ? "The owner and a legal coordinator choose a bank and send a notice from that bank’s spreadsheet and the approved wording. They do not write templates here. They review who will get it, then confirm. Only the owner turns live send on or off in Settings. When it is off, confirming records a dry run and nothing is sent. When it is on, confirming sends through MSG91. The audit log names the person and their role."
+                : "The owner and a legal coordinator choose a bank and send a notice from that bank’s spreadsheet and the approved wording. They do not write templates here. They review who will get it, then confirm. Only the owner turns sending on or off in Settings. The audit log names the person and their role. A bank user can look at their one bank. They cannot send, add a login, or change sending."}
             </p>
           </CardContent>
         </Card>

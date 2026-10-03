@@ -8,7 +8,7 @@ import { SignOutButton } from "@/components/sign-out-button";
 import type { SignedInUser } from "@/lib/auth";
 import { workingBank } from "@/lib/bank-context";
 import { PRODUCT_NAME, PRODUCT_TAGLINE } from "@/lib/brand";
-import { ROLE_ADMIN, roleAccent, roleTitle } from "@/lib/roles";
+import { canChooseBank, roleAccent, roleTitle } from "@/lib/roles";
 
 const barClass = {
   admin: "bg-primary",
@@ -18,7 +18,7 @@ const barClass = {
 
 function bankLine(user: SignedInUser): string {
   const bank = workingBank(user);
-  if (user.role === ROLE_ADMIN) {
+  if (canChooseBank(user.role)) {
     return bank ? `Working on ${bank.name} (${bank.code})` : "No bank selected";
   }
   return bank

@@ -23,7 +23,7 @@ import { loanSearchHref } from "@/lib/loan-timeline";
 import { noticeLinkOpensByNumber } from "@/lib/public-notice";
 import { formatIndiaDateTime } from "@/lib/india-day";
 import { resolveReportBank } from "@/lib/report-bank";
-import { ROLE_ADMIN } from "@/lib/roles";
+import { canChooseBank } from "@/lib/roles";
 
 export const metadata: Metadata = {
   title: "Find a person",
@@ -45,7 +45,7 @@ export default async function DeliveriesPage({
     if (typeof value === "string") params.set(key, value);
   }
   const filters = readDeliveryFilters(params);
-  const isAdmin = user.role === ROLE_ADMIN;
+  const isAdmin = canChooseBank(user.role);
   const bank = await resolveReportBank(user, params.get("bank") ?? "");
 
   return (
@@ -140,7 +140,7 @@ async function Results({
                 <th className="px-3 py-2 font-medium">Loan</th>
                 <th className="px-3 py-2 font-medium">Channel</th>
                 <th className="px-3 py-2 font-medium">Status</th>
-                <th className="px-3 py-2 font-medium">Campaign</th>
+                <th className="px-3 py-2 font-medium">Notice</th>
               </tr>
             </thead>
             <tbody>

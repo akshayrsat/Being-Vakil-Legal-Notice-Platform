@@ -12,12 +12,14 @@ import { workingBank } from "@/lib/bank-context";
 import { isSendChannel, type SendChannel } from "@/lib/campaign-plan";
 import { logDesk } from "@/lib/desk-log";
 import { prisma } from "@/lib/db";
-import { deliverNotice, dryRunReason, isLiveSendEnabled, type EmailAttachment } from "@/lib/msg91";
+import { confirmSendsForReal } from "@/lib/live-send-switch";
+import { liveSendIsOn } from "@/lib/live-send-store";
+import { deliverNotice, dryRunReason, isLiveSendEnabled, msg91AuthKey, type EmailAttachment } from "@/lib/msg91";
 import { emailNoticeVars, whatsappNoticeVars, smsNoticeVars } from "@/lib/notice-link";
 import { noticePdfDataUri, noticePdfFileName, renderNoticePdf } from "@/lib/notice-pdf";
 import { writePreparedDeliveries } from "@/lib/prepare-send";
 import { tooManyAttempts } from "@/lib/rate-limit";
-import { ROLE_ADMIN } from "@/lib/roles";
+import { canSendNotices } from "@/lib/roles";
 import {
   isApprovedTemplateStatus,
   sendScope,
@@ -31,8 +33,8 @@ export type CampaignFormState = { error: string } | null;
 async function adminBank() {
   const current = await getSessionContext();
   if (!current) redirect("/login");
-  if (current.user.role !== ROLE_ADMIN) {
-    return { ok: false as const, error: "Only firm staff can prepare a send." };
+  if (!canSendNotices(current.user.role)) {
+    return { ok: false as const, error: "Only the owner or a legal coordinator can prepare a send." };
   }
   const bank = workingBank(current.user);
   if (!bank) {
@@ -99,7 +101,7 @@ export async function createCampaign(
   }
   const wording = templateWording(template);
 
-  const live = isLiveSendEnabled();
+  const live = await isLiveSendEnabled();
   const campaign = await prisma.$transaction(
     async (tx) => {
       const created = await tx.campaign.create({
@@ -113,7 +115,7 @@ export async function createCampaign(
           channels: JSON.stringify(channels),
           mode: live ? "LIVE" : "DRY_RUN",
           status: "REVIEW",
-          dryRunNote: live ? "" : dryRunReason(),
+          dryRunNote: live ? "" : await dryRunReason(),
           createdById: scope.userId,
         },
       });
@@ -176,9 +178,9 @@ export async function startFollowUp(
   }
 
   const missedKeys = new Set(missed.map((row) => `${row.recipientRowId}:${row.channel}`));
-  const live = isLiveSendEnabled();
+  const live = await isLiveSendEnabled();
   const note = `Follow-up to “${parent.templateName}”. People are matched on loan number, customer id, or mobile. ${
-    live ? "Live send is on." : dryRunReason()
+    live ? "Live send is on." : await dryRunReason()
   }`;
   let campaign;
   try {
@@ -256,7 +258,18 @@ export async function confirmCampaign(
     return { error: "Too many confirmations. Wait a minute and try again." };
   }
 
-  if (campaign.mode === "DRY_RUN") {
+  const switchOn = await liveSendIsOn();
+  const sends = confirmSendsForReal({
+    switchOn,
+    preparedLive: campaign.mode === "LIVE",
+    authKeySet: Boolean(msg91AuthKey()),
+  });
+  if (!sends) {
+    if (switchOn && campaign.mode === "LIVE") {
+      return {
+        error: "Live send is on, but MSG91 is not set up, so nothing was sent.",
+      };
+    }
     const done = await finishDryRun(campaign.id, scope.bank.id);
     if (done) {
       await auditCurrentUser({
@@ -268,13 +281,6 @@ export async function confirmCampaign(
       });
     }
     redirect(`/campaigns/${campaign.id}?done=1`);
-  }
-
-  if (!isLiveSendEnabled()) {
-    return {
-      error:
-        "Live send is off. MSG91_LIVE_SEND must be the exact value true, and an MSG91 key must be set, before a message goes out.",
-    };
   }
 
   const done = await finishLiveSend(campaign.id, scope.bank.id, campaign.dltTemplateId);
@@ -328,7 +334,7 @@ async function finishLiveSend(
 ): Promise<boolean> {
   // Each pending row is claimed (PENDING -> QUEUED) before MSG91 is called.
   // A second confirm sees no PENDING row, so the same person is not sent twice.
-  if (!isLiveSendEnabled()) return false;
+  if (!(await isLiveSendEnabled())) return false;
 
   const bank = await prisma.bank.findFirst({
     where: { id: bankId },

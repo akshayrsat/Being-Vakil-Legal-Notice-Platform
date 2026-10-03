@@ -21,7 +21,7 @@ import { prisma } from "@/lib/db";
 import { loanSearchHref } from "@/lib/loan-timeline";
 import { indiaPostConfigured, postalStatusLabel } from "@/lib/postal";
 import { scopedBankId } from "@/lib/report-bank";
-import { ROLE_ADMIN } from "@/lib/roles";
+import { canSendNotices } from "@/lib/roles";
 
 export const metadata: Metadata = {
   title: "Consignment",
@@ -58,7 +58,7 @@ export default async function SpeedPostDetailPage({
     );
   }
 
-  const isAdmin = user.role === ROLE_ADMIN;
+  const isAdmin = canSendNotices(user.role);
   const loanHref = loanSearchHref(consignment.bankId, consignment.loanNumber, consignment.customerId);
 
   return (

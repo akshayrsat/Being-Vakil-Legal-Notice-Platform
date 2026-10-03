@@ -10,7 +10,7 @@ import { SEND_CHANNELS } from "@/lib/campaign-plan";
 import { sendChannelLabel } from "@/lib/campaigns";
 import { loadDeskReport, readReportFilters, reportFiltersToSearch } from "@/lib/desk-reports";
 import { resolveReportBank } from "@/lib/report-bank";
-import { ROLE_ADMIN } from "@/lib/roles";
+import { canChooseBank } from "@/lib/roles";
 
 export const metadata: Metadata = {
   title: "Reports",
@@ -29,7 +29,7 @@ export default async function ReportsPage({
     if (typeof value === "string") params.set(key, value);
   }
   const filters = readReportFilters(params);
-  const isAdmin = user.role === ROLE_ADMIN;
+  const isAdmin = canChooseBank(user.role);
   const bank = await resolveReportBank(user, params.get("bank") ?? workingBank(user)?.id ?? "");
 
   return (

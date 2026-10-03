@@ -18,7 +18,7 @@ import { demandNoticePlainText } from "../src/lib/demand-notice";
 import { DEMO_NOTICES } from "../src/lib/demo-notices";
 import { noticePageHref } from "../src/lib/notice-link";
 import { alignMsg91Library } from "../src/lib/align-msg91-library";
-import { ROLE_BANK_VIEWER } from "../src/lib/roles";
+import { isBankUser } from "../src/lib/roles";
 
 const prisma = new PrismaClient();
 
@@ -52,7 +52,7 @@ async function main() {
 
   for (const account of DEMO_ACCOUNTS) {
     const passwordHash = await bcrypt.hash(account.password, 10);
-    const bankId = account.role === ROLE_BANK_VIEWER ? viewerBankId : null;
+    const bankId = isBankUser(account.role) ? viewerBankId : null;
 
     await prisma.user.upsert({
       where: { email: account.email },

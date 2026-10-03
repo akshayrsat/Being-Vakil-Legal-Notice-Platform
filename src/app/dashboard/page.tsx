@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { DashboardHome } from "@/components/dashboard-home";
 import { getCurrentUser } from "@/lib/auth";
+import { liveSendIsOn } from "@/lib/live-send-store";
 
 export const metadata: Metadata = {
   title: "Signed in",
@@ -12,6 +13,7 @@ export const metadata: Metadata = {
 export default async function DashboardPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
+  const liveSendOn = await liveSendIsOn();
 
-  return <DashboardHome user={user} />;
+  return <DashboardHome user={user} liveSendOn={liveSendOn} />;
 }

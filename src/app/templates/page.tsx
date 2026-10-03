@@ -19,7 +19,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { workingBank } from "@/lib/bank-context";
 import { loadTemplateLibrary } from "@/lib/load-template-library";
 import { isOwnerAdmin } from "@/lib/owner-admin";
-import { ROLE_ADMIN } from "@/lib/roles";
+import { canChooseBank } from "@/lib/roles";
 import {
   templateLibraryNotes,
   templatesEmptyLibrary,
@@ -37,7 +37,7 @@ export default async function TemplatesPage() {
   if (!user) redirect("/login");
 
   const bank = workingBank(user);
-  const isAdmin = user.role === ROLE_ADMIN;
+  const isAdmin = canChooseBank(user.role);
   const showVendorDetail = isOwnerAdmin(user);
 
   return (

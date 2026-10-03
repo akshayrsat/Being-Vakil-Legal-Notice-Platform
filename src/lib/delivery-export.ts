@@ -20,7 +20,7 @@ export const DELIVERY_EXPORT_COLUMNS = [
   "Mobile",
   "Email",
   "Channel",
-  "Campaign",
+  "Notice",
   "Delivery status",
   "Opened at (IST)",
   "MSG91 open or read",

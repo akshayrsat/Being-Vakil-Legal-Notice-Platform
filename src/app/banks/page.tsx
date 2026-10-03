@@ -16,7 +16,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { workingBank } from "@/lib/bank-context";
 import { toBankSnapshot } from "@/lib/banks";
 import { prisma } from "@/lib/db";
-import { ROLE_ADMIN } from "@/lib/roles";
+import { canChooseBank, isOwner } from "@/lib/roles";
 
 export const metadata: Metadata = {
   title: "Banks",
@@ -29,7 +29,8 @@ export default async function BanksPage({
 }) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
-  if (user.role !== ROLE_ADMIN) redirect("/dashboard");
+  if (!canChooseBank(user.role)) redirect("/dashboard");
+  const owner = isOwner(user.role);
 
   const { added } = await searchParams;
   const addedCode = added?.trim().toUpperCase() ?? "";
@@ -44,8 +45,9 @@ export default async function BanksPage({
         <div>
           <h1 className="font-serif text-4xl tracking-tight text-foreground">Client banks</h1>
           <p className="mt-3 text-base leading-7 text-muted-foreground">
-            Add each bank the firm works for. Then press Use this bank. Later files and
-            notices will be filed under that bank. A bank viewer never sees this list.
+            {owner
+              ? "Add each bank the firm works for. Then press Use this bank. Spreadsheets and sends stay on that bank."
+              : "Press Use this bank to send a notice for that bank. You cannot add a bank or turn one off."}
           </p>
         </div>
 
@@ -55,21 +57,24 @@ export default async function BanksPage({
           </p>
         ) : null}
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Add a bank</CardTitle>
-            <CardDescription>The name is what people read. The short code is the id.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <AddBankForm />
-          </CardContent>
-        </Card>
+        {owner ? (
+          <Card>
+            <CardHeader>
+              <CardTitle>Add a bank</CardTitle>
+              <CardDescription>The name is what people read. The short code is the id.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <AddBankForm />
+            </CardContent>
+          </Card>
+        ) : null}
 
         <section className="flex flex-col gap-3">
           <h2 className="font-serif text-2xl">Banks on file</h2>
           <BankList
             banks={banks.map((bank) => ({ ...toBankSnapshot(bank)!, attachNoticePdf: bank.attachNoticePdf }))}
             currentBankId={workingBank(user)?.id ?? null}
+            canManage={owner}
           />
         </section>
       </main>

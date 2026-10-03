@@ -2,12 +2,13 @@
 
 This is a website for a law firm that sends legal notices for banks.
 
-Two kinds of people can sign in:
+Three kinds of people can sign in:
 
-- **Admin** — staff at the law firm. They keep the list of client banks and choose which bank they are working on.
-- **Bank Viewer** — someone on the bank side. Their login is tied to one bank. They cannot see the other banks.
+- **Owner** — one person at the law firm. They can send a notice, keep the list of banks, add a login, read the audit log, and turn live send on or off.
+- **Legal coordinator** — can send a notice and add a bank user for one bank. They cannot change live send, add a bank, or open the audit log.
+- **Bank user** — someone on the bank side. Their login is tied to one bank. They cannot see the other banks.
 
-A send can be reviewed and confirmed as a dry run. It does not go out unless MSG91 is set up. After a dry run you can search by loan number, see each person’s status, and download a CSV. Firm staff can also open an audit log of who did what. See `NEXT_STEPS.md` for later polish.
+Sending a notice is one screen, **Send notice**. Choose the bank’s spreadsheet of people, choose the approved notice wording, review who will get it, then send. Tracking already shows delivery results, so Loans is not a separate tab. The owner turns live send on or off in **Settings**. When it is on and MSG91 is set up, confirming sends for real. When it is off, confirming records a dry run and nothing is sent. The audit log names the person and their role. See `NEXT_STEPS.md` for later polish.
 
 Practice passwords are for your own computer. Do not put this site on the public internet with these passwords.
 
@@ -66,7 +67,7 @@ Leave the terminal window open while you use the site. Closing it, or pressing C
 
 The site uses port **4317** (not the usual 3000) so it is less likely to clash with another program.
 
-Each time you run `npm run dev`, the two practice passwords are set back to the ones in this guide, and the three practice banks are reset. A bank you added yourself, with a different short code, stays. The bank an Admin last chose also stays. The three MSG91 notice templates are marked Approved, so every bank can select that wording. The templates page does not credit a practice bank for them. Restarting puts the wording back. A template you added on a bank of your own stays. A leftover practice template on Northwind, Meridian, or Harbour is removed if no send uses it. A spreadsheet you uploaded stays. A send you confirmed stays. The three practice public notices are put back. Live send stays off.
+Each time you run `npm run dev`, the two practice passwords are set back to the ones in this guide, and the three practice banks are reset. A bank you added yourself, with a different short code, stays. The bank the owner last chose also stays. The three MSG91 notice templates are marked Approved, so every bank can select that wording. The templates page does not credit a practice bank for them. Restarting puts the wording back. A leftover practice template on Northwind, Meridian, or Harbour is removed if no send uses it. A spreadsheet you uploaded stays. A send you confirmed stays. The three practice public notices are put back. A live-send choice saved in Settings stays. Until someone saves one, the switch starts on.
 
 ## Open a practice notice
 
@@ -78,30 +79,30 @@ These pages need no sign-in. Each one is a single recipient:
 
 The same page opens at `/?notice=DEMO-LN10021`, at `/notice?notice=DEMO-LN10021`, and at `/n/DEMO-LN10021`. Each notice uses the Being Vakil Associates letterhead (the header and footer from the firm’s Word stationery) and the signature and stamp. The letter is the demand notice for that person and that bank. The sheet is A4 (210mm × 297mm). Press **Print letter** to print it or save a PDF. After you sign in, the home page lists these three links. A number that is not on file shows **Notice not found** and no other person.
 
-## Sign in as Admin (firm staff)
+## Sign in as the owner
 
-On the sign-in page, either press **Fill in this login** under Admin, or type:
+On the sign-in page, either press **Fill in this login** under Owner, or type:
 
 - Email: `admin@noticedesk.local`
 - Password: `admin123`
 
 Then press **Sign in**.
 
-You should see the name **Meera Iyer** and the role **Admin · Firm staff**. The bar at the top of the page is purple, the same purple as the Being Vakil mark. Until you choose a bank, the page says **No bank selected**.
+You should see the name **Meera Iyer** and the role **Owner · Firm**. The bar at the top of the page is purple, the same purple as the Being Vakil mark. Until you choose a bank, the page says **No bank selected**. The top bar has **Send notice**, not separate Uploads and Campaigns tabs, and it does not have a Loans tab.
 
 On this computer the sign-in page also says a one-time code is not used. That is the normal practice mode. The password above is enough.
 
 ### One-time code, only if MSG91 is set up
 
-MSG91 is off unless you add keys to the `.env` file. All three of these have to be filled in before an Admin is asked for a code:
+The one-time code is off unless you add keys to the `.env` file. All three of these have to be filled in before the owner is asked for a code:
 
 - `MSG91_AUTH_KEY` is filled in
 - `MSG91_OTP_TEMPLATE_ID` is filled in
 - `MSG91_OTP_MOBILE` is the firm mobile that should receive the code, with the country code, such as `9198XXXXXXX`
 
-Then an Admin signs in with the email and password, and the next page asks for the code from that text message. A Bank Viewer still uses only the password. If any of those three lines is missing, the password alone still works, as it does now. The site never stores the MSG91 key in the browser.
+Then the owner or a legal coordinator signs in with the email and password, and the next page asks for the code from that text message. A bank user still uses only the password. If any of those three lines is missing, the password alone still works, as it does now. The site never stores the MSG91 key in the browser.
 
-## Sign in as Bank Viewer
+## Sign in as a bank user
 
 Press **Sign out**. Then use the other practice login, or type:
 
@@ -110,7 +111,7 @@ Press **Sign out**. Then use the other practice login, or type:
 
 Then press **Sign in**.
 
-You should see the name **Arjun Kapoor**, the role **Bank Viewer · Bank side**, and the bank **Northwind Housing Finance**. The bar at the top of the page is green. There is no **Banks** button. **Uploads**, **Templates**, and **Campaigns** only show Northwind. Meridian Co-operative Bank and Harbour Credit do not appear.
+You should see the name **Arjun Kapoor**, the role **Bank user · One bank**, and the bank **Northwind Housing Finance**. The bar at the top of the page is green. There is no **Banks**, **People**, **Settings**, or **Audit** button. **Send notice**, **Templates**, and **Tracking** only show Northwind. Meridian Co-operative Bank and Harbour Credit do not appear.
 
 These are sample people and sample banks, not real clients. The two screens are meant to look different so you can tell the roles apart.
 
@@ -118,13 +119,13 @@ These are sample people and sample banks, not real clients. The two screens are 
 
 | Bank | Short code | Status | Who sees it |
 | --- | --- | --- | --- |
-| Northwind Housing Finance | NWH | Active | The Bank Viewer login, and Admin once they choose it |
-| Meridian Co-operative Bank | MCB | Active | Admin only, until they choose it |
-| Harbour Credit | HCR | Inactive | Admin only |
+| Northwind Housing Finance | NWH | Active | The bank-user login, and the owner once they choose it |
+| Meridian Co-operative Bank | MCB | Active | The owner or a legal coordinator, once they choose it |
+| Harbour Credit | HCR | Inactive | The owner or a legal coordinator |
 
-## Add a bank (Admin only)
+## Add a bank (owner only)
 
-1. Sign in as Admin.
+1. Sign in as the owner.
 2. Press **Banks**.
 3. Type the bank’s name, for example `Sample Urban Bank`.
 4. Type a short code of 2 to 8 letters or numbers, for example `SUB`. This is the bank’s id. It cannot match a code already in the list.
@@ -133,23 +134,25 @@ These are sample people and sample banks, not real clients. The two screens are 
 
 To stop using a bank, press **Mark inactive**. It stays in the list. Press **Mark active** to turn it back on.
 
-## Choose which bank you are working on (Admin only)
+## Choose which bank you are working on
+
+The owner and a legal coordinator can press **Use this bank**. Only the owner can add a bank or mark one active.
 
 1. On the **Banks** page, find the bank.
 2. Press **Use this bank**.
 3. The home page names that bank in large type, and the top of the page says **Working on** that bank.
 4. To switch, press **Banks** or **Change bank**, then **Use this bank** on a different row.
 
-A Bank Viewer cannot switch banks. Their home page always shows the one bank linked to their login.
+A bank user cannot switch banks. Their home page always shows the one bank linked to their login.
 
 You stay signed in on this browser for 7 days, or until you press **Sign out**.
 
-## Upload a spreadsheet (Admin only)
+## Upload a spreadsheet
 
-The file has to belong to the bank you are working on. If the home page says **No bank selected**, press **Banks** and **Use this bank** first.
+The file has to belong to the bank you are working on. If the home page says **No bank selected**, press **Banks** and **Use this bank** first. The owner and a legal coordinator can upload. A bank user can look.
 
-1. Sign in as Admin and choose a bank, for example **Northwind Housing Finance**.
-2. Press **Uploads**.
+1. Sign in as the owner and choose a bank, for example **Northwind Housing Finance**.
+2. Press **Send notice**.
 3. Press **download notice-recipients.xlsx**, or use the file `samples/notice-recipients.xlsx` in this project folder. It is a practice list of three test recipients: Akshay Sathe, Akshay R Sathe, and Shweta Sudhir.
 4. Press **Choose file** (the wording depends on the browser), pick that file, then press **Upload Excel**.
 5. The next page lists the column names from the first row. Each notice field has a dropdown. Customer name is required. Leave a dropdown on **Not in this file** when the sheet does not have that detail. Empty optional cells are fine.
@@ -175,7 +178,7 @@ The Approved library matches the live MSG91 templates:
 - **Legal notice (email)** — email only. Reference `legal_notice_non_payment`. Variables: contact name, loan account, and the notice link.
 - **Legal notice (WhatsApp)** — WhatsApp only. Reference `legal_notice_link`. Variables: customer name, bank name, and the notice path for `https://www.notice.beingvakil.in/`.
 
-Live send still reads the MSG91 settings in `.env` and in code. It does not send the library id by itself, and it stays off unless `MSG91_LIVE_SEND=true`.
+The owner turns live send on or off in **Settings**. That choice is kept after a restart and overrides `MSG91_LIVE_SEND`. The switch starts on. A confirm still does not send until MSG91 is set up. A legal coordinator and a bank user cannot see the switch.
 
 ### Read a template
 
@@ -186,64 +189,75 @@ Live send still reads the MSG91 settings in `.env` and in code. It does not send
 ### See the notice filled in
 
 1. Upload a spreadsheet for that same bank and save the column match, if you have not already.
-2. Open the file from **Uploads**.
+2. Open the file from **Send notice**.
 3. Under **Filled notice**, choose an approved template. The list includes Approved wording written for this bank and for any other bank. The people filled in are only the people saved on this spreadsheet.
 4. The first three people are shown with their details dropped into the wording. An empty detail shows as **[not provided]**.
 5. Nothing is sent.
 
 Upload the practice file, save the column match, and choose **Legal notice (email)**. The first person should show the name **Akshay Sathe** and the loan number **LN10021**.
 
-## Prepare a send (dry run)
+## Send a notice
 
 A send belongs to the bank you are working on. It uses one saved spreadsheet for that bank and one approved MSG91 template. The same three templates are listed for every bank. The people on the send are only the people in that spreadsheet.
 
-1. Sign in as Admin and choose a bank that already has a saved spreadsheet. The MSG91 templates are already Approved, so you do not need a template saved on that same bank.
-2. Press **Campaigns**, then **Prepare a send**. You can also press **Prepare a send** on an open spreadsheet.
-3. Choose the spreadsheet and the template.
+1. Sign in as the owner and choose a bank that already has a saved spreadsheet. The MSG91 templates are already Approved, so you do not need a template saved on that same bank.
+2. Press **Send notice**.
+3. Choose the spreadsheet, then choose the approved notice wording.
 4. Tick **SMS**, **Email**, or **WhatsApp**. They start from the template, and you can change them. **Speed Post** is shown but cannot be ticked. It says **Coming soon**.
-5. Press **Review send**.
+5. Press **Review who will get it**.
 6. Read the counts, including how many people are skipped because they have no mobile or no email. Read the first few filled messages. An SMS shows a public link with that person’s notice number. **Open notice** shows the page the link will open.
-7. Press **Confirm dry run**.
+7. Read the sentence at the top before you confirm. If live send is off, the button is **Confirm dry run**. If live send is on, the button is **Confirm send** and messages go out.
 
-The page then says **Dry run finished. Nothing was sent.** Each person who could be reached is marked **Dry run**. A person who could not be reached is marked **Skipped**. No call is made to MSG91.
+When the switch is off, the page then says the dry run finished and nothing was sent. Each person who could be reached is marked **Dry run**. A person who could not be reached is marked **Skipped**. No call is made to MSG91.
 
 ### When a real send is possible
 
-Leave the MSG91 lines in `.env` commented out to stay on the dry run. That is the right setup for practice.
+The owner opens **Settings** and chooses **On** or **Off**, then presses **Save**. Off means confirming records a dry run. On means confirming sends through MSG91, but only after `MSG91_AUTH_KEY` is filled in. A key on its own does not send if the switch is off. For practice on your own computer, leave the MSG91 lines commented out, or turn the switch off, so a confirm cannot send.
 
-To allow a live send later, fill in `MSG91_AUTH_KEY` and set `MSG91_LIVE_SEND=true`. A key on its own does not send anything. SMS also needs `MSG91_SMS_FLOW_ID` set to `6abf5af2e9226c340a0548e2` (Legal_Notice_12092026, sender `BVAKIL`). Email needs `MSG91_EMAIL_FROM`, `MSG91_EMAIL_DOMAIN`, and `MSG91_EMAIL_TEMPLATE_ID` set to the template slug `legal_notice_non_payment` (not the numeric id). WhatsApp needs `MSG91_WHATSAPP_INTEGRATED_NUMBER`. It sends the template `legal_notice_link` in `en_US`, with the customer name, the bank name, and a URL button path `notice-<id>` for `https://www.notice.beingvakil.in/notice-<id>`. If one of those is missing, that channel is not sent and the row is marked failed. Do not put a real key in a copy of this project that other people can download.
+SMS also needs `MSG91_SMS_FLOW_ID` set to `6abf5af2e9226c340a0548e2` (Legal_Notice_12092026, sender `BVAKIL`). Email needs `MSG91_EMAIL_FROM`, `MSG91_EMAIL_DOMAIN`, and `MSG91_EMAIL_TEMPLATE_ID` set to the template slug `legal_notice_non_payment` (not the numeric id). WhatsApp needs `MSG91_WHATSAPP_INTEGRATED_NUMBER`. It sends the template `legal_notice_link` in `en_US`, with the customer name, the bank name, and a URL button path `notice-<id>` for `https://www.notice.beingvakil.in/notice-<id>`. If one of those is missing, that channel is not sent and the row is marked failed. Do not put a real key in a copy of this project that other people can download.
 
-## What a Bank Viewer can see
+## Add a login
 
-Sign in as the Bank Viewer. Press **Uploads**. You see files for Northwind Housing Finance only, and only after an Admin has uploaded one for that bank. Open a file to see the column match, the people, and the filled notice. There is no button to upload or to change the match.
+There is no public signup, and the site does not email the new password.
+
+1. Sign in as the owner and press **People**.
+2. Enter the person’s name, email, and a password of at least 8 characters.
+3. Choose **Legal coordinator** or **Bank user**. For a bank user, choose the one bank they can see.
+4. Press **Add login**. Share the email and password yourself.
+
+A legal coordinator can open **People** and add a bank user only. They cannot add another coordinator or an owner.
+
+## What a bank user can see
+
+Sign in as the bank user. Press **Send notice**. You see files for Northwind Housing Finance only, and only after the owner or a legal coordinator has uploaded one for that bank. Open a file to see the column match, the people, and the filled notice. There is no button to upload or to change the match.
 
 Press **Templates**. You see **Legal notice (SMS)**, **Legal notice (email)**, and **Legal notice (WhatsApp)**, each with its channel. You do not see a vendor name or a template id. There is no **New template** button and no form to write a template.
 
-Press **Campaigns**. After an Admin has confirmed a send for Northwind, you can open it and see the dry-run result. There is no **Prepare a send** button and no **Confirm dry run** button. Press **Find a person** to search Northwind only. There is no bank dropdown. **Download CSV** is for Northwind only. There is no **Prepare follow-up** button. There is no **Audit** button. Opening the audit address shows a short message that the page is for firm staff, and no events.
+After a notice has been confirmed for Northwind, open it from **Send notice** and see the result. There is no button to choose wording or to confirm. Press **Find a person** to search Northwind only. There is no bank dropdown. **Download CSV** is for Northwind only. There is no **Prepare follow-up** button. There is no **Audit** button and no **Settings** button. Opening the audit address shows a short message that the page is for the owner, and no events.
 
 ## Find a person and download a status report
 
-1. Sign in and press **Find a person** on the home page or on **Campaigns**.
+1. Sign in and press **Find a person** on the home page or on **Tracking**.
 2. Type a name, mobile, loan number, or customer id. The practice file uses loan **LN10021** for Akshay Sathe.
 3. Press **Search**. Each row shows the channel and the status. A dry run says **Dry run**. It does not say Delivered.
-4. You can narrow the list by campaign, channel, status, and date. An Admin can also pick a bank. A Bank Viewer cannot.
+4. You can narrow the list by notice, channel, status, and date. The owner or a legal coordinator changes bank on the Banks page first. A bank user cannot.
 5. Press **Download CSV**. Excel can open the file. It has the same rows as the search, for that bank only.
 
-Open a campaign to see the same statuses, filter by channel or status, and download that campaign’s CSV. Press **Reminders** to see people who were skipped or failed.
+Open a notice to see the same statuses, filter by channel or status, and download that notice’s CSV. Press **Reminders** to see people who were skipped or failed.
 
 ### Follow-up, still not sent
 
-On **Reminders**, an Admin who is working on that active bank can press **Prepare follow-up**. That makes another review for the same people, matched on loan number, customer id, or mobile. It does not send a message. Open **History** on a row to see the original send and the follow-up together. Confirm the follow-up the same way as any other dry run if you want it recorded.
+On **Reminders**, the owner or a legal coordinator who is working on that active bank can press **Prepare follow-up**. That makes another review for the same people, matched on loan number, customer id, or mobile. It does not send a message. Open **History** on a row to see the original send and the follow-up together. Confirm the follow-up the same way as any other send if you want it recorded. Read the live-send sentence first.
 
 Speed Post stays **Coming soon**. It is not ticked, not sent, and has no courier status.
 
 ## Security and the audit log
 
-Firm staff press **Audit**, or **Security / Audit** on the home page.
+The owner presses **Audit**, or **Security / Audit** on the home page.
 
 The list shows who signed in, added or chose a bank, marked a bank active or inactive, uploaded a spreadsheet, saved a column match, created or approved a template, confirmed a dry run or a live send, prepared a follow-up, or downloaded a CSV. Filter by the kind of action, the bank, a name, and a date.
 
-A Bank Viewer does not see this list. Passwords and the MSG91 key are not written into it.
+A legal coordinator and a bank user do not see this list. Each line names the person who signed in and their role. Passwords and the MSG91 key are not written into it.
 
 Confirm a dry run, then open **Audit**. You should see a line for that dry run, and a line that you signed in.
 

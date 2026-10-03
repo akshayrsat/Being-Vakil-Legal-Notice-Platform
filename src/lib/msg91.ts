@@ -1,6 +1,7 @@
 // MSG91 access. The auth key is read from the environment on the server.
 // Never put it in a NEXT_PUBLIC_ variable, and never send it to the browser.
 
+import { liveSendIsOn } from "./live-send-store";
 import type { EmailNoticeVars, SmsNoticeVars } from "./notice-link";
 import { toMsg91Mobile } from "./phone";
 
@@ -67,21 +68,17 @@ export function isOtpEnabled(): boolean {
 }
 
 // A key by itself does not send notices.
-// MSG91_LIVE_SEND must be the exact lowercase value true. TRUE, 1, and yes stay off.
-export function isLiveSendEnabled(): boolean {
-  return Boolean(msg91AuthKey() && envValue("MSG91_LIVE_SEND") === "true");
+// The admin switch in Settings is the on/off control. It overrides MSG91_LIVE_SEND.
+export async function isLiveSendEnabled(): Promise<boolean> {
+  return (await liveSendIsOn()) && Boolean(msg91AuthKey());
 }
 
-export function dryRunReason(): string {
-  if (!msg91AuthKey()) {
-    return "MSG91 is not set up on this computer, so this is a dry run. No message will be sent.";
+export async function dryRunReason(): Promise<string> {
+  if (!(await liveSendIsOn())) {
+    return "Live send is off. Confirming records a dry run. Nothing is sent.";
   }
-  if (!isLiveSendEnabled()) {
-    const flag = envValue("MSG91_LIVE_SEND");
-    if (flag && flag !== "true") {
-      return "MSG91_LIVE_SEND is set, but only the exact value true turns live send on. This is a dry run. No message will be sent.";
-    }
-    return "An MSG91 key is set, but live send is turned off. This is a dry run. No message will be sent.";
+  if (!msg91AuthKey()) {
+    return "Live send is on, but MSG91 is not set up, so nothing is sent.";
   }
   return "";
 }
@@ -132,7 +129,7 @@ export async function verifyLoginOtp(otp: string): Promise<{ ok: true } | { ok: 
 // Called only when live send is switched on. A dry run must not call this.
 // The flag is checked here as well as by the caller, so a missed check cannot send.
 export async function deliverNotice(request: DeliveryRequest): Promise<DeliveryResult> {
-  if (!isLiveSendEnabled()) {
+  if (!(await liveSendIsOn())) {
     return { ok: false, error: "Live send is off. Nothing was sent." };
   }
   const authKey = msg91AuthKey();

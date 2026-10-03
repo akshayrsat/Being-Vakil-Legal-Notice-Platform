@@ -1,7 +1,7 @@
 // Practice logins for this first version. There is no real one-time password yet.
 // If you change an email or password here, update the README to match.
 
-import { ROLE_ADMIN, ROLE_BANK_VIEWER, type AppRole } from "./roles";
+import { ROLE_BANK_USER, ROLE_OWNER, type AppRole } from "./roles";
 
 export type DemoAccount = {
   role: AppRole;
@@ -13,17 +13,17 @@ export type DemoAccount = {
 
 export const DEMO_ACCOUNTS: DemoAccount[] = [
   {
-    role: ROLE_ADMIN,
+    role: ROLE_OWNER,
     name: "Meera Iyer",
     email: "admin@noticedesk.local",
     password: "admin123",
-    who: "Firm staff",
+    who: "Owner",
   },
   {
-    role: ROLE_BANK_VIEWER,
+    role: ROLE_BANK_USER,
     name: "Arjun Kapoor",
     email: "viewer@noticedesk.local",
     password: "viewer123",
-    who: "Bank side",
+    who: "Bank user",
   },
 ];

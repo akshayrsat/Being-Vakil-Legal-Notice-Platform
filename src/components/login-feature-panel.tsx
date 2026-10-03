@@ -7,7 +7,7 @@ const FEATURES = [
   },
   {
     title: "SMS, email, and WhatsApp",
-    body: "Send the notice link on the channels that bank uses, from one campaign.",
+    body: "Send the notice link by SMS, email, or WhatsApp from one place.",
   },
   {
     title: "Tracking",

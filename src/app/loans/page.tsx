@@ -9,7 +9,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { workingBank } from "@/lib/bank-context";
 import { loadAccountTimeline, searchLoanMatches } from "@/lib/loan-timeline";
 import { resolveReportBank } from "@/lib/report-bank";
-import { ROLE_ADMIN } from "@/lib/roles";
+import { canChooseBank } from "@/lib/roles";
 
 export const metadata: Metadata = {
   title: "Loan history",
@@ -24,7 +24,7 @@ export default async function LoansPage({
   if (!user) redirect("/login");
   const query = await searchParams;
   const bank = await resolveReportBank(user, query.bank ?? workingBank(user)?.id ?? "");
-  const isAdmin = user.role === ROLE_ADMIN;
+  const isAdmin = canChooseBank(user.role);
   const text = (query.q ?? "").trim();
   const loan = (query.loan ?? "").trim();
   const account = (query.account ?? "").trim();

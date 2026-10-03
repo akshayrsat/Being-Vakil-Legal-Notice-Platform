@@ -8,6 +8,7 @@ import { AppHeader } from "@/components/app-header";
 import { BackLinks } from "@/components/back-link";
 import { CampaignSpeedPost } from "@/components/campaign-speed-post";
 import { ConfirmCampaign } from "@/components/confirm-campaign";
+import { SendSteps } from "@/components/send-steps";
 import { MessageOpened, NoticeLinkOpened } from "@/components/notice-link-opened";
 import { NoticeOpenLink } from "@/components/notice-open-link";
 import { buttonVariants } from "@/components/ui/button";
@@ -34,12 +35,16 @@ import {
   statusesForFilter,
 } from "@/lib/campaigns";
 import { prisma } from "@/lib/db";
+import { confirmSendsForReal } from "@/lib/live-send-switch";
+import { liveSendIsOn } from "@/lib/live-send-store";
+import { msg91AuthKey } from "@/lib/msg91";
+import { confirmWarning } from "@/lib/send-notice";
 import { personHistoryHref } from "@/lib/delivery-report";
 import { loanSearchHref } from "@/lib/loan-timeline";
 import { noticeLinkOpensByNumber } from "@/lib/public-notice";
 import { scopedBankId, withBank } from "@/lib/report-bank";
 import { isOwnerAdmin } from "@/lib/owner-admin";
-import { ROLE_ADMIN } from "@/lib/roles";
+import { canSendNotices } from "@/lib/roles";
 
 export const metadata: Metadata = {
   title: "Review send",
@@ -61,7 +66,7 @@ export default async function CampaignPage({
   const working = workingBank(user);
   const { id } = await params;
   const query = await searchParams;
-  const isAdmin = user.role === ROLE_ADMIN;
+  const isAdmin = canSendNotices(user.role);
   const showVendorDetail = isOwnerAdmin(user);
   const scope = scopedBankId(user, query.bank);
   const channelFilter = isSendChannel((query.channel ?? "").toUpperCase())
@@ -117,8 +122,15 @@ export default async function CampaignPage({
     samples.push(row);
     if (samples.length === SAMPLE_COUNT) break;
   }
-  const dryRun = campaign.mode === "DRY_RUN";
+  const switchOn = await liveSendIsOn();
+  const willSend = confirmSendsForReal({
+    switchOn,
+    preparedLive: campaign.mode === "LIVE",
+    authKeySet: Boolean(msg91AuthKey()),
+  });
+  const dryRun = !willSend;
   const waiting = campaign.status === "REVIEW";
+  const warning = confirmWarning({ switchOn, authKeySet: Boolean(msg91AuthKey()) });
   const canManage = isAdmin && working?.id === campaign.bankId && campaign.bank.active;
   const matching = campaign.deliveries.filter((row) => {
     if (channelFilter && row.channel !== channelFilter) return false;
@@ -142,9 +154,12 @@ export default async function CampaignPage({
       <AppHeader user={user} />
       <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 px-4 py-8 sm:px-6">
         <BackLinks links={[backToCampaigns(), backToSpreadsheet(campaign.batchId)]} />
+        <SendSteps current={waiting ? 3 : 4} />
         <div>
           <p className="text-sm text-muted-foreground">{campaign.bank.name}</p>
-          <h1 className="mt-1 font-serif text-4xl tracking-tight">Review send</h1>
+          <h1 className="mt-1 font-serif text-4xl tracking-tight">
+            {waiting ? "Review who will get it" : "Who was included"}
+          </h1>
           <p className="mt-3 text-sm text-muted-foreground">
             {campaignStatusLabel(campaign.status, campaign.mode)}
             <span className="mx-2">·</span>
@@ -216,11 +231,7 @@ export default async function CampaignPage({
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-3 text-sm leading-6">
-            {dryRun ? (
-              <p>{campaign.dryRunNote || "This is a dry run. No message will be sent."}</p>
-            ) : (
-              <p>Live send is on. Confirming will call MSG91.</p>
-            )}
+            <p>{dryRun ? campaign.dryRunNote || warning : warning}</p>
             <ul className="flex flex-col gap-1">
               {counts.map((count) => (
                 <li key={count.channel}>
@@ -300,7 +311,14 @@ export default async function CampaignPage({
             }))}
         />
 
-        {waiting && canManage ? <ConfirmCampaign campaignId={campaign.id} dryRun={dryRun} /> : null}
+        {waiting && canManage ? (
+          <section className="flex flex-col gap-3" aria-labelledby="send-step">
+            <h2 id="send-step" className="font-serif text-2xl">
+              4. Send
+            </h2>
+            <ConfirmCampaign campaignId={campaign.id} dryRun={dryRun} />
+          </section>
+        ) : null}
         {waiting && isAdmin && !canManage ? (
           <p className="text-sm text-muted-foreground">
             This send is still waiting. Confirm it only while you are working on {campaign.bank.name}
