@@ -2,6 +2,7 @@
 
 import { NO_BANK, requiredBankId } from "./bank-data";
 import { deliveryStatusLabel, sendChannelLabel } from "./campaigns";
+import { hideVendorWording } from "./staff-language";
 import { prisma } from "./db";
 import { noticePageHref } from "./notice-link";
 import { postalStatusLabel } from "./postal";
@@ -91,11 +92,17 @@ export async function searchLoanMatches(bankId: string, text: string): Promise<L
   return [...matches.values()];
 }
 
+export function alreadySent(status: string | null | undefined): boolean {
+  return Boolean(status) && status !== "REVIEW";
+}
+
 export async function loadAccountTimeline(input: {
   bankId: string;
   loan?: string;
   account?: string;
   mobile?: string;
+  technical?: boolean;
+  sentOnly?: boolean;
 }): Promise<AccountTimeline | null> {
   const scope = requiredBankId(input.bankId);
   const loan = (input.loan ?? "").trim();
@@ -105,36 +112,63 @@ export async function loadAccountTimeline(input: {
 
   if (loan || account) {
     const where = loan ? { bankId: scope, loanNumber: loan } : { bankId: scope, customerId: account };
+    const sent = input.sentOnly ? { campaign: { status: { not: "REVIEW" as const } } } : {};
     const [notices, deliveries, consignments] = await Promise.all([
-      prisma.publicNotice.findMany({ where, orderBy: { createdAt: "asc" } }),
+      prisma.publicNotice.findMany({ where: { ...where, ...sent }, orderBy: { createdAt: "asc" } }),
       prisma.campaignDelivery.findMany({
-        where,
+        where: { ...where, ...sent },
         include: {
-          campaign: { select: { id: true, templateName: true, createdAt: true, confirmedAt: true, mode: true } },
+          campaign: { select: { id: true, templateName: true, createdAt: true, confirmedAt: true, mode: true, status: true } },
         },
         orderBy: { campaign: { createdAt: "asc" } },
       }),
       prisma.speedPostConsignment.findMany({
-        where,
+        where: { ...where, ...sent },
         include: { events: { orderBy: { occurredAt: "asc" } } },
       }),
     ]);
-    return assembleTimeline({ bankId: scope, loan, account, notices, deliveries, consignments });
+    return assembleTimeline({
+      bankId: scope,
+      loan,
+      account,
+      notices,
+      deliveries: deliveries.filter((row) => !input.sentOnly || alreadySent(row.campaign.status)),
+      consignments,
+      technical: input.technical,
+      viewOnly: input.sentOnly,
+    });
   }
 
   const tail = mobile.replace(/\D/g, "").slice(-10);
   if (tail.length < 10) {
-    return assembleTimeline({ bankId: scope, loan: "", account: "", notices: [], deliveries: [], consignments: [] });
+    return assembleTimeline({
+      bankId: scope,
+      loan: "",
+      account: "",
+      notices: [],
+      deliveries: [],
+      consignments: [],
+      technical: input.technical,
+      viewOnly: input.sentOnly,
+    });
   }
   const candidates = await prisma.campaignDelivery.findMany({
-    where: { bankId: scope, mobile: { contains: tail } },
+    where: {
+      bankId: scope,
+      mobile: { contains: tail },
+      ...(input.sentOnly ? { campaign: { status: { not: "REVIEW" } } } : {}),
+    },
     include: {
-      campaign: { select: { id: true, templateName: true, createdAt: true, confirmedAt: true, mode: true } },
+      campaign: { select: { id: true, templateName: true, createdAt: true, confirmedAt: true, mode: true, status: true } },
     },
     orderBy: { campaign: { createdAt: "asc" } },
     take: 200,
   });
-  const deliveries = candidates.filter((row) => row.mobile.replace(/\D/g, "").slice(-10) === tail);
+  const deliveries = candidates.filter(
+    (row) =>
+      row.mobile.replace(/\D/g, "").slice(-10) === tail &&
+      (!input.sentOnly || alreadySent(row.campaign.status)),
+  );
   const noticeNumbers = [...new Set(deliveries.map((row) => row.noticeNumber).filter(Boolean))];
   const loans = [...new Set(deliveries.map((row) => row.loanNumber).filter(Boolean))];
   const postalOr = [
@@ -143,16 +177,28 @@ export async function loadAccountTimeline(input: {
   ].filter((item): item is { noticeNumber: { in: string[] } } | { loanNumber: { in: string[] } } => Boolean(item));
   const [notices, consignments] = await Promise.all([
     noticeNumbers.length
-      ? prisma.publicNotice.findMany({ where: { bankId: scope, noticeNumber: { in: noticeNumbers } } })
+      ? prisma.publicNotice.findMany({
+          where: {
+            bankId: scope,
+            noticeNumber: { in: noticeNumbers },
+            ...(input.sentOnly ? { campaign: { status: { not: "REVIEW" } } } : {}),
+          },
+        })
       : Promise.resolve([]),
     postalOr.length
       ? prisma.speedPostConsignment.findMany({
-          where: { bankId: scope, OR: postalOr },
+          where: {
+            bankId: scope,
+            OR: postalOr,
+            ...(input.sentOnly ? { campaign: { status: { not: "REVIEW" } } } : {}),
+          },
           include: { events: { orderBy: { occurredAt: "asc" } } },
         })
       : Promise.resolve([]),
   ]);
   return assembleTimeline({
+    technical: input.technical,
+    viewOnly: input.sentOnly,
     bankId: scope,
     loan: loans.length === 1 ? loans[0] : "",
     account: "",
@@ -204,6 +250,8 @@ type ConsignmentRow = {
 };
 
 export function assembleTimeline(input: {
+  technical?: boolean;
+  viewOnly?: boolean;
   bankId: string;
   loan: string;
   account: string;
@@ -257,8 +305,11 @@ export function assembleTimeline(input: {
       id: `delivery-${row.id}`,
       at: when,
       kind: "channel",
-      title: `${channel} · ${deliveryStatusLabel(row.status)}`,
-      detail: [row.campaign.templateName, row.detail].filter(Boolean).join(" · "),
+      title: `${channel} · ${deliveryStatusLabel(row.status, Boolean(input.technical))}`,
+      detail: hideVendorWording(
+        [row.campaign.templateName, row.detail].filter(Boolean).join(" · "),
+        Boolean(input.technical),
+      ),
       href: `/campaigns/${row.campaign.id}?bank=${encodeURIComponent(input.bankId)}`,
       hrefLabel: "Open send",
     });
@@ -268,7 +319,10 @@ export function assembleTimeline(input: {
         at: row.openedAt,
         kind: "channel",
         title: `${channel} opened`,
-        detail: row.campaign.mode === "DRY_RUN" ? "Recorded on a dry run." : "MSG91 reported this as opened or read.",
+        detail: hideVendorWording(
+          row.campaign.mode === "DRY_RUN" ? "Recorded on a dry run." : "MSG91 reported this as opened or read.",
+          Boolean(input.technical),
+        ),
         href: `/campaigns/${row.campaign.id}?bank=${encodeURIComponent(input.bankId)}`,
         hrefLabel: "Open send",
       });
@@ -283,9 +337,12 @@ export function assembleTimeline(input: {
         at: event.occurredAt,
         kind: "speed-post",
         title: `Speed Post · ${postalStatusLabel(event.status)}`,
-        detail: [article, event.note, sourceLabel(event.source)].filter(Boolean).join(" · "),
-        href: `/speed-post/${consignment.id}?bank=${encodeURIComponent(input.bankId)}`,
-        hrefLabel: "Open consignment",
+        detail: hideVendorWording(
+          [article, event.note, sourceLabel(event.source)].filter(Boolean).join(" · "),
+          Boolean(input.technical),
+        ),
+        href: input.viewOnly ? "" : `/speed-post/${consignment.id}?bank=${encodeURIComponent(input.bankId)}`,
+        hrefLabel: input.viewOnly ? "" : "Open consignment",
       });
     }
   }

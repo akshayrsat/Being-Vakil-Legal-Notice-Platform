@@ -10,6 +10,8 @@ import { noticePublicUrl } from "@/lib/notice-link";
 import { postalStatusLabel } from "@/lib/postal";
 import { noticeLinkOpensByNumber } from "@/lib/public-notice";
 import { resolveReportBank } from "@/lib/report-bank";
+import { isBankUser } from "@/lib/roles";
+import { seesVendorDetail } from "@/lib/staff-language";
 
 export const dynamic = "force-dynamic";
 
@@ -33,7 +35,7 @@ export async function GET(request: Request) {
   }
 
   const rows = await prisma.campaignDelivery.findMany({
-    where: deliveryWhere(bank.id, filters),
+    where: deliveryWhere(bank.id, filters, { sentOnly: isBankUser(user.role) }),
     include: {
       campaign: {
         select: {
@@ -100,7 +102,7 @@ export async function GET(request: Request) {
     targetId: bank.id,
   });
 
-  return new NextResponse(reportCsv(report), {
+  return new NextResponse(reportCsv(report, seesVendorDetail(user)), {
     headers: {
       "Content-Type": "text/csv; charset=utf-8",
       "Content-Disposition": `attachment; filename="notice-status-${bank.code}.csv"`,

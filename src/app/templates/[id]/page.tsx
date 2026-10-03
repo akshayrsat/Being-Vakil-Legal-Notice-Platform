@@ -19,6 +19,7 @@ import { backToTemplates } from "@/lib/desk-back";
 import { prisma } from "@/lib/db";
 import { firmLibraryTemplateWhere } from "@/lib/demo-templates";
 import { isOwnerAdmin } from "@/lib/owner-admin";
+import { isBankUser } from "@/lib/roles";
 import { templateDetailCard, templateMissingCopy } from "@/lib/template-library";
 import { parseChannels, templatePageKicker } from "@/lib/templates";
 
@@ -29,6 +30,7 @@ export const metadata: Metadata = {
 export default async function TemplatePage({ params }: { params: Promise<{ id: string }> }) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
+  if (isBankUser(user.role)) redirect("/deliveries");
 
   const bank = workingBank(user);
   if (!bank) redirect("/templates");

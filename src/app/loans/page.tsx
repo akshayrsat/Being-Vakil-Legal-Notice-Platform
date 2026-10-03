@@ -9,7 +9,8 @@ import { getCurrentUser } from "@/lib/auth";
 import { workingBank } from "@/lib/bank-context";
 import { loadAccountTimeline, searchLoanMatches } from "@/lib/loan-timeline";
 import { resolveReportBank } from "@/lib/report-bank";
-import { canChooseBank } from "@/lib/roles";
+import { isOwnerAdmin } from "@/lib/owner-admin";
+import { canChooseBank, isBankUser } from "@/lib/roles";
 
 export const metadata: Metadata = {
   title: "Loan history",
@@ -22,6 +23,7 @@ export default async function LoansPage({
 }) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
+  if (isBankUser(user.role)) redirect("/deliveries");
   const query = await searchParams;
   const bank = await resolveReportBank(user, query.bank ?? workingBank(user)?.id ?? "");
   const isAdmin = canChooseBank(user.role);
@@ -63,7 +65,7 @@ export default async function LoansPage({
           </form>
 
           {loan || account ? (
-            <Timeline bankId={bank.id} loan={loan} account={account} />
+            <Timeline bankId={bank.id} loan={loan} account={account} technical={isOwnerAdmin(user)} />
           ) : text ? (
             <Matches bankId={bank.id} text={text} />
           ) : (
@@ -102,8 +104,18 @@ async function Matches({ bankId, text }: { bankId: string; text: string }) {
   );
 }
 
-async function Timeline({ bankId, loan, account }: { bankId: string; loan: string; account: string }) {
-  const timeline = await loadAccountTimeline({ bankId, loan, account });
+async function Timeline({
+  bankId,
+  loan,
+  account,
+  technical,
+}: {
+  bankId: string;
+  loan: string;
+  account: string;
+  technical: boolean;
+}) {
+  const timeline = await loadAccountTimeline({ bankId, loan, account, technical });
   if (!timeline) return null;
   return (
     <section className="flex flex-col gap-3">

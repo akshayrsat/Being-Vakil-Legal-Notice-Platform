@@ -25,7 +25,7 @@ import { backToUploads } from "@/lib/desk-back";
 import { loadTemplateLibrary } from "@/lib/load-template-library";
 import { prisma } from "@/lib/db";
 import { isOwnerAdmin } from "@/lib/owner-admin";
-import { canSendNotices } from "@/lib/roles";
+import { canSendNotices, isBankUser } from "@/lib/roles";
 import { SHEET_FIELDS, type FieldKey, type FieldMapping } from "@/lib/sheet-fields";
 import { templateLibraryNotes } from "@/lib/template-library";
 import { wordingHref } from "@/lib/send-notice";
@@ -46,6 +46,7 @@ export default async function UploadBatchPage({
 }) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
+  if (isBankUser(user.role)) redirect("/deliveries");
 
   const bank = workingBank(user);
   const { id } = await params;

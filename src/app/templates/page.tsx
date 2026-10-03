@@ -19,7 +19,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { workingBank } from "@/lib/bank-context";
 import { loadTemplateLibrary } from "@/lib/load-template-library";
 import { isOwnerAdmin } from "@/lib/owner-admin";
-import { canChooseBank } from "@/lib/roles";
+import { canChooseBank, isBankUser } from "@/lib/roles";
 import {
   templateLibraryNotes,
   templatesEmptyLibrary,
@@ -35,6 +35,7 @@ export const metadata: Metadata = {
 export default async function TemplatesPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
+  if (isBankUser(user.role)) redirect("/deliveries");
 
   const bank = workingBank(user);
   const isAdmin = canChooseBank(user.role);

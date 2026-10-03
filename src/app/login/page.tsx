@@ -44,7 +44,7 @@ export default async function LoginPage() {
             <CardDescription>
               {isOtpEnabled()
                 ? "Admin accounts also need a one-time code by text after the password. A Bank Viewer does not."
-                : "Use a practice login below, or type an email and password yourself. A one-time code is not used, because MSG91 is not set up on this computer."}
+                : "Use a practice login below, or type an email and password yourself. A one-time code is not used on this computer."}
             </CardDescription>
           </CardHeader>
           <CardContent>

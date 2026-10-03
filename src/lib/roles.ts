@@ -87,7 +87,7 @@ export function roleSummary(role: string): string {
     return "You can send a notice for the bank you are working on, and you can add a bank user for one bank. You cannot turn live send on or off, add a bank, or open the audit log.";
   }
   if (isBankUser(role)) {
-    return "You can look at this one bank. You cannot see another bank, send a notice, add a login, or turn live send on or off.";
+    return "You can look at notices already sent for this one bank, including delivery status, and you can download that bank’s report. You cannot upload a spreadsheet, send a notice, change wording, add a login, or see another bank.";
   }
   return "Ask the owner to check this account. It should be an owner, a legal coordinator, or a bank user.";
 }

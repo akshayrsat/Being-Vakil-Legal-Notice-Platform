@@ -19,6 +19,7 @@ import { emailNoticeVars, whatsappNoticeVars, smsNoticeVars } from "@/lib/notice
 import { noticePdfDataUri, noticePdfFileName, renderNoticePdf } from "@/lib/notice-pdf";
 import { writePreparedDeliveries } from "@/lib/prepare-send";
 import { tooManyAttempts } from "@/lib/rate-limit";
+import { isOwnerAdmin } from "@/lib/owner-admin";
 import { canSendNotices } from "@/lib/roles";
 import {
   isApprovedTemplateStatus,
@@ -46,7 +47,7 @@ async function adminBank() {
       error: "This bank is inactive. Mark it active on the Banks page before preparing a send.",
     };
   }
-  return { ok: true as const, bank, userId: current.user.id };
+  return { ok: true as const, bank, userId: current.user.id, user: current.user };
 }
 
 export async function createCampaign(
@@ -267,7 +268,9 @@ export async function confirmCampaign(
   if (!sends) {
     if (switchOn && campaign.mode === "LIVE") {
       return {
-        error: "Live send is on, but MSG91 is not set up, so nothing was sent.",
+        error: isOwnerAdmin(scope.user)
+          ? "Live send is on, but MSG91 is not set up, so nothing was sent."
+          : "Sending is turned on, but it is not ready yet, so nothing was sent.",
       };
     }
     const done = await finishDryRun(campaign.id, scope.bank.id);

@@ -16,6 +16,8 @@ import { prisma } from "@/lib/db";
 import { loadAccountTimeline } from "@/lib/loan-timeline";
 import { noticeLinkOpensByNumber } from "@/lib/public-notice";
 import { resolveReportBank } from "@/lib/report-bank";
+import { isBankUser } from "@/lib/roles";
+import { hideVendorWording, seesVendorDetail } from "@/lib/staff-language";
 
 export const metadata: Metadata = {
   title: "Person history",
@@ -45,11 +47,17 @@ export default async function PersonHistoryPage({
     Boolean(item),
   );
 
+  const technical = seesVendorDetail(user);
+  const sentOnly = isBankUser(user.role);
   const rows =
     or.length === 0
       ? []
       : await prisma.campaignDelivery.findMany({
-          where: { bankId: bank.id, OR: or },
+          where: {
+            bankId: bank.id,
+            OR: or,
+            ...(sentOnly ? { campaign: { status: { not: "REVIEW" } } } : {}),
+          },
           include: {
             campaign: {
               select: {
@@ -75,6 +83,8 @@ export default async function PersonHistoryPage({
     loan,
     account: loan ? "" : customer,
     mobile: loan || customer ? "" : mobile,
+    technical,
+    sentOnly,
   });
 
   return (
@@ -118,11 +128,13 @@ export default async function PersonHistoryPage({
                 <p className="mt-2 text-sm">
                   {sendChannelLabel(row.channel)}
                   <span className="mx-2 text-muted-foreground">·</span>
-                  {deliveryStatusLabel(row.status)}
+                  {deliveryStatusLabel(row.status, technical)}
                   <span className="mx-2 text-muted-foreground">·</span>
-                  {campaignStatusLabel(row.campaign.status, row.campaign.mode)}
+                  {campaignStatusLabel(row.campaign.status, row.campaign.mode, technical)}
                 </p>
-                {row.detail ? <p className="mt-1 text-sm text-muted-foreground">{row.detail}</p> : null}
+                {row.detail ? (
+                  <p className="mt-1 text-sm text-muted-foreground">{hideVendorWording(row.detail, technical)}</p>
+                ) : null}
                 <MessageOpened openedAt={row.openedAt} className="mt-1 text-sm text-muted-foreground" />
                 <NoticeLinkOpened
                   open={linkOpens.get(row.noticeNumber)}

@@ -15,11 +15,13 @@ export async function CampaignSpeedPost({
   campaignId,
   bankId,
   canManage,
+  viewOnly = false,
   people,
 }: {
   campaignId: string;
   bankId: string;
   canManage: boolean;
+  viewOnly?: boolean;
   people: Array<{
     recipientRowId: string;
     customerName: string;
@@ -40,7 +42,9 @@ export async function CampaignSpeedPost({
       <CardHeader>
         <CardTitle>Speed Post</CardTitle>
         <CardDescription>
-          Physical dispatch sits beside SMS, email, and WhatsApp. Mark a person, then enter the article number on the consignment.
+          {viewOnly
+            ? "Postal status recorded for this notice."
+            : "Physical dispatch sits beside SMS, email, and WhatsApp. Mark a person, then enter the article number on the consignment."}
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
@@ -70,10 +74,14 @@ export async function CampaignSpeedPost({
                   {consignment ? (
                     <p className="mt-2 text-sm">
                       {consignment.articleNumber || "Article number not entered"}
-                      <span className="mx-2 text-muted-foreground">·</span>
-                      <Link href={`/speed-post/${consignment.id}?bank=${encodeURIComponent(bankId)}`} className="underline">
-                        Open consignment
-                      </Link>
+                      {viewOnly ? null : (
+                        <>
+                          <span className="mx-2 text-muted-foreground">·</span>
+                          <Link href={`/speed-post/${consignment.id}?bank=${encodeURIComponent(bankId)}`} className="underline">
+                            Open consignment
+                          </Link>
+                        </>
+                      )}
                     </p>
                   ) : canManage ? (
                     <div className="mt-2">
@@ -86,7 +94,7 @@ export async function CampaignSpeedPost({
                   ) : (
                     <p className="mt-2 text-sm text-muted-foreground">Not marked as Speed Post.</p>
                   )}
-                  {loanHref ? (
+                  {!viewOnly && loanHref ? (
                     <p className="mt-2 text-sm">
                       <Link href={loanHref} className="underline">
                         Loan timeline
@@ -100,12 +108,16 @@ export async function CampaignSpeedPost({
         )}
         {people.length > shown.length ? (
           <p className="text-sm text-muted-foreground">
-            Showing the first {shown.length} people. The full list is on Speed Post.
+            {viewOnly
+              ? `Showing the first ${shown.length} people.`
+              : `Showing the first ${shown.length} people. The full list is on Speed Post.`}
           </p>
         ) : null}
-        <Link href={`/speed-post?bank=${bankId}&campaign=${campaignId}`} className="text-sm underline">
-          All Speed Post for this send
-        </Link>
+        {viewOnly ? null : (
+          <Link href={`/speed-post?bank=${bankId}&campaign=${campaignId}`} className="text-sm underline">
+            All Speed Post for this send
+          </Link>
+        )}
       </CardContent>
     </Card>
   );

@@ -87,7 +87,8 @@ test("delivery status words match the export vocabulary", () => {
   assert.equal(deliveryStatusWord("DELIVERED"), "delivered");
   assert.equal(deliveryStatusWord("FAILED"), "failed");
   assert.equal(deliveryStatusWord("SKIPPED"), "skipped");
-  assert.equal(deliveryStatusWord("SIMULATED_SENT"), "simulated");
+  assert.equal(deliveryStatusWord("SIMULATED_SENT"), "dry run");
+  assert.equal(deliveryStatusWord("SIMULATED_SENT", false), "not sent");
   assert.equal(deliveryStatusWord("READ"), "read");
 });
 
@@ -150,7 +151,7 @@ test("delivery CSV columns and one row per person and channel", () => {
   assert.equal(ashaSms[mobile], "9811111111");
   assert.equal(ashaSms[email], "");
   assert.equal(ashaSms[campaign], "Legal notice");
-  assert.equal(ashaSms[status], "simulated");
+  assert.equal(ashaSms[status], "dry run");
   assert.equal(ashaSms[openedAt], "");
   assert.equal(ashaSms[msg91], "");
   assert.equal(ashaSms[linkAt], "");

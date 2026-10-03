@@ -1,6 +1,6 @@
 // Filters for the status list. The form uses a normal address so the CSV link can share it.
 
-import { DELIVERY_STATUS_OPTIONS, sendChannelLabel } from "@/lib/campaigns";
+import { deliveryStatusChoices, sendChannelLabel } from "@/lib/campaigns";
 import { SEND_CHANNELS } from "@/lib/campaign-plan";
 import type { DeliveryFilters } from "@/lib/delivery-report";
 import { Button } from "@/components/ui/button";
@@ -10,11 +10,13 @@ export function DeliveryFiltersForm({
   filters,
   bankId,
   campaigns,
+  technical = false,
 }: {
   action: string;
   filters: DeliveryFilters;
   bankId: string;
   campaigns: Array<{ id: string; name: string }>;
+  technical?: boolean;
 }) {
   return (
     <form action={action} method="get" className="grid gap-3 sm:grid-cols-2">
@@ -66,7 +68,7 @@ export function DeliveryFiltersForm({
           className="h-11 rounded-lg border border-input bg-card px-3 text-sm font-normal"
         >
           <option value="">All statuses</option>
-          {DELIVERY_STATUS_OPTIONS.map((option) => (
+          {deliveryStatusChoices(technical).map((option) => (
             <option key={option.id} value={option.id}>
               {option.label}
             </option>

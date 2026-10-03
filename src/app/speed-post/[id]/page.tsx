@@ -21,7 +21,7 @@ import { prisma } from "@/lib/db";
 import { loanSearchHref } from "@/lib/loan-timeline";
 import { indiaPostConfigured, postalStatusLabel } from "@/lib/postal";
 import { scopedBankId } from "@/lib/report-bank";
-import { canSendNotices } from "@/lib/roles";
+import { canSendNotices, isBankUser } from "@/lib/roles";
 
 export const metadata: Metadata = {
   title: "Consignment",
@@ -36,6 +36,7 @@ export default async function SpeedPostDetailPage({
 }) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
+  if (isBankUser(user.role)) redirect("/deliveries");
   const { id } = await params;
   const query = await searchParams;
   const scope = scopedBankId(user, query.bank);

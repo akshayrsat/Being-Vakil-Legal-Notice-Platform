@@ -1,7 +1,7 @@
 // One place to send a notice. Spreadsheet upload and the saved send stay in the database.
 // The screen walks through them in order. Labels stay in plain English.
 
-import { canChooseBank, canCreateLogins, isOwner } from "./roles";
+import { canChooseBank, canCreateLogins, isBankUser, isOwner } from "./roles";
 
 export const SEND_NOTICE_HREF = "/send";
 export const SEND_NOTICE_LABEL = "Send notice";
@@ -38,6 +38,13 @@ export type SendStepNumber = (typeof SEND_STEPS)[number]["number"];
 export type NavLink = { href: string; label: string };
 
 export function workspaceNav(role: string): NavLink[] {
+  if (isBankUser(role)) {
+    return [
+      { href: "/dashboard", label: "Home" },
+      { href: "/deliveries", label: "Tracking" },
+      { href: "/reports", label: "Reports" },
+    ];
+  }
   const links: NavLink[] = [
     { href: "/dashboard", label: "Home" },
     { href: SEND_NOTICE_HREF, label: SEND_NOTICE_LABEL },
@@ -74,14 +81,25 @@ export function sendNoticeIntro(bankName: string, canSend: boolean): string {
 }
 
 // Same switch the confirm button uses. Never hardcode that live send is off.
-export function confirmWarning(input: { switchOn: boolean; authKeySet: boolean }): string {
+export function confirmWarning(input: {
+  switchOn: boolean;
+  authKeySet: boolean;
+  technical?: boolean;
+}): string {
+  const technical = input.technical !== false;
   if (!input.switchOn) {
-    return "Confirming records a dry run. Nothing is sent.";
+    return technical
+      ? "Confirming records a dry run. Nothing is sent."
+      : "Confirming records the notice. Nothing is sent.";
   }
   if (!input.authKeySet) {
-    return "Live send is on, but MSG91 is not set up, so a confirm cannot send yet.";
+    return technical
+      ? "Live send is on, but MSG91 is not set up, so a confirm cannot send yet."
+      : "Sending is turned on, but it is not ready yet, so a confirm cannot send.";
   }
-  return "Confirming sends the notice for real. Messages go out.";
+  return technical
+    ? "Confirming sends the notice for real. Messages go out."
+    : "Confirming sends the notice for real by SMS, email, or WhatsApp.";
 }
 
 export function spreadsheetAction(

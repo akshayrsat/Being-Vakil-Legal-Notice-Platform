@@ -14,9 +14,17 @@ export const DELIVERY_STATUS_OPTIONS = [
   { id: "PENDING", label: "Waiting" },
 ] as const;
 
-export function deliveryStatusLabel(status: string): string {
+export function deliveryStatusLabel(status: string, technical = false): string {
   if (status === "SENT" || status === "DELIVERED") return "Delivered";
+  if (status === "SIMULATED_SENT") return technical ? "Dry run" : "Not sent";
   return DELIVERY_STATUS_OPTIONS.find((option) => option.id === status)?.label ?? "Waiting";
+}
+
+export function deliveryStatusChoices(technical = false): Array<{ id: string; label: string }> {
+  return DELIVERY_STATUS_OPTIONS.map((option) => ({
+    id: option.id,
+    label: deliveryStatusLabel(option.id, technical),
+  }));
 }
 
 export function isDeliveryStatus(value: string): boolean {
@@ -28,10 +36,12 @@ export function statusesForFilter(status: string): DeliveryStatus[] {
   return [status as DeliveryStatus];
 }
 
-export function campaignStatusLabel(status: string, mode: string): string {
+export function campaignStatusLabel(status: string, mode: string, technical = false): string {
   if (status === "REVIEW") return "Waiting for confirmation";
   if (status === "FAILED") return "Failed";
-  if (status === "COMPLETED" && mode === "DRY_RUN") return "Dry run finished";
+  if (status === "COMPLETED" && mode === "DRY_RUN") {
+    return technical ? "Dry run finished" : "Recorded, nothing sent";
+  }
   if (status === "COMPLETED") return "Send finished";
   return "Waiting for confirmation";
 }

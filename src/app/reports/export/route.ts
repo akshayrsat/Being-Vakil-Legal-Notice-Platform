@@ -3,6 +3,7 @@ import { auditCurrentUser } from "@/lib/audit";
 import { getCurrentUser } from "@/lib/auth";
 import { loadDeskReport, readReportFilters, reportSummaryCsv } from "@/lib/desk-reports";
 import { resolveReportBank } from "@/lib/report-bank";
+import { isBankUser } from "@/lib/roles";
 
 export const dynamic = "force-dynamic";
 
@@ -15,7 +16,7 @@ export async function GET(request: Request) {
   const bank = await resolveReportBank(user, url.searchParams.get("bank") ?? "");
   if (!bank) return new NextResponse("Choose a bank first.\n", { status: 400 });
 
-  const report = await loadDeskReport(bank.id, filters);
+  const report = await loadDeskReport(bank.id, filters, { sentOnly: isBankUser(user.role) });
   await auditCurrentUser({
     action: "export",
     summary: `Downloaded a report summary for ${bank.name}.`,

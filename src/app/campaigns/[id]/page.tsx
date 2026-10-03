@@ -22,12 +22,12 @@ import {
 import { getCurrentUser } from "@/lib/auth";
 import { campaignWhere } from "@/lib/bank-data";
 import { workingBank } from "@/lib/bank-context";
-import { backToCampaigns, backToSpreadsheet } from "@/lib/desk-back";
+import { backToCampaigns, backToSearch, backToSpreadsheet } from "@/lib/desk-back";
 import { isSendChannel, parseSendChannels, SEND_CHANNELS } from "@/lib/campaign-plan";
 import {
   campaignStatusLabel,
   countByChannel,
-  DELIVERY_STATUS_OPTIONS,
+  deliveryStatusChoices,
   deliveryStatusLabel,
   isDeliveryStatus,
   labelsForChannels,
@@ -44,7 +44,8 @@ import { loanSearchHref } from "@/lib/loan-timeline";
 import { noticeLinkOpensByNumber } from "@/lib/public-notice";
 import { scopedBankId, withBank } from "@/lib/report-bank";
 import { isOwnerAdmin } from "@/lib/owner-admin";
-import { canSendNotices } from "@/lib/roles";
+import { canSendNotices, isBankUser } from "@/lib/roles";
+import { hideVendorWording } from "@/lib/staff-language";
 
 export const metadata: Metadata = {
   title: "Review send",
@@ -67,7 +68,8 @@ export default async function CampaignPage({
   const { id } = await params;
   const query = await searchParams;
   const isAdmin = canSendNotices(user.role);
-  const showVendorDetail = isOwnerAdmin(user);
+  const technical = isOwnerAdmin(user);
+  const bankUser = isBankUser(user.role);
   const scope = scopedBankId(user, query.bank);
   const channelFilter = isSendChannel((query.channel ?? "").toUpperCase())
     ? (query.channel ?? "").toUpperCase()
@@ -84,7 +86,7 @@ export default async function CampaignPage({
           batch: { select: { fileName: true, rowCount: true } },
           followsCampaign: { select: { id: true, templateName: true, bankId: true } },
           followUps: {
-            where: { bankId: scope },
+            where: { bankId: scope, ...(bankUser ? { status: { not: "REVIEW" } } : {}) },
             select: { id: true, templateName: true, status: true, mode: true },
             orderBy: { createdAt: "desc" },
           },
@@ -95,6 +97,8 @@ export default async function CampaignPage({
         },
       })
     : null;
+
+  if (bankUser && campaign?.status === "REVIEW") redirect("/deliveries");
 
   if (!campaign) {
     return (
@@ -130,7 +134,11 @@ export default async function CampaignPage({
   });
   const dryRun = !willSend;
   const waiting = campaign.status === "REVIEW";
-  const warning = confirmWarning({ switchOn, authKeySet: Boolean(msg91AuthKey()) });
+  const warning = confirmWarning({
+    switchOn,
+    authKeySet: Boolean(msg91AuthKey()),
+    technical,
+  });
   const canManage = isAdmin && working?.id === campaign.bankId && campaign.bank.active;
   const matching = campaign.deliveries.filter((row) => {
     if (channelFilter && row.channel !== channelFilter) return false;
@@ -153,15 +161,21 @@ export default async function CampaignPage({
     <div className="flex min-h-full flex-col">
       <AppHeader user={user} />
       <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 px-4 py-8 sm:px-6">
-        <BackLinks links={[backToCampaigns(), backToSpreadsheet(campaign.batchId)]} />
-        <SendSteps current={waiting ? 3 : 4} />
+        <BackLinks
+          links={
+            bankUser
+              ? [backToSearch(campaign.bankId)]
+              : [backToCampaigns(), backToSpreadsheet(campaign.batchId)]
+          }
+        />
+        {bankUser ? null : <SendSteps current={waiting ? 3 : 4} />}
         <div>
           <p className="text-sm text-muted-foreground">{campaign.bank.name}</p>
           <h1 className="mt-1 font-serif text-4xl tracking-tight">
             {waiting ? "Review who will get it" : "Who was included"}
           </h1>
           <p className="mt-3 text-sm text-muted-foreground">
-            {campaignStatusLabel(campaign.status, campaign.mode)}
+            {campaignStatusLabel(campaign.status, campaign.mode, technical)}
             <span className="mx-2">·</span>
             {labelsForChannels(channels) || "No channel"}
           </p>
@@ -176,9 +190,12 @@ export default async function CampaignPage({
 
         {query.done === "1" ? (
           <p className="rounded-lg border border-border bg-card px-3 py-2 text-sm" role="status">
-            {dryRun
-              ? "Dry run finished. Nothing was sent."
-              : "The send was handed to MSG91 for the people who were not skipped."}
+            {hideVendorWording(
+              dryRun
+                ? "Dry run finished. Nothing was sent."
+                : "The send was handed to MSG91 for the people who were not skipped.",
+              technical,
+            )}
           </p>
         ) : null}
 
@@ -213,7 +230,7 @@ export default async function CampaignPage({
                     </Link>
                     <span className="text-muted-foreground">
                       {" "}
-                      · {campaignStatusLabel(followUp.status, followUp.mode)}
+                      · {campaignStatusLabel(followUp.status, followUp.mode, technical)}
                     </span>
                   </li>
                 ))}
@@ -227,11 +244,11 @@ export default async function CampaignPage({
             <CardTitle>{campaign.templateName}</CardTitle>
             <CardDescription>
               {campaign.batch.fileName}. {people} {people === 1 ? "person" : "people"} in this send.
-              {showVendorDetail && campaign.dltTemplateId ? ` DLT id ${campaign.dltTemplateId}.` : ""}
+              {technical && campaign.dltTemplateId ? ` DLT id ${campaign.dltTemplateId}.` : ""}
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-3 text-sm leading-6">
-            <p>{dryRun ? campaign.dryRunNote || warning : warning}</p>
+            <p>{hideVendorWording(dryRun ? campaign.dryRunNote || warning : warning, technical)}</p>
             <ul className="flex flex-col gap-1">
               {counts.map((count) => (
                 <li key={count.channel}>
@@ -240,18 +257,27 @@ export default async function CampaignPage({
               ))}
             </ul>
             <p className="text-muted-foreground">
-              Speed Post is tracked on its own card. A dry run still does not call MSG91.
-              {campaign.bank.attachNoticePdf
-                ? " Live emails for this bank also attach a PDF. The notice link stays in the message."
-                : " Notice PDFs are off for this bank. Turn them on under Banks if a live email should carry the letter."}
+              {bankUser
+                ? "Delivery status for this notice is listed below. Speed Post status is included when it was recorded for this send."
+                : (
+                  <>
+                    Speed Post is tracked on its own card.{" "}
+                    {hideVendorWording("A dry run still does not call MSG91.", technical)}
+                    {campaign.bank.attachNoticePdf
+                      ? " Live emails for this bank also attach a PDF. The notice link stays in the message."
+                      : " Notice PDFs are off for this bank. Turn them on under Banks if a live email should carry the letter."}
+                  </>
+                )}
             </p>
             <div className="flex flex-wrap gap-2">
-              <Link
-                href={withBank(`/campaigns/${campaign.id}/reminders`, campaign.bankId)}
-                className={buttonVariants({ variant: "outline", className: "h-11 px-4" })}
-              >
-                Reminders
-              </Link>
+              {bankUser ? null : (
+                <Link
+                  href={withBank(`/campaigns/${campaign.id}/reminders`, campaign.bankId)}
+                  className={buttonVariants({ variant: "outline", className: "h-11 px-4" })}
+                >
+                  Reminders
+                </Link>
+              )}
               <Link
                 href={exportHref}
                 className={buttonVariants({ variant: "outline", className: "h-11 px-4" })}
@@ -288,7 +314,9 @@ export default async function CampaignPage({
                       </p>
                       <NoticeOpenLink noticeNumber={row.noticeNumber} />
                     </div>
-                    <p className="px-3 py-3 text-sm leading-6 whitespace-pre-wrap">{row.messageText}</p>
+                    <p className="px-3 py-3 text-sm leading-6 whitespace-pre-wrap">
+                      {hideVendorWording(row.messageText, technical)}
+                    </p>
                   </li>
                 ))}
               </ul>
@@ -300,6 +328,7 @@ export default async function CampaignPage({
           campaignId={campaign.id}
           bankId={campaign.bankId}
           canManage={canManage}
+          viewOnly={bankUser}
           people={campaign.deliveries
             .filter((row, index, list) => list.findIndex((item) => item.recipientRowId === row.recipientRowId) === index)
             .map((row) => ({
@@ -316,7 +345,7 @@ export default async function CampaignPage({
             <h2 id="send-step" className="font-serif text-2xl">
               4. Send
             </h2>
-            <ConfirmCampaign campaignId={campaign.id} dryRun={dryRun} />
+            <ConfirmCampaign campaignId={campaign.id} dryRun={dryRun} technical={technical} />
           </section>
         ) : null}
         {waiting && isAdmin && !canManage ? (
@@ -338,7 +367,9 @@ export default async function CampaignPage({
               {matching.length !== campaign.deliveries.length
                 ? ` (${campaign.deliveries.length} in this send).`
                 : "."}{" "}
-              A dry run stays Dry run. It is not called delivered.
+              {technical
+                ? "A dry run stays Dry run. It is not called delivered."
+                : "Not sent stays not sent. It is not called delivered."}
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
@@ -367,7 +398,7 @@ export default async function CampaignPage({
                   className="h-11 rounded-lg border border-input bg-card px-3 text-sm font-normal"
                 >
                   <option value="">All statuses</option>
-                  {DELIVERY_STATUS_OPTIONS.map((option) => (
+                  {deliveryStatusChoices(technical).map((option) => (
                     <option key={option.id} value={option.id}>
                       {option.label}
                     </option>
@@ -414,13 +445,13 @@ export default async function CampaignPage({
                           </td>
                           <td className="px-2 py-2">{sendChannelLabel(row.channel)}</td>
                           <td className="px-2 py-2">
-                            <p>{deliveryStatusLabel(row.status)}</p>
+                            <p>{deliveryStatusLabel(row.status, technical)}</p>
                             <MessageOpened openedAt={row.openedAt} />
                             <NoticeLinkOpened open={linkOpens.get(row.noticeNumber)} />
                           </td>
                           <td className="px-2 py-2 text-muted-foreground">
-                            <p>{row.detail || "—"}</p>
-                            {loanHref ? (
+                            <p>{hideVendorWording(row.detail, technical) || "—"}</p>
+                            {!bankUser && loanHref ? (
                               <Link href={loanHref} className="underline">
                                 Loan timeline
                               </Link>
@@ -441,7 +472,13 @@ export default async function CampaignPage({
           </CardContent>
         </Card>
 
-        <BackLinks links={[backToCampaigns(), backToSpreadsheet(campaign.batchId)]} />
+        <BackLinks
+          links={
+            bankUser
+              ? [backToSearch(campaign.bankId)]
+              : [backToCampaigns(), backToSpreadsheet(campaign.batchId)]
+          }
+        />
       </main>
     </div>
   );

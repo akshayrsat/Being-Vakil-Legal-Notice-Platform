@@ -24,6 +24,7 @@ import {
   canChooseBank,
   canCreateLogins,
   canSendNotices,
+  isBankUser,
   isOwner,
   roleAccent,
   roleAudience,
@@ -44,6 +45,7 @@ export function DashboardHome({ user, liveSendOn }: { user: SignedInUser; liveSe
   const isAdmin = canSendNotices(user.role);
   const owner = isOwner(user.role);
   const vendor = isOwnerAdmin(user);
+  const bankUser = isBankUser(user.role);
   const choosesBank = canChooseBank(user.role);
   const bank = workingBank(user);
   const gates = vendor
@@ -130,7 +132,7 @@ export function DashboardHome({ user, liveSendOn }: { user: SignedInUser; liveSe
                   Add a login
                 </Link>
               ) : null}
-              {bank ? (
+              {bank && isAdmin ? (
                 <Link
                   href="/send"
                   className={buttonVariants({ variant: "outline", className: "h-11 w-fit px-4" })}
@@ -138,12 +140,12 @@ export function DashboardHome({ user, liveSendOn }: { user: SignedInUser; liveSe
                   Send notice
                 </Link>
               ) : null}
-              {bank ? (
+              {bank && isAdmin ? (
                 <Link
                   href="/templates"
                   className={buttonVariants({ variant: "outline", className: "h-11 w-fit px-4" })}
                 >
-                  {isAdmin ? "Notice templates" : "View templates"}
+                  Notice templates
                 </Link>
               ) : null}
               {owner ? (
@@ -162,7 +164,7 @@ export function DashboardHome({ user, liveSendOn }: { user: SignedInUser; liveSe
                   Find a person
                 </Link>
               ) : null}
-              {bank ? (
+              {bank && isAdmin ? (
                 <Link
                   href={`/speed-post?bank=${bank.id}`}
                   className={buttonVariants({ variant: "outline", className: "h-11 w-fit px-4" })}
@@ -246,6 +248,7 @@ export function DashboardHome({ user, liveSendOn }: { user: SignedInUser; liveSe
           </CardContent>
         </Card>
 
+        {bankUser ? null : (
         <Card>
           <CardHeader>
             <CardTitle>Practice notice pages</CardTitle>
@@ -266,6 +269,7 @@ export function DashboardHome({ user, liveSendOn }: { user: SignedInUser; liveSe
             </ul>
           </CardContent>
         </Card>
+        )}
 
         {gates ? (
           <Card>
@@ -312,9 +316,13 @@ export function DashboardHome({ user, liveSendOn }: { user: SignedInUser; liveSe
           </CardHeader>
           <CardContent>
             <p className="leading-7 text-foreground">
-              {vendor
-                ? "The owner and a legal coordinator choose a bank and send a notice from that bank’s spreadsheet and the approved wording. They do not write templates here. They review who will get it, then confirm. Only the owner turns live send on or off in Settings. When it is off, confirming records a dry run and nothing is sent. When it is on, confirming sends through MSG91. The audit log names the person and their role."
-                : "The owner and a legal coordinator choose a bank and send a notice from that bank’s spreadsheet and the approved wording. They do not write templates here. They review who will get it, then confirm. Only the owner turns sending on or off in Settings. The audit log names the person and their role. A bank user can look at their one bank. They cannot send, add a login, or change sending."}
+              {bankUser
+                ? "You can look at notices already sent for your bank, see whether each one was delivered, and download that bank’s report. You cannot upload a spreadsheet or send a notice."
+                : vendor
+                  ? "The owner and a legal coordinator choose a bank and send a notice from that bank’s spreadsheet and the approved wording. They do not write templates here. They review who will get it, then confirm. Only the owner turns live send on or off in Settings. When it is off, confirming records a dry run and nothing is sent. When it is on, confirming sends through MSG91. The audit log names the person and their role."
+                  : owner
+                    ? "You can send a notice for the bank you are working on, and you can turn sending on or off in Settings. Staff do not write templates here. When sending is off, confirming records the notice and nothing goes out. When sending is on, confirming sends by SMS, email, or WhatsApp."
+                    : "You can send a notice for the bank you are working on. Choose the spreadsheet, the approved wording, review who will get it, then send. Staff do not write templates here. When sending is off, confirming records the notice and nothing goes out. When sending is on, confirming sends by SMS, email, or WhatsApp."}
             </p>
           </CardContent>
         </Card>

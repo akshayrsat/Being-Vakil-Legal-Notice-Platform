@@ -21,7 +21,7 @@ import {
 const FALSE_OFF = ["MSG91 switched off", "Confirming with live send off records a dry run"];
 
 test("staff navigation has one Send notice item and no Loans, Uploads, or Campaigns tab", () => {
-  for (const role of [ROLE_OWNER, ROLE_COORDINATOR, ROLE_BANK_USER, ROLE_BANK_VIEWER]) {
+  for (const role of [ROLE_OWNER, ROLE_COORDINATOR]) {
     const links = workspaceNav(role);
     const labels = links.map((link) => link.label);
     assert.equal(labels.filter((label) => label === SEND_NOTICE_LABEL).length, 1);
@@ -35,6 +35,12 @@ test("staff navigation has one Send notice item and no Loans, Uploads, or Campai
     assert.equal(links.some((link) => link.href === "/loans"), false);
     assert.equal(links.some((link) => link.href === "/uploads"), false);
     assert.equal(links.some((link) => link.href === "/campaigns"), false);
+  }
+  for (const role of [ROLE_BANK_USER, ROLE_BANK_VIEWER]) {
+    const labels = workspaceNav(role).map((link) => link.label);
+    assert.equal(labels.includes(SEND_NOTICE_LABEL), false);
+    assert.equal(labels.includes("Templates"), false);
+    assert.equal(labels.includes("Loans"), false);
   }
 });
 

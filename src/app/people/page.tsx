@@ -29,7 +29,7 @@ const ROLE_COPY = {
   },
   [ROLE_BANK_USER]: {
     label: "Bank user",
-    detail: "Can only see the one bank you choose.",
+    detail: "Can look at notices already sent for one bank, including delivery status, and can download that bank’s report. Cannot upload, send, change wording, or see another bank.",
   },
 } as const;
 

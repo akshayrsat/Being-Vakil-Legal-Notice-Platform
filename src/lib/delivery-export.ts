@@ -64,7 +64,9 @@ export type DeliveryExportRow = {
   noticeUrl: string;
 };
 
-export function deliveryStatusWord(status: string): string {
+export function deliveryStatusWord(status: string, technical = true): string {
+  if (!technical && status === "SIMULATED_SENT") return "not sent";
+  if (technical && status === "SIMULATED_SENT") return "dry run";
   return STATUS_WORDS[status] ?? status.trim().toLowerCase();
 }
 
@@ -98,6 +100,7 @@ export function rowBelongsToBank(row: DeliveryExportRow, bankId: string): boolea
 export function deliveryExportWhere(
   bankId: string,
   filters: Pick<ReportFilters, "channel" | "from" | "to">,
+  options?: { sentOnly?: boolean },
 ): Prisma.CampaignDeliveryWhereInput | null {
   const id = bankId.trim();
   if (!id) return null;
@@ -109,17 +112,28 @@ export function deliveryExportWhere(
       bankId: id,
       batch: { bankId: id },
       ...(createdAt ? { createdAt } : {}),
+      ...(options?.sentOnly ? { status: { not: "REVIEW" } } : {}),
     },
   };
   if (isSendChannel(filters.channel)) where.channel = filters.channel;
   return where;
 }
 
-export function deliveryExportCsv(bank: { id: string; name: string }, rows: DeliveryExportRow[]): string {
+export function deliveryExportColumns(technical = true): string[] {
+  return DELIVERY_EXPORT_COLUMNS.map((column) =>
+    !technical && column === "MSG91 open or read" ? "Opened" : column,
+  );
+}
+
+export function deliveryExportCsv(
+  bank: { id: string; name: string },
+  rows: DeliveryExportRow[],
+  technical = true,
+): string {
   const kept = rows.filter((row) => rowBelongsToBank(row, bank.id)).sort(compareRows);
-  const lines = [DELIVERY_EXPORT_COLUMNS.map((column) => csvCell(column)).join(",")];
+  const lines = [deliveryExportColumns(technical).map((column) => csvCell(column)).join(",")];
   for (const row of kept) {
-    lines.push(cellsFor(bank.name, row).map((cell) => csvCell(cell)).join(","));
+    lines.push(cellsFor(bank.name, row, technical).map((cell) => csvCell(cell)).join(","));
   }
   return `\uFEFF${lines.join("\r\n")}\r\n`;
 }
@@ -127,9 +141,10 @@ export function deliveryExportCsv(bank: { id: string; name: string }, rows: Deli
 export async function loadDeliveryExportRows(
   bankId: string,
   filters: Pick<ReportFilters, "channel" | "from" | "to">,
+  options?: { sentOnly?: boolean },
 ): Promise<DeliveryExportRow[]> {
   const id = bankId.trim();
-  const where = deliveryExportWhere(id, filters);
+  const where = deliveryExportWhere(id, filters, options);
   if (!where) return [];
 
   const rows = await prisma.campaignDelivery.findMany({
@@ -189,7 +204,7 @@ export async function loadDeliveryExportRows(
   });
 }
 
-function cellsFor(bankName: string, row: DeliveryExportRow): string[] {
+function cellsFor(bankName: string, row: DeliveryExportRow, technical: boolean): string[] {
   const contact = contactForChannel(row);
   return [
     bankName,
@@ -201,7 +216,7 @@ function cellsFor(bankName: string, row: DeliveryExportRow): string[] {
     contact.email,
     sendChannelLabel(row.channel),
     row.campaignName,
-    deliveryStatusWord(row.status),
+    deliveryStatusWord(row.status, technical),
     row.openedAt ? formatIstTimestamp(row.openedAt) : "",
     msg91OpenReadLabel(row.status, row.openedAt),
     row.linkOpenedAt ? formatIstTimestamp(row.linkOpenedAt) : "",

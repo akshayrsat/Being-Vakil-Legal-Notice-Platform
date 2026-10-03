@@ -5,13 +5,16 @@
 import { useActionState } from "react";
 import { confirmCampaign } from "@/app/actions/campaigns";
 import { Button } from "@/components/ui/button";
+import { confirmButtonLabel, confirmHelp } from "@/lib/staff-language";
 
 export function ConfirmCampaign({
   campaignId,
   dryRun,
+  technical = false,
 }: {
   campaignId: string;
   dryRun: boolean;
+  technical?: boolean;
 }) {
   const [state, formAction, pending] = useActionState(confirmCampaign, null);
 
@@ -19,9 +22,7 @@ export function ConfirmCampaign({
     <form action={formAction} className="flex flex-col gap-3">
       <input type="hidden" name="campaignId" value={campaignId} />
       <p className="text-sm leading-6 text-muted-foreground">
-        {dryRun
-          ? "Confirming records a dry run on this computer. MSG91 is not called."
-          : "Confirming asks MSG91 to deliver the notices that are not skipped. Each row is claimed once, so a second confirm does not send it again."}
+        {confirmHelp(dryRun, technical)}
       </p>
       {state?.error ? (
         <p
@@ -32,7 +33,7 @@ export function ConfirmCampaign({
         </p>
       ) : null}
       <Button type="submit" className="h-11 w-full px-4 sm:w-fit" disabled={pending}>
-        {pending ? "Finishing…" : dryRun ? "Confirm dry run" : "Confirm send"}
+        {confirmButtonLabel(dryRun, technical, pending)}
       </Button>
     </form>
   );

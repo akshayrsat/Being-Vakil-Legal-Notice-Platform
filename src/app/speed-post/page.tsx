@@ -20,7 +20,7 @@ import { prisma } from "@/lib/db";
 import { formatIndiaDateTime } from "@/lib/india-day";
 import { indiaPostConfigured, isPostalStatus, POSTAL_STATUS_OPTIONS } from "@/lib/postal";
 import { resolveReportBank } from "@/lib/report-bank";
-import { canSendNotices } from "@/lib/roles";
+import { canSendNotices, isBankUser } from "@/lib/roles";
 
 export const metadata: Metadata = {
   title: "Speed Post",
@@ -33,6 +33,7 @@ export default async function SpeedPostPage({
 }) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
+  if (isBankUser(user.role)) redirect("/deliveries");
   const query = await searchParams;
   const bank = await resolveReportBank(user, query.bank ?? workingBank(user)?.id ?? "");
   const isAdmin = canSendNotices(user.role);

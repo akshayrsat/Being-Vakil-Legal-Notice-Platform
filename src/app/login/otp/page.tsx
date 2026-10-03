@@ -42,7 +42,7 @@ export default async function OtpPage({
         <BrandLogo size="mark" priority />
         <h1 className="mt-6 font-serif text-4xl tracking-tight text-primary">One-time code</h1>
         <p className="mt-3 text-base leading-7 text-muted-foreground">
-          Enter the code MSG91 sent to the firm mobile saved on this computer. A Bank Viewer does
+          Enter the code sent by text to the firm mobile saved on this computer. A bank user does
           not use this step.
         </p>
         <Card className="mt-8">

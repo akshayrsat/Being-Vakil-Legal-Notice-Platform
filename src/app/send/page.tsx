@@ -27,7 +27,8 @@ import { formatIndiaDateTime } from "@/lib/india-day";
 import { liveSendIsOn } from "@/lib/live-send-store";
 import { loadTemplateLibrary } from "@/lib/load-template-library";
 import { msg91AuthKey } from "@/lib/msg91";
-import { canSendNotices, isOwner } from "@/lib/roles";
+import { isOwnerAdmin } from "@/lib/owner-admin";
+import { canSendNotices, isBankUser, isOwner } from "@/lib/roles";
 import {
   confirmWarning,
   sendNoticeIntro,
@@ -51,13 +52,15 @@ export default async function SendNoticePage({
   await connection();
   const user = await getCurrentUser();
   if (!user) redirect("/login");
+  if (isBankUser(user.role)) redirect("/deliveries");
 
   const bank = workingBank(user);
   const isAdmin = canSendNotices(user.role);
   const owner = isOwner(user.role);
   const query = await searchParams;
   const switchOn = await liveSendIsOn();
-  const warning = confirmWarning({ switchOn, authKeySet: Boolean(msg91AuthKey()) });
+  const vendor = isOwnerAdmin(user);
+  const warning = confirmWarning({ switchOn, authKeySet: Boolean(msg91AuthKey()), technical: vendor });
 
   return (
     <div className="flex min-h-full flex-col">
@@ -108,6 +111,7 @@ export default async function SendNoticePage({
             isAdmin={isAdmin}
             requestedBatchId={query.batch ?? ""}
             warning={warning}
+            technical={vendor}
           />
         )}
       </main>
@@ -122,6 +126,7 @@ async function SendNoticeBody({
   isAdmin,
   requestedBatchId,
   warning,
+  technical,
 }: {
   bankId: string;
   bankName: string;
@@ -129,6 +134,7 @@ async function SendNoticeBody({
   isAdmin: boolean;
   requestedBatchId: string;
   warning: string;
+  technical: boolean;
 }) {
   const canSend = isAdmin && bankActive;
   const batches = await prisma.uploadBatch.findMany({
@@ -146,7 +152,6 @@ async function SendNoticeBody({
     savedCount: library.templates.length,
     approvedCount: templates.length,
     elsewhere: library.elsewhere,
-    canWrite: canSend,
   });
   const savedBatches = batches.filter((batch) => batch.saved);
 
@@ -296,12 +301,20 @@ async function SendNoticeBody({
         </CardContent>
       </Card>
 
-      <EarlierNotices bankId={bankId} warning={warning} />
+      <EarlierNotices bankId={bankId} warning={warning} technical={technical} />
     </>
   );
 }
 
-async function EarlierNotices({ bankId, warning }: { bankId: string; warning: string }) {
+async function EarlierNotices({
+  bankId,
+  warning,
+  technical,
+}: {
+  bankId: string;
+  warning: string;
+  technical: boolean;
+}) {
   const campaigns = await prisma.campaign.findMany({
     where: campaignWhere(bankId),
     orderBy: { createdAt: "desc" },
@@ -337,7 +350,7 @@ async function EarlierNotices({ bankId, warning }: { bankId: string; warning: st
                   <p className="mt-1 text-sm text-muted-foreground">
                     {campaign.batch.fileName}
                     <span className="mx-2">·</span>
-                    {campaignStatusLabel(campaign.status, campaign.mode)}
+                    {campaignStatusLabel(campaign.status, campaign.mode, technical)}
                     {channels ? (
                       <>
                         <span className="mx-2">·</span>
