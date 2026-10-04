@@ -18,6 +18,7 @@ import { demandNoticePlainText } from "../src/lib/demand-notice";
 import { DEMO_NOTICES } from "../src/lib/demo-notices";
 import { noticePageHref } from "../src/lib/notice-link";
 import { alignMsg91Library } from "../src/lib/align-msg91-library";
+import { ensureStarterLegalNotice } from "../src/lib/legal-notice-templates";
 import { isBankUser } from "../src/lib/roles";
 
 const prisma = new PrismaClient();
@@ -97,6 +98,9 @@ async function main() {
   if (library.deleted > 0) {
     console.log(`Deleted ${library.deleted} unreferenced practice template(s).`);
   }
+
+  await ensureStarterLegalNotice(prisma);
+  console.log("Legal notice template is ready: Legal notice.");
 
   for (const notice of DEMO_NOTICES) {
     const data = {

@@ -148,6 +148,14 @@ export function DashboardHome({ user, liveSendOn }: { user: SignedInUser; liveSe
                   Notice templates
                 </Link>
               ) : null}
+              {isAdmin ? (
+                <Link
+                  href="/legal-notices"
+                  className={buttonVariants({ variant: "outline", className: "h-11 w-fit px-4" })}
+                >
+                  Legal notice templates
+                </Link>
+              ) : null}
               {owner ? (
                 <Link
                   href="/settings"

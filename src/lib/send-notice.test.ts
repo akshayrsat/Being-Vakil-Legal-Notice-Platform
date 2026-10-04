@@ -69,7 +69,8 @@ test("send steps stay in plain order and old list pages return to Send notice", 
     SEND_STEPS.map((step) => step.title),
     [
       "Choose the spreadsheet of people",
-      "Choose the approved notice wording",
+      "Choose SMS, email, and WhatsApp",
+      "Choose the legal notice",
       "Review who will get it",
       "Send",
     ],
@@ -83,7 +84,7 @@ test("send steps stay in plain order and old list pages return to Send notice", 
   assert.equal(isSendNoticePath("/campaigns/abc"), true);
   assert.equal(isSendNoticePath("/loans"), false);
   assert.equal(wordingHref("batch_1"), "/send?batch=batch_1");
-  assert.equal(spreadsheetAction({ id: "batch_1", saved: true }, true).label, "Choose the notice wording");
+  assert.equal(spreadsheetAction({ id: "batch_1", saved: true }, true).label, "Choose the wording");
 });
 
 test("the send screen says the truth about live send", () => {

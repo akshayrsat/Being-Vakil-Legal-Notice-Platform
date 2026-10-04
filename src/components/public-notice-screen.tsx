@@ -4,6 +4,7 @@ import { headers } from "next/headers";
 import { NoticeLetterfoot, NoticeLetterhead, NoticeSignature } from "@/components/notice-letter";
 import { PrintLetterButton } from "@/components/print-letter-button";
 import { buildDemandNotice } from "@/lib/demand-notice";
+import { legalNoticeParagraphs, usesStructuredDemand } from "@/lib/legal-notice-templates";
 import {
   findPublicNotice,
   normalizeNoticeNumber,
@@ -59,6 +60,9 @@ function NoticeMissing({ kind }: { kind: "empty" | "missing" | "error" }) {
 }
 
 function PublicNoticeDocument({ notice }: { notice: PublicNoticeView }) {
+  if (!usesStructuredDemand(notice.documentFormat)) {
+    return <FilledLegalNotice notice={notice} />;
+  }
   const letter = buildDemandNotice({
     customerName: notice.customerName,
     address: notice.address,
@@ -105,6 +109,32 @@ function PublicNoticeDocument({ notice }: { notice: PublicNoticeView }) {
             </div>
             {letter.closing.map((paragraph) => (
               <p key={paragraph}>{paragraph}</p>
+            ))}
+          </div>
+          <NoticeSignature bankName={notice.bankName} />
+          <NoticeLetterfoot />
+        </article>
+      </div>
+    </main>
+  );
+}
+
+function FilledLegalNotice({ notice }: { notice: PublicNoticeView }) {
+  const paragraphs = legalNoticeParagraphs(notice.body);
+  const lines = paragraphs.length > 0 ? paragraphs : ["This notice has no wording."];
+  return (
+    <main className="notice-screen">
+      <div className="no-print mb-3 flex w-full max-w-[210mm] justify-end">
+        <PrintLetterButton />
+      </div>
+      <div className="notice-stage">
+        <article className="notice-sheet notice-letter bg-card shadow-sm ring-1 ring-foreground/10">
+          <NoticeLetterhead />
+          <div className="notice-copy">
+            {lines.map((paragraph, index) => (
+              <p key={`${index}-${paragraph.slice(0, 24)}`} className="whitespace-pre-wrap">
+                {paragraph}
+              </p>
             ))}
           </div>
           <NoticeSignature bankName={notice.bankName} />

@@ -168,7 +168,7 @@ export default async function CampaignPage({
               : [backToCampaigns(), backToSpreadsheet(campaign.batchId)]
           }
         />
-        {bankUser ? null : <SendSteps current={waiting ? 3 : 4} />}
+        {bankUser ? null : <SendSteps current={waiting ? 4 : 5} />}
         <div>
           <p className="text-sm text-muted-foreground">{campaign.bank.name}</p>
           <h1 className="mt-1 font-serif text-4xl tracking-tight">
@@ -179,6 +179,9 @@ export default async function CampaignPage({
             <span className="mx-2">·</span>
             {labelsForChannels(channels) || "No channel"}
           </p>
+          {campaign.legalNoticeName ? (
+            <p className="mt-1 text-sm text-muted-foreground">Legal notice: {campaign.legalNoticeName}</p>
+          ) : null}
         </div>
 
         {isAdmin && working?.id !== campaign.bankId ? (
