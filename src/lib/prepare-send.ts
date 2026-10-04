@@ -20,6 +20,7 @@ export async function writePreparedDeliveries(
     rows: PlanRow[];
     channels: SendChannel[];
     include?: ReadonlySet<string>;
+    legalNotice?: { format: string; body: string } | null;
   },
 ): Promise<number> {
   const rows = includedRows(input.rows, input.include);
@@ -27,7 +28,7 @@ export async function writePreparedDeliveries(
   const drafts = rows.map((row, index) => {
     const noticeNumber = numbers[index];
     if (!noticeNumber) throw new Error("Could not assign a notice number.");
-    return buildNoticeDraft(row, input.bankName, noticeNumber);
+    return buildNoticeDraft(row, input.bankName, noticeNumber, input.legalNotice);
   });
 
   if (drafts.length > 0) {
@@ -50,6 +51,7 @@ export async function writePreparedDeliveries(
         bankWebsite: draft.bankWebsite,
         bankName: draft.bankName,
         body: draft.body,
+        documentFormat: draft.documentFormat,
       })),
     });
   }

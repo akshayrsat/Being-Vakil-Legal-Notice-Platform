@@ -9,6 +9,8 @@ export const SETTINGS_HREF = "/settings";
 export const SETTINGS_LABEL = "Settings";
 export const PEOPLE_HREF = "/people";
 export const PEOPLE_LABEL = "People";
+export const LEGAL_NOTICES_HREF = "/legal-notices";
+export const LEGAL_NOTICES_LABEL = "Legal notice templates";
 
 export const SEND_STEPS = [
   {
@@ -18,16 +20,21 @@ export const SEND_STEPS = [
   },
   {
     number: 2 as const,
-    title: "Choose the approved notice wording",
-    detail: "Approved wording is shared by the firm. Drafts are not listed.",
+    title: "Choose SMS, email, and WhatsApp",
+    detail: "Approved message wording is shared by the firm. Drafts are not listed.",
   },
   {
     number: 3 as const,
+    title: "Choose the legal notice",
+    detail: "The printed notice for this send. The firm can keep more than one.",
+  },
+  {
+    number: 4 as const,
     title: "Review who will get it",
     detail: "Check the people on this bank’s spreadsheet before anything is sent.",
   },
   {
-    number: 4 as const,
+    number: 5 as const,
     title: "Send",
     detail: "Confirm only when the people look right.",
   },
@@ -49,6 +56,7 @@ export function workspaceNav(role: string): NavLink[] {
     { href: "/dashboard", label: "Home" },
     { href: SEND_NOTICE_HREF, label: SEND_NOTICE_LABEL },
     { href: "/templates", label: "Templates" },
+    { href: LEGAL_NOTICES_HREF, label: LEGAL_NOTICES_LABEL },
     { href: "/deliveries", label: "Tracking" },
     { href: "/speed-post", label: "Speed Post" },
     { href: "/reports", label: "Reports" },
@@ -73,11 +81,11 @@ export function isSendNoticePath(pathname: string): boolean {
 }
 
 export function sendNoticeIntro(bankName: string, canSend: boolean): string {
-  const isolation = `The spreadsheet and the people stay on ${bankName}. Approved wording is shared by the firm.`;
+  const isolation = `The spreadsheet and the people stay on ${bankName}. Message wording and legal notice templates are shared by the firm.`;
   if (!canSend) {
     return `Notices for ${bankName}. You can look. You cannot upload a spreadsheet or send. ${isolation}`;
   }
-  return `Send a notice for ${bankName}. Choose this bank’s spreadsheet of people, choose the approved notice wording, review who will get it, then send. ${isolation}`;
+  return `Send a notice for ${bankName}. Choose this bank’s spreadsheet of people, choose SMS, email, or WhatsApp, choose the legal notice, review who will get it, then send. ${isolation}`;
 }
 
 // Same switch the confirm button uses. Never hardcode that live send is off.
@@ -113,7 +121,7 @@ export function spreadsheetAction(
   }
   return {
     href: `${SEND_NOTICE_HREF}?batch=${encodeURIComponent(id)}`,
-    label: "Choose the notice wording",
+    label: "Choose the wording",
   };
 }
 

@@ -25,6 +25,11 @@ import { campaignStatusLabel, labelsForChannels } from "@/lib/campaigns";
 import { prisma } from "@/lib/db";
 import { formatIndiaDateTime } from "@/lib/india-day";
 import { liveSendIsOn } from "@/lib/live-send-store";
+import {
+  ensureStarterLegalNotice,
+  legalNoticeChoiceLabel,
+  sortLegalNotices,
+} from "@/lib/legal-notice-templates";
 import { loadTemplateLibrary } from "@/lib/load-template-library";
 import { msg91AuthKey } from "@/lib/msg91";
 import { isOwnerAdmin } from "@/lib/owner-admin";
@@ -147,6 +152,12 @@ async function SendNoticeBody({
   const currentStep: SendStepNumber = selected ? 2 : 1;
   const library = await loadTemplateLibrary(bankId, isAdmin);
   const templates = library.approved;
+  await ensureStarterLegalNotice(prisma);
+  const legalNotices = sortLegalNotices(
+    await prisma.legalNoticeTemplate.findMany({
+      select: { id: true, name: true, seedKey: true },
+    }),
+  );
   const notes = templateLibraryNotes({
     bankName,
     savedCount: library.templates.length,
@@ -223,11 +234,11 @@ async function SendNoticeBody({
 
       <Card>
         <CardHeader>
-          <CardTitle>2. Choose the approved notice wording</CardTitle>
+          <CardTitle>2. Choose SMS, email, and WhatsApp</CardTitle>
           <CardDescription>
             {selected
-              ? `${selected.fileName}. Nothing is sent until you review who will get it.`
-              : "Choose a saved spreadsheet above. Then pick the approved wording here."}
+              ? `${selected.fileName}. Then choose the legal notice. Nothing is sent until you review who will get it.`
+              : "Choose a saved spreadsheet above. Then pick the message, and the legal notice."}
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-3">
@@ -240,7 +251,7 @@ async function SendNoticeBody({
           ) : requested && !requested.saved ? (
             <div className="flex flex-col gap-3">
               <p className="text-sm leading-6 text-muted-foreground">
-                {requested.fileName} still needs a column match before you can choose the wording.
+                {requested.fileName} still needs a column match before you can choose the message and the legal notice.
               </p>
               <Link
                 href={`/uploads/${requested.id}`}
@@ -256,7 +267,7 @@ async function SendNoticeBody({
             </p>
           ) : !selected ? (
             <p className="text-sm leading-6 text-muted-foreground">
-              Press Choose the notice wording on a spreadsheet above.
+              Press Choose the wording on a spreadsheet above.
             </p>
           ) : templates.length === 0 ? (
             <div className="flex flex-col gap-3">
@@ -293,6 +304,10 @@ async function SendNoticeBody({
                     bankId,
                   ),
                   channels: parseChannels(template.channels).filter(isSendChannel),
+                }))}
+                legalNotices={legalNotices.map((notice) => ({
+                  id: notice.id,
+                  name: legalNoticeChoiceLabel(notice),
                 }))}
                 initialBatchId={selected.id}
               />
@@ -334,7 +349,7 @@ async function EarlierNotices({
       </div>
       {campaigns.length === 0 ? (
         <EmptyState title="No notices yet">
-          Choose a spreadsheet and the approved wording above. {warning}
+          Choose a spreadsheet, the message, and the legal notice above. {warning}
         </EmptyState>
       ) : (
         <ul className="flex flex-col gap-3">
@@ -350,6 +365,12 @@ async function EarlierNotices({
                   <p className="mt-1 text-sm text-muted-foreground">
                     {campaign.batch.fileName}
                     <span className="mx-2">·</span>
+                    {campaign.legalNoticeName ? (
+                      <>
+                        {campaign.legalNoticeName}
+                        <span className="mx-2">·</span>
+                      </>
+                    ) : null}
                     {campaignStatusLabel(campaign.status, campaign.mode, technical)}
                     {channels ? (
                       <>

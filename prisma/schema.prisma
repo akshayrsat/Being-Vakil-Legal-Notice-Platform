@@ -76,6 +76,20 @@ model NoticeTemplate {
   @@index([bankId])
 }
 
+// The printed legal notice. Firm-wide: no bank.
+// This is not the SMS, email, or WhatsApp message (those stay on NoticeTemplate).
+// format "demand" is the notice the app already sends. format "text" is wording staff add.
+// seedKey is set only for that starter notice.
+model LegalNoticeTemplate {
+  id        String   @id @default(cuid())
+  name      String
+  body      String
+  format    String   @default("text")
+  seedKey   String?  @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 // The column match saved for one bank. The next spreadsheet for that bank starts from this.
 model BankColumnMap {
   bankId    String   @id
@@ -212,6 +226,12 @@ model Campaign {
   templateName  String
   templateBody  String
   dltTemplateId String             @default("")
+  // Snapshot of the printed legal notice chosen for this send.
+  // Empty on older sends, which keep the notice the app already used.
+  legalNoticeTemplateId String     @default("")
+  legalNoticeName       String     @default("")
+  legalNoticeBody       String     @default("")
+  legalNoticeFormat     String     @default("")
   channels      String
   mode          CampaignMode
   status        CampaignStatus     @default(REVIEW)
@@ -286,6 +306,8 @@ model PublicNotice {
   bankWebsite       String    @default("")
   bankName          String
   body              String
+  // "" or "demand": draw the existing legal notice. "text": body is the filled template.
+  documentFormat    String    @default("")
   seedKey           String?   @unique
   // First time the public notice page was opened (/notice-<id> and the other public routes).
   // This is the webpage view. It is not CampaignDelivery.openedAt (MSG91 email open or WhatsApp read).

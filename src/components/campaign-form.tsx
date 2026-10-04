@@ -12,14 +12,17 @@ import { sendChannelLabel } from "@/lib/campaigns";
 
 type BatchOption = { id: string; fileName: string; rowCount: number };
 type TemplateOption = { id: string; name: string; channels: SendChannel[] };
+type LegalNoticeOption = { id: string; name: string };
 
 export function CampaignForm({
   batches,
   templates,
+  legalNotices,
   initialBatchId,
 }: {
   batches: BatchOption[];
   templates: TemplateOption[];
+  legalNotices: LegalNoticeOption[];
   initialBatchId: string;
 }) {
   const [state, formAction, pending] = useActionState(createCampaign, null);
@@ -27,7 +30,9 @@ export function CampaignForm({
     ? initialBatchId
     : batches[0]?.id ?? "";
   const onlyTemplate = templates.length === 1 ? templates[0] : null;
+  const onlyLegalNotice = legalNotices.length === 1 ? legalNotices[0] : null;
   const [templateId, setTemplateId] = useState(onlyTemplate?.id ?? "");
+  const [legalNoticeId, setLegalNoticeId] = useState(onlyLegalNotice?.id ?? "");
   const [channels, setChannels] = useState<SendChannel[]>(
     onlyTemplate?.channels.length ? onlyTemplate.channels : onlyTemplate ? ["SMS"] : [],
   );
@@ -66,7 +71,7 @@ export function CampaignForm({
       </div>
 
       <div className="flex flex-col gap-2">
-        <Label htmlFor="campaign-template">Approved notice wording</Label>
+        <Label htmlFor="campaign-template">SMS, email, or WhatsApp</Label>
         <select
           id="campaign-template"
           name="templateId"
@@ -77,7 +82,7 @@ export function CampaignForm({
         >
           {templates.length > 1 ? (
             <option value="" disabled>
-              Choose the approved notice wording
+              Choose SMS, email, or WhatsApp
             </option>
           ) : null}
           {templates.map((template) => (
@@ -87,7 +92,7 @@ export function CampaignForm({
           ))}
         </select>
         <p className="text-sm font-normal text-muted-foreground">
-          Approved notice wording, A to Z, for every bank. Drafts are not listed. The same list is on Templates.
+          This is the message. Approved wording, A to Z, for every bank. Drafts are not listed. The same list is on Templates.
         </p>
       </div>
 
@@ -118,6 +123,33 @@ export function CampaignForm({
           A person with no email is skipped for email. Speed Post cannot be ticked yet.
         </p>
       </fieldset>
+
+      <div className="flex flex-col gap-2 border-t border-border pt-5">
+        <h3 className="font-serif text-2xl">Choose the legal notice</h3>
+        <p className="text-sm leading-6 text-muted-foreground">
+          This is the printed notice. It is separate from the SMS, email, and WhatsApp message. The same list is on Legal notice templates.
+        </p>
+        <Label htmlFor="campaign-legal-notice">Legal notice</Label>
+        <select
+          id="campaign-legal-notice"
+          name="legalNoticeTemplateId"
+          value={legalNoticeId}
+          onChange={(event) => setLegalNoticeId(event.target.value)}
+          required
+          className="h-11 rounded-lg border border-input bg-card px-3 text-sm"
+        >
+          {legalNotices.length !== 1 ? (
+            <option value="" disabled>
+              Choose the legal notice
+            </option>
+          ) : null}
+          {legalNotices.map((notice) => (
+            <option key={notice.id} value={notice.id}>
+              {notice.name}
+            </option>
+          ))}
+        </select>
+      </div>
 
       {state?.error ? (
         <p

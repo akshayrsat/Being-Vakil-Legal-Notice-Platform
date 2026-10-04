@@ -19,6 +19,7 @@ import { emailNoticeVars, whatsappNoticeVars, smsNoticeVars } from "@/lib/notice
 import { noticePdfDataUri, noticePdfFileName, renderNoticePdf } from "@/lib/notice-pdf";
 import { writePreparedDeliveries } from "@/lib/prepare-send";
 import { tooManyAttempts } from "@/lib/rate-limit";
+import { ensureStarterLegalNotice } from "@/lib/legal-notice-templates";
 import { isOwnerAdmin } from "@/lib/owner-admin";
 import { canSendNotices } from "@/lib/roles";
 import {
@@ -59,6 +60,7 @@ export async function createCampaign(
 
   const batchId = String(formData.get("batchId") ?? "");
   const templateId = String(formData.get("templateId") ?? "");
+  const legalNoticeTemplateId = String(formData.get("legalNoticeTemplateId") ?? "").trim();
   const channels = formData
     .getAll("channel")
     .map((value) => String(value).trim().toUpperCase())
@@ -101,6 +103,13 @@ export async function createCampaign(
     return { error: "Choose an approved template. Drafts cannot be sent." };
   }
   const wording = templateWording(template);
+  await ensureStarterLegalNotice(prisma);
+  const legalNotice = legalNoticeTemplateId
+    ? await prisma.legalNoticeTemplate.findUnique({ where: { id: legalNoticeTemplateId } })
+    : null;
+  if (!legalNotice) {
+    return { error: "Choose the legal notice." };
+  }
 
   const live = await isLiveSendEnabled();
   const campaign = await prisma.$transaction(
@@ -113,6 +122,10 @@ export async function createCampaign(
           templateName: wording.name,
           templateBody: wording.body,
           dltTemplateId: wording.dltTemplateId,
+          legalNoticeTemplateId: legalNotice.id,
+          legalNoticeName: legalNotice.name,
+          legalNoticeBody: legalNotice.body,
+          legalNoticeFormat: legalNotice.format,
           channels: JSON.stringify(channels),
           mode: live ? "LIVE" : "DRY_RUN",
           status: "REVIEW",
@@ -127,6 +140,7 @@ export async function createCampaign(
         templateBody: wording.body,
         rows,
         channels,
+        legalNotice: { format: legalNotice.format, body: legalNotice.body },
       });
       return created;
     },
@@ -195,6 +209,10 @@ export async function startFollowUp(
             templateName: parent.templateName,
             templateBody: parent.templateBody,
             dltTemplateId: parent.dltTemplateId,
+            legalNoticeTemplateId: parent.legalNoticeTemplateId,
+            legalNoticeName: parent.legalNoticeName,
+            legalNoticeBody: parent.legalNoticeBody,
+            legalNoticeFormat: parent.legalNoticeFormat,
             channels: JSON.stringify(channels),
             mode: live ? "LIVE" : "DRY_RUN",
             status: "REVIEW",
@@ -211,6 +229,9 @@ export async function startFollowUp(
           rows,
           channels,
           include: missedKeys,
+          legalNotice: parent.legalNoticeFormat
+            ? { format: parent.legalNoticeFormat, body: parent.legalNoticeBody }
+            : null,
         });
         if (kept === 0) throw new Error("NO_FOLLOW_UP");
         return created;
@@ -477,6 +498,8 @@ async function emailPdfAttachment(
       bankWebsite: notice.bankWebsite,
       noticeNumber: notice.noticeNumber,
       dated: notice.createdAt,
+      documentFormat: notice.documentFormat,
+      filledBody: notice.body,
     });
     return {
       ok: true,

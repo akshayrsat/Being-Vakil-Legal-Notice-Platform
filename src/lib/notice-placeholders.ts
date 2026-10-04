@@ -45,6 +45,7 @@ export const NOTICE_PLACEHOLDERS: NoticePlaceholder[] = [
   { token: "bank_name", label: "Bank name", group: "Bank" },
   { token: "notice_number", label: "Notice number", group: "Notice" },
   { token: "notice_link", label: "Notice link", group: "Notice" },
+  { token: "notice_date", label: "Notice date", group: "Notice" },
 ];
 
 const byToken = new Map(NOTICE_PLACEHOLDERS.map((item) => [item.token, item]));

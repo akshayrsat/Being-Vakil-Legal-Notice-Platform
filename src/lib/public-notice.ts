@@ -6,6 +6,7 @@ import { logDesk } from "./desk-log";
 import { prisma } from "./db";
 import { tooManyAttempts } from "./rate-limit";
 import { demandNoticePlainText } from "./demand-notice";
+import { fillLegalNoticeDocument, isTextLegalNotice } from "./legal-notice-templates";
 import type { NoticeRecipient } from "./merge-notice";
 
 const ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -26,6 +27,7 @@ export type PublicNoticeView = {
   bankWebsite: string;
   bankName: string;
   body: string;
+  documentFormat: string;
   createdAt: Date;
 };
 
@@ -45,6 +47,7 @@ export type NoticeDraft = {
   bankWebsite: string;
   bankName: string;
   body: string;
+  documentFormat: string;
 };
 
 type NoticeRow = NoticeRecipient & { id: string };
@@ -68,7 +71,9 @@ export function buildNoticeDraft(
   row: NoticeRow,
   bankName: string,
   noticeNumber: string,
+  legalNotice?: { format: string; body: string } | null,
 ): NoticeDraft {
+  const dated = new Date();
   const letter = {
     customerName: row.customerName,
     address: row.address,
@@ -81,8 +86,9 @@ export function buildNoticeDraft(
     collectionManagerMobile: row.collectionManagerMobile,
     bankWebsite: row.bankWebsite,
     noticeNumber,
-    dated: new Date(),
+    dated,
   };
+  const textNotice = Boolean(legalNotice && isTextLegalNotice(legalNotice.format));
   return {
     noticeNumber,
     recipientRowId: row.id,
@@ -98,7 +104,10 @@ export function buildNoticeDraft(
     collectionManagerMobile: row.collectionManagerMobile,
     bankWebsite: row.bankWebsite,
     bankName,
-    body: demandNoticePlainText(letter),
+    body: textNotice
+      ? fillLegalNoticeDocument(legalNotice?.body ?? "", row, bankName, noticeNumber, dated)
+      : demandNoticePlainText(letter),
+    documentFormat: textNotice ? "text" : legalNotice?.format === "demand" ? "demand" : "",
   };
 }
 
@@ -242,6 +251,7 @@ export async function findPublicNotice(raw: string | undefined | null): Promise<
       bankWebsite: true,
       bankName: true,
       body: true,
+      documentFormat: true,
       createdAt: true,
     },
   });

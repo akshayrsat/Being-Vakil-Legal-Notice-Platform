@@ -14,6 +14,7 @@ export const AUDIT_ACTIONS = [
   { id: "upload", label: "Uploaded a spreadsheet" },
   { id: "mapping.save", label: "Saved a column match" },
   { id: "template.create", label: "Created a template" },
+  { id: "legal-notice.create", label: "Added a legal notice template" },
   { id: "template.approve", label: "Approved a template" },
   { id: "template.update", label: "Edited a template" },
   { id: "campaign.dry-run", label: "Confirmed a dry run" },

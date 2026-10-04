@@ -2,7 +2,7 @@ import { SEND_STEPS, type SendStepNumber } from "@/lib/send-notice";
 
 export function SendSteps({ current }: { current: SendStepNumber }) {
   return (
-    <ol aria-label="How to send a notice" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+    <ol aria-label="How to send a notice" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
       {SEND_STEPS.map((step) => {
         const currentStep = step.number === current;
         return (

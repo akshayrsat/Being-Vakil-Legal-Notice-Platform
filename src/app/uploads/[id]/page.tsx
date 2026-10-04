@@ -224,13 +224,13 @@ export default async function UploadBatchPage({
         {isAdmin && bank.active && batch.saved ? (
           <div className="flex flex-col gap-2">
             <p className="text-sm text-muted-foreground">
-              Columns are matched. Next, choose the approved notice wording.
+              Columns are matched. Next, choose SMS, email, or WhatsApp, then the legal notice.
             </p>
             <Link
               href={wordingHref(batch.id)}
               className={buttonVariants({ className: "h-11 w-fit px-4" })}
             >
-              Choose the notice wording
+              Choose the wording
             </Link>
           </div>
         ) : null}
