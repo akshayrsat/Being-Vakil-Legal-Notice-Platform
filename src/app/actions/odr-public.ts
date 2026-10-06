@@ -34,6 +34,7 @@ import {
   type PanelName,
 } from "@/lib/odr-consent";
 import { loadAppointmentConsent } from "@/lib/odr-consent-store";
+import { CONCILIATION_REPLY_DAYS, conciliationState, resolveLegalRoute, sameNeutralBar } from "@/lib/odr-route";
 import { panelJson } from "@/lib/odr-panel";
 import { busyByNeutral, scheduleFromBatch } from "@/lib/odr-slot-store";
 import { rulesFromSchedule, type HearingRules } from "@/lib/odr-slots";
@@ -238,8 +239,9 @@ export async function recordArbitratorConsent(_previous: PublicOdrState, formDat
   const found = await caseByToken(token);
   if (!found || !(await granted(found.id))) return { error: "Open the case again from your message." };
   if (found.matterType !== "ARBITRATION") return { error: "This step is for an arbitration case." };
-  const existing = await prisma.odrConsent.findFirst({ where: { caseId: found.id } });
-  if (existing) return { error: "A choice is already recorded on this case." };
+  const respondentId = found.viewer?.id ?? "";
+  const existing = await prisma.odrConsent.findFirst({ where: { caseId: found.id, respondentId } });
+  if (existing) return { error: "Your choice is already recorded." };
 
   const seats = await prisma.odrBankPanel.findMany({
     where: { bankId: found.bankId },
@@ -274,6 +276,19 @@ export async function recordArbitratorConsent(_previous: PublicOdrState, formDat
   if (picked === "PANEL" && chosenRow && neutralContactError(chosenRow)) {
     return { error: "That name cannot be chosen yet. The firm has not saved an email and mobile for them." };
   }
+  const appointId = picked === "PANEL" ? chosen?.id ?? "" : found.neutralId ?? "";
+  if (appointId) {
+    const prior = await prisma.odrNeutralService.findMany({ where: { caseId: found.id, neutralId: appointId }, select: { role: true } });
+    const barred = sameNeutralBar({ nextRole: "ARBITRATOR", priorRoles: prior.map((row) => row.role) });
+    if (barred) return { error: barred };
+  }
+  const others = await prisma.odrConsent.findMany({ where: { caseId: found.id, NOT: { respondentId } } });
+  const mineId = picked === "PANEL" ? chosen?.id ?? "" : picked === "ACCEPT" ? (found.nominatedNeutralId || found.neutralId || "") : "";
+  const clash = others.some((row) => {
+    const theirId = row.choice === "PANEL" ? row.chosenNeutralId : row.choice === "ACCEPT" ? (found.nominatedNeutralId || found.neutralId || "") : "";
+    return Boolean(mineId && theirId && mineId !== theirId);
+  });
+  if (clash) return { error: "Another respondent has already chosen a different arbitrator." };
   const shownText = consentShownText({
     customer: expectedName,
     bank: bank?.name ?? "",
@@ -366,8 +381,17 @@ export async function recordArbitratorConsent(_previous: PublicOdrState, formDat
         ip: meta.ip,
         userAgent: meta.userAgent,
         documentId: document.id,
+        respondentId,
+        respondentName: expectedName,
       },
     });
+    if (appointId) {
+      await tx.odrNeutralService.upsert({
+        where: { caseId_neutralId_role: { caseId: found.id, neutralId: appointId, role: "ARBITRATOR" } },
+        create: { caseId: found.id, neutralId: appointId, role: "ARBITRATOR" },
+        update: {},
+      });
+    }
     if (nextNeutral) {
       await tx.odrCase.update({
         where: { id: found.id },
@@ -406,6 +430,45 @@ export async function recordArbitratorConsent(_previous: PublicOdrState, formDat
     const { syncCaseCalendarGuests } = await import("@/lib/odr-runner");
     await syncCaseCalendarGuests(prisma, found.id);
   }
+  redirect(`/odr/c/${token}`);
+}
+
+export async function recordConciliationReply(_previous: PublicOdrState, formData: FormData): Promise<PublicOdrState> {
+  const token = String(formData.get("token") ?? "");
+  const found = await caseByToken(token);
+  if (!found || !(await granted(found.id))) return { error: "Open the case again from your message." };
+  if (resolveLegalRoute(found.legalRoute, found.matterType) !== "CONCILIATION") {
+    return { error: "This invitation is for a conciliation case." };
+  }
+  const choice = String(formData.get("choice") ?? "");
+  if (choice !== "ACCEPT" && choice !== "DECLINE") return { error: "Accept or decline the invitation." };
+  const respondentId = found.viewer?.id ?? "";
+  const existing = await prisma.odrRouteReply.findFirst({ where: { caseId: found.id, respondentId } });
+  if (existing) return { error: "Your reply is already recorded." };
+  const respondents = await prisma.odrRespondent.findMany({ where: { caseId: found.id }, select: { id: true, name: true } });
+  const state = conciliationState({
+    route: "CONCILIATION",
+    now: new Date(),
+    invitedAt: found.firstNoticeAt,
+    parties: [
+      { id: "", name: found.customerName, reply: null },
+      ...respondents.map((party) => ({ id: party.id, name: party.name, reply: null })),
+    ],
+  });
+  const due = found.firstNoticeAt ? new Date(found.firstNoticeAt.getTime() + CONCILIATION_REPLY_DAYS * 86400000) : null;
+  if (due && Date.now() > due.getTime()) return { error: state.note || "The invitation has already been declined." };
+  const recordedAt = new Date();
+  await prisma.odrRouteReply.create({
+    data: {
+      caseId: found.id,
+      bankId: found.bankId,
+      respondentId,
+      respondentName: found.viewer?.name || found.customerName,
+      choice,
+      recordedAt,
+      recordedAtIst: istStamp(recordedAt),
+    },
+  });
   redirect(`/odr/c/${token}`);
 }
 

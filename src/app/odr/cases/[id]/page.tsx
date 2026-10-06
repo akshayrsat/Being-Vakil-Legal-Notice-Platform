@@ -13,6 +13,7 @@ import {
   OdrStatusForm,
 } from "@/components/odr-case-forms";
 import { OdrSignedUpload } from "@/components/odr-paper-form";
+import { OdrLegalRouteForm, OdrLokAdalatForm, OdrSettlementTermsForm, OdrTimersForm } from "@/components/odr-route-forms";
 import { CustomerPageLinks } from "@/components/customer-page-links";
 import { OdrBackLink } from "@/components/odr-back-link";
 import { DeskShell } from "@/components/desk-shell";
@@ -26,7 +27,7 @@ import { casePageUrl } from "@/lib/odr-runner";
 import { formatHearingDate, formatHearingTime, hearingOrdinal } from "@/lib/odr-ref";
 import { nowMs } from "@/lib/odr-schedule";
 import { bankUserCanSeeDocument } from "@/lib/odr-paper";
-import { odrDocumentLabel, odrMatterLabel, odrNeutralRole, odrStatusLabel } from "@/lib/odr-status";
+import { odrDocumentLabel, odrNeutralRole, odrStatusLabel } from "@/lib/odr-status";
 import { odrCaseBack } from "@/lib/odr-back";
 import { arbitrationNoticeError, arbitrationNoticeGaps } from "@/lib/odr-notice-gate";
 import { loadAppointmentConsent } from "@/lib/odr-consent-store";
@@ -37,6 +38,14 @@ import { partyAttendanceLabel, partyAttendanceMap } from "@/lib/odr-parties";
 import { readOdrRules } from "@/lib/odr-store";
 import { canSendNotices, isBankUser } from "@/lib/roles";
 import { hideVendorWording, seesVendorDetail } from "@/lib/staff-language";
+import {
+  caseTimers,
+  conciliationState,
+  exParteAllowed,
+  legalRouteLabel,
+  outcomeKind,
+  resolveLegalRoute,
+} from "@/lib/odr-route";
 
 export const metadata: Metadata = { title: "ODR case" };
 
@@ -70,10 +79,32 @@ export default async function OdrCasePage({
       statusEvents: { orderBy: { createdAt: "desc" } },
       accessLogs: { orderBy: { createdAt: "desc" }, take: 30 },
       alerts: { where: { readAt: null }, orderBy: { createdAt: "desc" } },
+      routeReplies: { orderBy: { createdAt: "asc" } },
     },
   });
   if (!item) notFound();
   const canSend = canSendNotices(user.role);
+  const route = resolveLegalRoute(item.legalRoute, item.matterType);
+  const outcome = outcomeKind(route, item.matterType);
+  const timers = caseTimers({
+    route,
+    pleadingsClosedOn: item.pleadingsClosedOn,
+    awardExtension: item.awardExtension,
+    awardDeliveredOn: item.awardDeliveredOn,
+    processDeadlineOn: item.processDeadlineOn,
+    limitationDate: item.limitationDate,
+    now: new Date(),
+  });
+  const replyFor = (id: string) => item.routeReplies.find((reply) => reply.respondentId === id) ?? null;
+  const conciliation = conciliationState({
+    route,
+    now: new Date(),
+    invitedAt: item.firstNoticeAt,
+    parties: [
+      { id: "", name: item.customerName, reply: replyFor("") },
+      ...item.respondents.map((party) => ({ id: party.id, name: party.name, reply: replyFor(party.id) })),
+    ],
+  });
   const rules = await readOdrRules();
   const noticeGaps = arbitrationNoticeGaps(item.matterType, item.documents.map((doc) => doc.kind));
   const appointment = await loadAppointmentConsent(item);
@@ -101,8 +132,8 @@ export default async function OdrCasePage({
         <h1 className="font-serif text-4xl tracking-tight">{item.refNo}</h1>
         <p className="mt-3 text-base leading-7 text-muted-foreground">
           {bank.name} vs {item.customerName}
-          {item.coParties ? ` and ${item.coParties}` : ""}. {odrMatterLabel(item.matterType)}. {odrStatusLabel(item.status)}
-          {item.matterType !== "MEDIATION" && item.exParte ? ". Ex parte, on the arbitrator’s order." : "."}
+          {item.coParties ? ` and ${item.coParties}` : ""}. {legalRouteLabel(route)}. {odrStatusLabel(item.status)}
+          {exParteAllowed(route, item.matterType) && item.exParte ? ". Ex parte, on the arbitrator’s order." : "."}
         </p>
         {canSend ? (
           <div className="mt-4">
@@ -124,17 +155,77 @@ export default async function OdrCasePage({
             Prepare a Word draft from the case. Nothing is sent to the customer. After you sign it offline, upload the signed file.
           </p>
           <div className="mt-4 flex flex-wrap gap-2">
-            {item.matterType === "ARBITRATION" ? (
+            {outcome === "award" ? (
               <Link href={`/odr/cases/${item.id}/paper?kind=award`} className="inline-flex h-11 items-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground">
                 Generate award
               </Link>
             ) : null}
-            {item.matterType === "MEDIATION" ? (
+            {outcome === "settlement" || outcome === "conciliation" ? (
               <Link href={`/odr/cases/${item.id}/paper?kind=settlement`} className="inline-flex h-11 items-center rounded-lg border border-border px-4 text-sm">
-                Generate settlement agreement
+                {outcome === "conciliation" ? "Generate conciliation settlement" : "Generate settlement agreement"}
               </Link>
             ) : null}
           </div>
+        </section>
+      ) : null}
+      {canSend ? (
+        <section className="rounded-xl bg-card px-4 py-4 ring-1 ring-foreground/10">
+          <h2 className="font-serif text-2xl">Legal route</h2>
+          <div className="mt-3">
+            <OdrLegalRouteForm caseId={item.id} legalRoute={route} />
+          </div>
+          {route === "CONCILIATION" ? <p className="mt-3 text-sm leading-6">{conciliation.note}</p> : null}
+          {route === "LOK_ADALAT" ? (
+            <div className="mt-4">
+              <OdrLokAdalatForm caseId={item.id} status={item.lokAdalatStatus} />
+            </div>
+          ) : null}
+        </section>
+      ) : null}
+      <section className="rounded-xl bg-card px-4 py-4 ring-1 ring-foreground/10">
+        <h2 className="font-serif text-2xl">Timers</h2>
+        {timers.limitationWarning ? <p className="mt-3 text-sm leading-6">{timers.limitationWarning}</p> : null}
+        {timers.awardNote ? <p className="mt-2 text-sm leading-6">{timers.awardNote}</p> : null}
+        {timers.section34Note ? <p className="mt-2 text-sm leading-6">{timers.section34Note}</p> : null}
+        {timers.processDeadline ? <p className="mt-2 text-sm leading-6">Conciliation or mediation deadline: {timers.processDeadline}.</p> : null}
+        {canSend ? (
+          <div className="mt-4">
+            <OdrTimersForm
+              caseId={item.id}
+              limitationDate={item.limitationDate}
+              pleadingsClosedOn={item.pleadingsClosedOn}
+              awardExtension={item.awardExtension}
+              awardDeliveredOn={item.awardDeliveredOn}
+              processDeadlineOn={item.processDeadlineOn}
+              showAward={route === "ARBITRATION"}
+              showProcess={route === "CONCILIATION" || route === "MEDIATION"}
+            />
+          </div>
+        ) : null}
+      </section>
+      {canSend && (outcome === "settlement" || outcome === "conciliation") ? (
+        <section className="rounded-xl bg-card px-4 py-4 ring-1 ring-foreground/10">
+          <h2 className="font-serif text-2xl">Settlement sanction</h2>
+          <div className="mt-3">
+            <OdrSettlementTermsForm
+              caseId={item.id}
+              sanctionRef={item.settlementSanctionRef}
+              instalmentMonths={item.settlementInstalmentMonths}
+            />
+          </div>
+        </section>
+      ) : null}
+      {route === "ARBITRATION" ? (
+        <section className="rounded-xl bg-card px-4 py-4 ring-1 ring-foreground/10">
+          <h2 className="font-serif text-2xl">Consent from every respondent</h2>
+          <ul className="mt-3 flex flex-col gap-1 text-sm">
+            {appointment.parties.map((party) => (
+              <li key={party.id || "borrower"}>
+                {party.name || item.customerName}: {party.consent ? party.consent.choice === "OBJECT" ? "None of these / I object" : party.consent.choice === "PANEL" ? `Chose ${party.consent.chosenNeutralName}` : "Accepted" : "Not recorded yet"}
+              </li>
+            ))}
+          </ul>
+          {appointment.warning ? <p className="mt-3 text-sm">{appointment.warning}</p> : null}
         </section>
       ) : null}
 
@@ -160,7 +251,7 @@ export default async function OdrCasePage({
                   : "Waiting for the customer."}
           </p>
           {appointment.warning ? (
-            <p className="mt-3 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive" role="status">
+            <p className={`mt-3 rounded-lg border px-3 py-2 text-sm ${appointment.awardBlocked ? "border-destructive/30 bg-destructive/10 text-destructive" : "border-border"}`} role="status">
               {appointment.warning}
             </p>
           ) : null}
@@ -360,7 +451,7 @@ export default async function OdrCasePage({
         </ul>
         {canSend ? (
           <div className="mt-4 max-w-xl">
-            <OdrStatusForm caseId={item.id} status={item.status} stage={item.stage} exParte={item.exParte} matterType={item.matterType} />
+            <OdrStatusForm caseId={item.id} status={item.status} stage={item.stage} exParte={item.exParte} matterType={item.matterType} legalRoute={route} />
           </div>
         ) : null}
       </section>
@@ -368,15 +459,20 @@ export default async function OdrCasePage({
       {canSend ? (
         <section className="grid gap-6 lg:grid-cols-2">
           <div>
-            <h2 className="font-serif text-2xl">Next hearing</h2>
+            <h2 className="font-serif text-2xl">{route === "LOK_ADALAT" ? "No hearing on this platform" : "Next hearing"}</h2>
+            {route === "LOK_ADALAT" ? <p className="mt-3 text-sm leading-6 text-muted-foreground">Export the Lok Adalat pack instead of booking a hearing.</p> : null}
+            {route === "CONCILIATION" ? <p className="mt-3 text-sm leading-6 text-muted-foreground">A session is booked only after every respondent accepts the invitation. A missed session is rescheduled or the matter is closed. It is not heard ex parte.</p> : null}
+            {route === "MEDIATION" ? <p className="mt-3 text-sm leading-6 text-muted-foreground">This session is voluntary and is not recorded. A missed session is rescheduled or the matter is closed.</p> : null}
             {noticeGaps.length > 0 ? (
               <p className="mt-3 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive" role="status">
                 {arbitrationNoticeError(noticeGaps)}
               </p>
             ) : null}
+            {route === "LOK_ADALAT" ? null : (
             <div className="mt-3">
               <OdrScheduleForm caseId={item.id} flagged={item.flaggedExParte || item.noShowCount >= rules.maxNoShow} duration={item.hearings.at(-1)?.durationMinutes ?? 60} />
             </div>
+            )}
           </div>
           <div>
             <h2 className="font-serif text-2xl">Shown to the customer</h2>

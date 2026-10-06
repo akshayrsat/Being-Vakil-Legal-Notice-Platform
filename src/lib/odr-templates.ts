@@ -29,7 +29,7 @@ export const FIRST_HEARING_EMAIL_TEXT = [
   "Statement of claim: {{claimRef}}",
   "Defence or reply by: {{defenceBy}}",
   "You may object to the arbitrator within 15 days of receiving this notice, under Section 13 of the Arbitration and Conciliation Act, 1996.",
-  "On your case page you may accept the named arbitrator, choose one name from the panel, or object. That step is recorded. It does not decide the dispute.",
+  "On your case page you may accept the named arbitrator, choose one name from the panel, or say none of these / I object. That step is recorded. It does not decide the dispute.",
   "",
   "{{when}} is on {{date}} at {{time}} through Google Meet.",
   "Hearing Link: {{link}}",
@@ -170,6 +170,7 @@ export type HearingMessageInput = {
   caseLink: string;
   ordinal: string;
   matterType: string;
+  legalRoute?: string;
   kind: OdrTemplateKind;
   panelCount?: number;
   arbitratorName?: string;
@@ -182,6 +183,9 @@ export function tribunalOrderLine(panelCount: number): string {
 }
 
 export function hearingMessageText(input: HearingMessageInput): string {
+  if (input.legalRoute === "CONCILIATION" || (input.legalRoute === "LOK_ADALAT")) {
+    return routeMessageText(input);
+  }
   if (input.matterType === "MEDIATION") return mediationMessageText(input);
   const when = input.kind === "reminder" ? `Reminder: the ${input.ordinal} hearing` : `The ${input.ordinal} hearing`;
   return FIRST_HEARING_EMAIL_TEXT.replaceAll("{{order}}", tribunalOrderLine(input.panelCount ?? 1))
@@ -198,6 +202,39 @@ export function hearingMessageText(input: HearingMessageInput): string {
     .replaceAll("{{case}}", input.caseLink);
 }
 
+function routeMessageText(input: HearingMessageInput): string {
+  if (input.legalRoute === "LOK_ADALAT") {
+    return [
+      `Dear ${input.customer},`,
+      "",
+      `${input.bank} is referring ${input.number} to a Lok Adalat.`,
+      "A hearing is not held on this page. The sitting is at the Legal Services Authority or the DRT.",
+      `Your private page: ${input.caseLink}`,
+      "",
+      "Regards,",
+      "Being Vakil Associates",
+    ].join("\n");
+  }
+  return [
+    `Dear ${input.customer},`,
+    "",
+    `Being Vakil Associates is writing for ${input.bank} to invite you to conciliation under Section 62 of the Arbitration and Conciliation Act, 1996.`,
+    "",
+    `${input.bank} and ${input.customer}`,
+    `Conciliation ref.: ${input.number}`,
+    "",
+    `You may accept or decline on your case page. If you do not reply within 30 days, the invitation is declined.`,
+    "The conciliator does not decide the dispute. Nothing is decided if you do not join.",
+    "This session is not recorded.",
+    "",
+    input.meetLink ? `Session link, if you accept: ${input.meetLink}` : "",
+    `Your private page: ${input.caseLink}`,
+    "",
+    "Regards,",
+    "Being Vakil Associates",
+  ].filter((line) => line !== undefined).join("\n");
+}
+
 function mediationMessageText(input: HearingMessageInput): string {
   const heading = input.kind === "reminder"
     ? "Reminder: you are invited to a voluntary mediation session"
@@ -212,6 +249,8 @@ function mediationMessageText(input: HearingMessageInput): string {
     "",
     `${heading} on ${input.date} at ${input.time}.`,
     "You may join or decline. A settlement is recorded only if the people who join agree.",
+    "If you miss a session, it can be rescheduled or the matter can be closed. Nothing is decided because you were absent.",
+    "This session is not recorded.",
     "",
     `Session link: ${input.meetLink}`,
     `Your private page: ${input.caseLink}`,

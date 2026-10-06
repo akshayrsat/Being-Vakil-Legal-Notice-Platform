@@ -28,6 +28,7 @@ import {
 import { canSendNotices } from "@/lib/roles";
 import { appointmentParagraph, istDayKey } from "@/lib/odr-consent";
 import { loadAppointmentConsent, storedConsent } from "@/lib/odr-consent-store";
+import { conciliationDocumentsReady, instalmentMonthSpan, outcomeKind, resolveLegalRoute, settlementGuard } from "@/lib/odr-route";
 
 export type PaperFormState = { error: string } | null;
 
@@ -173,8 +174,12 @@ export async function saveOdrPaper(_previous: PaperFormState, formData: FormData
   const caseId = String(formData.get("caseId") ?? "");
   const item = await loadCase(caseId, scope.bank.id);
   if (!item) return { error: "That case was not found for the bank you are working on." };
-  if (kind === "award" && item.matterType !== "ARBITRATION") return { error: "An award is prepared for an arbitration case." };
-  if (kind === "settlement" && item.matterType !== "MEDIATION") return { error: "A settlement agreement is prepared for a mediation case." };
+  const route = resolveLegalRoute(item.legalRoute, item.matterType);
+  const outcome = outcomeKind(route, item.matterType);
+  if (kind === "award" && outcome !== "award") return { error: "An award is prepared for an arbitration case." };
+  if (kind === "settlement" && outcome !== "settlement" && outcome !== "conciliation") {
+    return { error: "A settlement agreement is prepared for mediation or conciliation." };
+  }
   const store = readStore(formData, kind);
   if (kind === "award") store.fields.arbitrator_entered_by = scope.user.name;
   await prisma.odrCase.update({ where: { id: item.id }, data: { paperJson: JSON.stringify(store) } });
@@ -189,6 +194,19 @@ export async function saveOdrPaper(_previous: PaperFormState, formData: FormData
     if (blocked) return { error: blocked };
     const appointment = await loadAppointmentConsent(item);
     if (appointment.awardBlocked) return { error: appointment.warning };
+  }
+  if (generate && kind === "settlement") {
+    if (!store.fields.ots_sanction_ref?.trim()) store.fields.ots_sanction_ref = item.settlementSanctionRef;
+    const months = Math.max(
+      item.settlementInstalmentMonths,
+      instalmentMonthSpan(store.instalments.map((row) => row.instalment_due_date ?? "")),
+    );
+    const guard = settlementGuard({ sanctionRef: store.fields.ots_sanction_ref ?? "", instalmentMonths: months });
+    if (guard.error) return { error: guard.error };
+    if (outcome === "conciliation") {
+      const missing = conciliationDocumentsReady(item.documents.map((doc) => doc.kind));
+      if (missing) return { error: missing };
+    }
   }
   if (!generate) {
     await auditCurrentUser({
@@ -225,7 +243,11 @@ export async function saveOdrPaper(_previous: PaperFormState, formData: FormData
     store,
     kind,
   );
-  const fileName = kind === "award" ? "Arbitral_Award_Template.docx" : "Settlement_Agreement_Template.docx";
+  const fileName = kind === "award"
+    ? "Arbitral_Award_Template.docx"
+    : outcome === "conciliation"
+      ? "Conciliation_Settlement_Template.docx"
+      : "Settlement_Agreement_Template.docx";
   const template = await readFile(path.join(process.cwd(), "templates", "odr", fileName));
   const bytes = await renderDocx(template, model);
   const draftKind = kind === "award" ? "AWARD_DRAFT" : "SETTLEMENT_DRAFT";
@@ -267,8 +289,12 @@ export async function uploadSignedPaper(_previous: PaperFormState, formData: For
   const which = String(formData.get("which") ?? "");
   const signedKind = which === "award" ? "AWARD_SIGNED" : which === "settlement" ? "SETTLEMENT_SIGNED" : "";
   if (!signedKind) return { error: "Choose the signed award or the signed settlement." };
-  if (signedKind === "AWARD_SIGNED" && item.matterType !== "ARBITRATION") return { error: "A signed award belongs on an arbitration case." };
-  if (signedKind === "SETTLEMENT_SIGNED" && item.matterType !== "MEDIATION") return { error: "A signed settlement belongs on a mediation case." };
+  const signedRoute = resolveLegalRoute(item.legalRoute, item.matterType);
+  const signedOutcome = outcomeKind(signedRoute, item.matterType);
+  if (signedKind === "AWARD_SIGNED" && signedOutcome !== "award") return { error: "A signed award belongs on an arbitration case." };
+  if (signedKind === "SETTLEMENT_SIGNED" && signedOutcome !== "settlement" && signedOutcome !== "conciliation") {
+    return { error: "A signed settlement belongs on a mediation or conciliation case." };
+  }
   const file = formData.get("file");
   if (!(file instanceof File) || file.size === 0) return { error: "Choose the signed file." };
   if (file.size > MAX_BYTES) return { error: "That file is larger than 5 MB." };
@@ -297,6 +323,7 @@ export async function uploadSignedPaper(_previous: PaperFormState, formData: For
       status,
       stage: signedKind === "AWARD_SIGNED" ? "AWARD" : item.stage,
       awardAt: signedKind === "AWARD_SIGNED" ? item.awardAt ?? new Date() : item.awardAt,
+      awardDeliveredOn: signedKind === "AWARD_SIGNED" && !item.awardDeliveredOn ? istDayKey(new Date()) : item.awardDeliveredOn,
       settlementAt: signedKind === "SETTLEMENT_SIGNED" ? new Date() : item.settlementAt,
       settlementAmount: signedKind === "SETTLEMENT_SIGNED" && paper.fields.settlement_amount ? paper.fields.settlement_amount : item.settlementAmount,
     },

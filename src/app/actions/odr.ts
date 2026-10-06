@@ -35,6 +35,19 @@ import { canFlipLiveSend } from "@/lib/live-send-switch";
 import { canSendNotices, isOwner } from "@/lib/roles";
 import { BANK_NOMINATED_MODE, panelSaveError } from "@/lib/odr-consent";
 import { indianMobileDigits, neutralContactError, neutralEditSummary, type NeutralDraft } from "@/lib/odr-neutral";
+import {
+  exParteAllowed,
+  formatNeutralRoles,
+  hearingsAllowed,
+  isLegalRoute,
+  isLokAdalatStatus,
+  matterTypeForRoute,
+  neutralRoleError,
+  neutralRoleForRoute,
+  resolveLegalRoute,
+  sameNeutralBar,
+} from "@/lib/odr-route";
+import { conciliationState } from "@/lib/odr-route";
 import { loadAppointmentConsent } from "@/lib/odr-consent-store";
 import { EMPTY_SHEET, keepMappedColumns, redactSheet } from "@/lib/data-min";
 import { validSendWindow } from "@/lib/send-window";
@@ -57,30 +70,71 @@ async function staffBank() {
   return { ok: true as const, bank, user: current.user };
 }
 
+async function noteNeutralService(caseId: string, neutralId: string, role: string) {
+  if (!caseId || !neutralId || !role) return;
+  await prisma.odrNeutralService.upsert({
+    where: { caseId_neutralId_role: { caseId, neutralId, role } },
+    create: { caseId, neutralId, role },
+    update: {},
+  });
+}
+
+async function arbitratorBar(caseId: string, neutralId: string): Promise<string> {
+  if (!neutralId) return "";
+  const rows = await prisma.odrNeutralService.findMany({ where: { caseId, neutralId }, select: { role: true } });
+  return sameNeutralBar({ nextRole: "ARBITRATOR", priorRoles: rows.map((row) => row.role) });
+}
+
 export async function uploadOdrExcel(_previous: OdrFormState, formData: FormData): Promise<OdrFormState> {
   const scope = await staffBank();
   if (!scope.ok) return { error: scope.error };
-  const matterType = String(formData.get("matterType") ?? "").trim().toUpperCase();
-  if (!isOdrMatter(matterType)) return { error: "Choose Arbitration or Mediation before uploading." };
-  const choice = readArbitratorChoice(formData);
+  const rawRoute = String(formData.get("legalRoute") ?? "").trim().toUpperCase();
+  const legacyMatter = String(formData.get("matterType") ?? "").trim().toUpperCase();
+  const legalRoute = isLegalRoute(rawRoute)
+    ? rawRoute
+    : legacyMatter === "MEDIATION"
+      ? "MEDIATION"
+      : legacyMatter === "ARBITRATION"
+        ? "ARBITRATION"
+        : "";
+  if (!isLegalRoute(legalRoute)) return { error: "Choose a legal route before uploading." };
+  const matterType = matterTypeForRoute(legalRoute);
+  const holdsHearings = hearingsAllowed(legalRoute, matterType);
+  const choice = holdsHearings ? readArbitratorChoice(formData) : { ok: true as const, mode: "SPLIT" as const, ids: [] as string[] };
   if (!choice.ok) return { error: choice.error };
-  const found = await prisma.odrNeutral.findMany({ where: { id: { in: choice.ids }, active: true } });
+  const found = holdsHearings ? await prisma.odrNeutral.findMany({ where: { id: { in: choice.ids }, active: true } }) : [];
   const neutrals = choice.ids.flatMap((id) => found.filter((neutral) => neutral.id === id));
-  if (neutrals.length !== choice.ids.length) {
+  if (holdsHearings && neutrals.length !== choice.ids.length) {
     return { error: "Choose the arbitrator or mediator. Add one first if the list is empty." };
   }
+  const neededRole = neutralRoleForRoute(legalRoute, matterType);
+  const wrongRole = neutrals.find((neutral) => neutralRoleError(neutral.roles, neededRole));
+  if (wrongRole) return { error: `${wrongRole.name}: ${neutralRoleError(wrongRole.roles, neededRole)}` };
   const missingContact = neutrals.filter((neutral) => neutralContactError(neutral));
   if (missingContact.length > 0) {
     return { error: `Add an email and a 10-digit mobile for ${missingContact.map((neutral) => neutral.name).join(", ")} before uploading.` };
   }
-  const schedule = readScheduleInput(formData);
+  const schedule = holdsHearings ? readScheduleInput(formData) : {
+    ok: true as const,
+    schedule: {
+      start: new Date(),
+      durationMinutes: 30,
+      windowStart: "10:00",
+      windowEnd: "18:00",
+      gapMinutes: 15,
+      skipSundays: true,
+      holidays: [] as string[],
+      breakStart: "13:30",
+      breakEnd: "14:30",
+    },
+  };
   if (!schedule.ok) return { error: schedule.error };
-  if (schedule.schedule.start.getTime() < Date.now() - 60 * 1000) {
+  if (holdsHearings && schedule.schedule.start.getTime() < Date.now() - 60 * 1000) {
     return { error: "The first hearing time is already past." };
   }
-  const rules = rulesFromSchedule(schedule.schedule);
+  const rules = holdsHearings ? rulesFromSchedule(schedule.schedule) : null;
   const probe = rules ? planSeats([{ key: "1", label: "Customer" }], choice.mode, rules, neutrals.map(() => [])) : null;
-  if (!rules || !probe || !probe.ok) return { error: probe && !probe.ok ? probe.error : "Enter the hearing window again." };
+  if (holdsHearings && (!rules || !probe || !probe.ok)) return { error: probe && !probe.ok ? probe.error : "Enter the hearing window again." };
 
   const file = formData.get("file");
   if (!(file instanceof File) || file.size === 0) return { error: "Choose an Excel file (.xlsx)." };
@@ -102,6 +156,7 @@ export async function uploadOdrExcel(_previous: OdrFormState, formData: FormData
       bankId: scope.bank.id,
       fileName,
       matterType,
+      legalRoute,
       neutralId: neutrals[0]?.id ?? "",
       neutralName: neutrals.map((neutral) => neutral.name).join(", "),
       hearingAt: schedule.schedule.start,
@@ -122,7 +177,7 @@ export async function uploadOdrExcel(_previous: OdrFormState, formData: FormData
   });
   await auditCurrentUser({
     action: "odr.upload",
-    summary: `Uploaded ${fileName} for ${matterType === "MEDIATION" ? "mediation" : "arbitration"}.`,
+    summary: `Uploaded ${fileName} for ${legalRoute}.`,
     bankId: scope.bank.id,
     bankName: scope.bank.name,
     targetId: batch.id,
@@ -176,7 +231,10 @@ export async function confirmOdrBatch(previousOrForm: OdrFormState | FormData, m
   const batch = await prisma.odrBatch.findFirst({ where: { id: batchId, bankId: scope.bank.id } });
   if (!batch || !batch.saved) return { error: "Match the columns before sending." };
   if (batch.status !== "DRAFT") return { error: "This sheet was already sent." };
-  if (!isOdrMatter(batch.matterType)) return { error: "Choose Arbitration or Mediation before sending." };
+  const legalRoute = resolveLegalRoute(batch.legalRoute, batch.matterType);
+  const matterType = matterTypeForRoute(legalRoute);
+  if (!isOdrMatter(matterType)) return { error: "Choose a legal route before sending." };
+  const holdsHearings = hearingsAllowed(legalRoute, matterType);
 
   let headers: string[] = [];
   let rawRows: string[][] = [];
@@ -192,11 +250,18 @@ export async function confirmOdrBatch(previousOrForm: OdrFormState | FormData, m
   if (ready.length === 0) return { error: "No row has a customer name and an account number with at least 4 digits." };
 
   const rules = await readOdrRules();
-  const templates = templatesFor(rules.templates, batch.matterType, "first");
-  const planned = await planBatchHearings(batch, ready.map((row) => ({
-    key: String(row.rowNumber),
-    label: row.customerName,
-  })));
+  const templates = templatesFor(rules.templates, matterType, "first");
+  const planned = holdsHearings
+    ? await planBatchHearings(batch, ready.map((row) => ({
+        key: String(row.rowNumber),
+        label: row.customerName,
+      })))
+    : { ok: true as const, seatFor: () => ({
+        primary: { id: "", name: "", qualification: "", enrolment: "" },
+        name: "",
+        panel: [] as PanelMember[],
+        start: batch.hearingAt,
+      }) };
   if (!planned.ok) return { error: planned.error };
   const taken = new Set<string>();
   const existingRefs = await prisma.odrCase.findMany({ select: { refNo: true } });
@@ -206,7 +271,7 @@ export async function confirmOdrBatch(previousOrForm: OdrFormState | FormData, m
 
   for (const row of ready) {
     let refNo = normalizeRefNo(row.refNo);
-    if (!refNo || taken.has(refNo)) refNo = generateRefNo(batch.matterType, taken);
+    if (!refNo || taken.has(refNo)) refNo = generateRefNo(matterType, taken);
     else taken.add(refNo);
     const seat = planned.seatFor(String(row.rowNumber));
     const created = await prisma.odrCase.create({
@@ -215,7 +280,8 @@ export async function confirmOdrBatch(previousOrForm: OdrFormState | FormData, m
         batchId: batch.id,
         rowNumber: row.rowNumber,
         refNo,
-        matterType: batch.matterType,
+        matterType,
+        legalRoute,
         customerName: row.customerName,
         coParties: row.coParties,
         accountNumber: row.accountNumber,
@@ -234,9 +300,9 @@ export async function confirmOdrBatch(previousOrForm: OdrFormState | FormData, m
         panelJson: panelJson(seat.panel),
         publicToken: newPublicToken(),
         status: "NOTICE_SENT",
-        appointmentMode: batch.matterType === "ARBITRATION" ? BANK_NOMINATED_MODE : "",
-        nominatedNeutralId: batch.matterType === "ARBITRATION" ? seat.primary.id : "",
-        nominatedNeutralName: batch.matterType === "ARBITRATION" ? seat.primary.name : "",
+        appointmentMode: legalRoute === "ARBITRATION" ? BANK_NOMINATED_MODE : "",
+        nominatedNeutralId: legalRoute === "ARBITRATION" ? seat.primary.id : "",
+        nominatedNeutralName: legalRoute === "ARBITRATION" ? seat.primary.name : "",
         firstNoticeAt: new Date(),
       },
     });
@@ -262,21 +328,25 @@ export async function confirmOdrBatch(previousOrForm: OdrFormState | FormData, m
         })),
       });
     }
-    await scheduleHearingRecord(prisma, {
-      caseId: created.id,
-      bankId: scope.bank.id,
-      matterType: batch.matterType,
-      mobile: row.mobile,
-      email: row.email,
-      number: 1,
-      scheduledAt: seat.start,
-      durationMinutes: batch.durationMinutes,
-      kind: "FIRST",
-      live: rules.live,
-      templates,
-      actorName: scope.user.name,
-      sendMessages: batch.matterType !== "ARBITRATION",
-    });
+    const serviceRole = neutralRoleForRoute(legalRoute, matterType);
+    if (seat.primary.id && serviceRole) await noteNeutralService(created.id, seat.primary.id, serviceRole);
+    if (holdsHearings) {
+      await scheduleHearingRecord(prisma, {
+        caseId: created.id,
+        bankId: scope.bank.id,
+        matterType,
+        mobile: row.mobile,
+        email: row.email,
+        number: 1,
+        scheduledAt: seat.start,
+        durationMinutes: batch.durationMinutes,
+        kind: "FIRST",
+        live: rules.live,
+        templates,
+        actorName: scope.user.name,
+        sendMessages: legalRoute !== "ARBITRATION" && legalRoute !== "CONCILIATION",
+      });
+    }
   }
 
   await prisma.odrBatch.update({ where: { id: batch.id }, data: EMPTY_SHEET });
@@ -317,7 +387,11 @@ function readNeutralDraft(formData: FormData, active: boolean): { ok: true; draf
   const mobile = indianMobileDigits(String(formData.get("mobile") ?? "")) ?? "";
   const problem = neutralContactError({ email, mobile });
   if (problem) return { ok: false, error: problem };
-  return { ok: true, draft: { name, qualification, enrolmentNo, email, mobile, active } };
+  const roles = formatNeutralRoles(formData.getAll("role").map((value) => String(value)));
+  if (!roles) return { ok: false, error: "Choose at least one role: arbitrator, mediator, or conciliator." };
+  const empanelment = String(formData.get("empanelment") ?? "").trim().slice(0, 200);
+  const mciRegistration = String(formData.get("mciRegistration") ?? "").trim().slice(0, 80);
+  return { ok: true, draft: { name, qualification, enrolmentNo, email, mobile, active, roles, empanelment, mciRegistration } };
 }
 
 async function rememberNeutralEdit(input: {
@@ -354,8 +428,10 @@ export async function saveNeutral(previousOrForm: OdrFormState | FormData, maybe
   if (!scope.ok) return { error: scope.error };
   const parsed = readNeutralDraft(formData, true);
   if (!parsed.ok) return { error: parsed.error };
-  const { name, qualification, enrolmentNo, email, mobile } = parsed.draft;
-  const neutral = await prisma.odrNeutral.create({ data: { name, qualification, enrolmentNo, email, mobile } });
+  const { name, qualification, enrolmentNo, email, mobile, roles, empanelment, mciRegistration } = parsed.draft;
+  const neutral = await prisma.odrNeutral.create({
+    data: { name, qualification, enrolmentNo, email, mobile, roles: roles ?? "ARBITRATOR", empanelment: empanelment ?? "", mciRegistration: mciRegistration ?? "" },
+  });
   await rememberNeutralEdit({
     neutralId: neutral.id,
     actorId: scope.user.id,
@@ -468,7 +544,7 @@ export async function updateOdrStatus(_previous: OdrFormState, formData: FormDat
   const stage = String(formData.get("stage") ?? item.stage).trim();
   if (!isOdrStage(stage)) return { error: "Choose a stage." };
   const note = String(formData.get("note") ?? "").trim().slice(0, 500);
-  const mediation = item.matterType === "MEDIATION";
+  const mediation = !exParteAllowed(resolveLegalRoute(item.legalRoute, item.matterType), item.matterType);
   const docKind = String(formData.get("docKind") ?? "ORDER");
   let awardAt = item.awardAt;
   if (status === "AWARD_PASSED" && !awardAt) awardAt = new Date();
@@ -569,7 +645,7 @@ export async function uploadStaffDocument(_previous: OdrFormState, formData: For
     allowed: STAFF_DOCUMENT_KINDS.map((kind) => kind.id),
   });
   if (!saved.ok) return { error: saved.error };
-  if (item.matterType !== "MEDIATION" && kind === "EX_PARTE_ORDER") {
+  if (exParteAllowed(resolveLegalRoute(item.legalRoute, item.matterType), item.matterType) && kind === "EX_PARTE_ORDER") {
     await prisma.odrCase.update({ where: { id: item.id }, data: { exParte: true, flaggedExParte: false } });
   }
   await releaseArbitrationNotices(prisma, item.id);
@@ -593,6 +669,29 @@ export async function scheduleOneHearing(_previous: OdrFormState, formData: Form
   });
   if (!item) return { error: "That case was not found for the bank you are working on." };
   if (terminalOdrStatus(item.status)) return { error: "This case is closed." };
+  const route = resolveLegalRoute(item.legalRoute, item.matterType);
+  if (!hearingsAllowed(route, item.matterType)) {
+    return { error: "A Lok Adalat referral is not heard on this platform. Export the pack for the Legal Services Authority or the DRT." };
+  }
+  if (route === "CONCILIATION") {
+    const [replies, respondents] = await Promise.all([
+      prisma.odrRouteReply.findMany({ where: { caseId: item.id } }),
+      prisma.odrRespondent.findMany({ where: { caseId: item.id }, select: { id: true, name: true } }),
+    ]);
+    const replyFor = (id: string) => replies.find((reply) => reply.respondentId === id) ?? null;
+    const conciliation = conciliationState({
+      route,
+      now: new Date(),
+      invitedAt: item.firstNoticeAt,
+      parties: [
+        { id: "", name: item.customerName, reply: replyFor("") },
+        ...respondents.map((party) => ({ id: party.id, name: party.name, reply: replyFor(party.id) })),
+      ],
+    });
+    if (conciliation.phase !== "accepted") return { error: "A session is booked after every respondent accepts the invitation." };
+  }
+  const barred = route === "ARBITRATION" ? await arbitratorBar(item.id, item.neutralId ?? "") : "";
+  if (barred) return { error: barred };
   const consent = await loadAppointmentConsent(item);
   if (item.matterType === "ARBITRATION" && !consent.hearingBookingOpen) {
     return { error: consent.warning || "The customer has not recorded arbitrator consent, so a further hearing is not booked." };
@@ -946,8 +1045,12 @@ export async function saveOdrSettings(_previous: OdrFormState, formData: FormDat
     return { error: "Closed-case retention must be 0 (off) or from 1 to 3650 days." };
   }
   const consentDays = Number(formData.get("consentDays"));
+  const consentBlockDays = Number(formData.get("consentBlockDays"));
   if (!Number.isInteger(consentDays) || consentDays < 1 || consentDays > 90) {
-    return { error: "Days to accept or choose an arbitrator must be from 1 to 90." };
+    return { error: "The consent reminder must be from 1 to 90 days." };
+  }
+  if (!Number.isInteger(consentBlockDays) || consentBlockDays < consentDays || consentBlockDays > 180) {
+    return { error: "The Section 11 warning must be from the reminder day up to 180 days." };
   }
   const windowFields = {
     sendWindowStart,
@@ -957,6 +1060,7 @@ export async function saveOdrSettings(_previous: OdrFormState, formData: FormDat
     sheetRetentionDays,
     closedDataRetentionDays,
     consentDays,
+    consentBlockDays,
   };
   await prisma.odrSettings.upsert({
     where: { id: ODR_SETTINGS_ID },
@@ -989,6 +1093,153 @@ export async function saveOdrSettings(_previous: OdrFormState, formData: FormDat
     bankName: "",
   });
   redirect("/settings?saved=odr");
+}
+
+export async function saveCaseLegalRoute(_previous: OdrFormState, formData: FormData): Promise<OdrFormState> {
+  const scope = await staffBank();
+  if (!scope.ok) return { error: scope.error };
+  const caseId = String(formData.get("caseId") ?? "");
+  const legalRoute = String(formData.get("legalRoute") ?? "").trim().toUpperCase();
+  if (!isLegalRoute(legalRoute)) return { error: "Choose Arbitration, Conciliation, Contractual mediation, or Lok Adalat." };
+  const item = await prisma.odrCase.findFirst({ where: { id: caseId, bankId: scope.bank.id } });
+  if (!item) return { error: "That case was not found for the bank you are working on." };
+  const role = neutralRoleForRoute(legalRoute, item.matterType);
+  if (role === "ARBITRATOR" && item.neutralId) {
+    const barred = await arbitratorBar(item.id, item.neutralId);
+    if (barred) return { error: barred };
+  }
+  if (item.neutralId && role) {
+    const neutral = await prisma.odrNeutral.findUnique({ where: { id: item.neutralId }, select: { roles: true, name: true } });
+    const roleProblem = neutral ? neutralRoleError(neutral.roles, role) : "";
+    if (roleProblem) return { error: `${neutral?.name ?? "This person"}: ${roleProblem}` };
+  }
+  await prisma.odrCase.update({
+    where: { id: item.id },
+    data: {
+      legalRoute,
+      matterType: matterTypeForRoute(legalRoute),
+      exParte: exParteAllowed(legalRoute) ? item.exParte : false,
+      flaggedExParte: exParteAllowed(legalRoute) ? item.flaggedExParte : false,
+    },
+  });
+  if (item.neutralId && role) await noteNeutralService(item.id, item.neutralId, role);
+  await auditCurrentUser({
+    action: "odr.status",
+    summary: `Set ${item.refNo} to ${legalRoute}.`,
+    bankId: scope.bank.id,
+    bankName: scope.bank.name,
+    targetId: item.id,
+  });
+  redirect(`/odr/cases/${item.id}`);
+}
+
+export async function saveCaseTimers(_previous: OdrFormState, formData: FormData): Promise<OdrFormState> {
+  const scope = await staffBank();
+  if (!scope.ok) return { error: scope.error };
+  const caseId = String(formData.get("caseId") ?? "");
+  const item = await prisma.odrCase.findFirst({ where: { id: caseId, bankId: scope.bank.id } });
+  if (!item) return { error: "That case was not found for the bank you are working on." };
+  const dateOrBlank = (name: string) => {
+    const value = String(formData.get(name) ?? "").trim();
+    if (!value) return "";
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+    return value;
+  };
+  const limitationDate = dateOrBlank("limitationDate");
+  const pleadingsClosedOn = dateOrBlank("pleadingsClosedOn");
+  const awardDeliveredOn = dateOrBlank("awardDeliveredOn");
+  const processDeadlineOn = dateOrBlank("processDeadlineOn");
+  if (limitationDate === null || pleadingsClosedOn === null || awardDeliveredOn === null || processDeadlineOn === null) {
+    return { error: "Enter each date as a calendar date, or leave it blank." };
+  }
+  await prisma.odrCase.update({
+    where: { id: item.id },
+    data: {
+      limitationDate,
+      pleadingsClosedOn,
+      awardDeliveredOn,
+      processDeadlineOn,
+      awardExtension: formData.get("awardExtension") === "yes",
+    },
+  });
+  await auditCurrentUser({
+    action: "odr.status",
+    summary: `Updated the timers on ${item.refNo}.`,
+    bankId: scope.bank.id,
+    bankName: scope.bank.name,
+    targetId: item.id,
+  });
+  redirect(`/odr/cases/${item.id}`);
+}
+
+export async function saveCaseSettlementTerms(_previous: OdrFormState, formData: FormData): Promise<OdrFormState> {
+  const scope = await staffBank();
+  if (!scope.ok) return { error: scope.error };
+  const caseId = String(formData.get("caseId") ?? "");
+  const item = await prisma.odrCase.findFirst({ where: { id: caseId, bankId: scope.bank.id } });
+  if (!item) return { error: "That case was not found for the bank you are working on." };
+  const settlementSanctionRef = String(formData.get("settlementSanctionRef") ?? "").trim().slice(0, 120);
+  const settlementInstalmentMonths = Number(formData.get("settlementInstalmentMonths") || "0");
+  if (!Number.isInteger(settlementInstalmentMonths) || settlementInstalmentMonths < 0 || settlementInstalmentMonths > 120) {
+    return { error: "Instalment months must be from 0 to 120." };
+  }
+  await prisma.odrCase.update({
+    where: { id: item.id },
+    data: { settlementSanctionRef, settlementInstalmentMonths },
+  });
+  redirect(`/odr/cases/${item.id}`);
+}
+
+export async function saveLokAdalatStatus(_previous: OdrFormState, formData: FormData): Promise<OdrFormState> {
+  const scope = await staffBank();
+  if (!scope.ok) return { error: scope.error };
+  const caseId = String(formData.get("caseId") ?? "");
+  const status = String(formData.get("lokAdalatStatus") ?? "");
+  if (!isLokAdalatStatus(status)) return { error: "Choose referred, settled, or not settled." };
+  const item = await prisma.odrCase.findFirst({ where: { id: caseId, bankId: scope.bank.id } });
+  if (!item) return { error: "That case was not found for the bank you are working on." };
+  if (resolveLegalRoute(item.legalRoute, item.matterType) !== "LOK_ADALAT") {
+    return { error: "That status is for a Lok Adalat referral." };
+  }
+  await prisma.odrCase.update({ where: { id: item.id }, data: { lokAdalatStatus: status } });
+  redirect(`/odr/cases/${item.id}`);
+}
+
+export async function uploadNeutralFile(_previous: OdrFormState, formData: FormData): Promise<OdrFormState> {
+  const scope = await staffBank();
+  if (!scope.ok) return { error: scope.error };
+  const neutralId = String(formData.get("neutralId") ?? "");
+  const kind = String(formData.get("kind") ?? "");
+  if (kind !== "MCPC_CERTIFICATE" && kind !== "INDEPENDENCE_DECLARATION") {
+    return { error: "Choose the MCPC certificate or the independence declaration." };
+  }
+  const neutral = await prisma.odrNeutral.findUnique({ where: { id: neutralId }, select: { id: true, name: true } });
+  if (!neutral) return { error: "That name was not found." };
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size === 0) return { error: "Choose a PDF." };
+  if (file.size > 5 * 1024 * 1024) return { error: "That file is larger than 5 MB." };
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  if (!isPdf(bytes)) return { error: "Upload a PDF." };
+  await prisma.odrNeutralFile.create({
+    data: {
+      neutralId: neutral.id,
+      kind,
+      fileName: safePdfName(file.name),
+      mimeType: "application/pdf",
+      content: Buffer.from(bytes),
+      uploadedBy: scope.user.id,
+    },
+  });
+  await rememberNeutralEdit({
+    neutralId: neutral.id,
+    actorId: scope.user.id,
+    actorName: scope.user.name,
+    actorRole: scope.user.role,
+    summary: kind === "MCPC_CERTIFICATE" ? `Uploaded the MCPC 40-hour certificate for ${neutral.name}.` : `Uploaded the annual independence declaration for ${neutral.name}.`,
+    bankId: scope.bank.id,
+    bankName: scope.bank.name,
+  });
+  redirect("/odr/neutrals");
 }
 
 async function savePdf(

@@ -13,10 +13,13 @@ import {
 
 export const BANK_NOMINATED_MODE = "bank nominated, subject to post-dispute consent";
 export const CONSENT_DAYS_DEFAULT = 15;
+export const CONSENT_BLOCK_DAYS_DEFAULT = 30;
 export const NO_CONSENT_WARNING =
   "No valid appointment consent: consider Section 11 application or Lok Adalat referral";
+export const CONSENT_REMINDER =
+  "Reminder: written consent from every respondent is still outstanding. The award is not blocked yet.";
 export const CONSENT_NOTICE_LINE =
-  "On your case page you may accept the named arbitrator, choose one name from the panel, or object. That step is recorded. It does not decide the dispute.";
+  "On your case page you may accept the named arbitrator, choose one name from the panel, or say none of these / I object. That step is recorded. It does not decide the dispute.";
 
 export const OVERRIDE_DOCUMENT_KINDS = ["SECTION_11_ORDER", "SIGNED_CONSENT"] as const;
 
@@ -40,7 +43,13 @@ export type StoredConsent = {
   recordedAtIst: string;
 };
 
-export type ConsentPhase = "not_required" | "pending" | "accepted" | "panel" | "objected" | "expired" | "override";
+export type ConsentPhase = "not_required" | "pending" | "reminder" | "accepted" | "panel" | "objected" | "expired" | "override";
+
+export type ConsentParty = {
+  id: string;
+  name: string;
+  consent: StoredConsent | null;
+};
 
 export type ConsentState = {
   required: boolean;
@@ -83,7 +92,7 @@ export function consentShownText(input: {
     details,
     "This nomination is subject to your consent after the dispute has arisen. It is not, by itself, an appointment.",
     section12WaiverText(),
-    "You may: (a) accept the named arbitrator and waive Section 12(5) ineligibility in writing; (b) choose one arbitrator from the panel; or (c) object.",
+    "You may: (a) accept the named arbitrator and waive Section 12(5) ineligibility in writing; (b) choose one arbitrator from the panel; or (c) say none of these / I object.",
     panelLine,
   ].filter(Boolean).join("\n");
 }
@@ -115,7 +124,7 @@ export function consentChoiceError(input: {
   panel: PanelName[];
   objection: string;
 }): string {
-  if (!isConsentChoice(input.choice)) return "Choose to accept, to pick a panel arbitrator, or to object.";
+  if (!isConsentChoice(input.choice)) return "Choose to accept, to pick a panel arbitrator, or to say none of these / I object.";
   if (!samePersonName(input.typedName, input.expectedName)) {
     return "Type your full name as it appears on this case.";
   }
@@ -157,12 +166,28 @@ function validConsent(consent: StoredConsent | null): consent is StoredConsent &
   return false;
 }
 
+function partyNeutralId(party: ConsentParty, nominatedId: string): string {
+  if (party.consent?.choice === "PANEL") return party.consent.chosenNeutralId;
+  if (party.consent?.choice === "ACCEPT") return nominatedId;
+  return "";
+}
+
+export function partiesAgree(parties: ConsentParty[], nominatedId: string): boolean {
+  const ids = parties
+    .map((party) => partyNeutralId(party, nominatedId))
+    .filter(Boolean);
+  return new Set(ids).size <= 1;
+}
+
 export function appointmentConsentState(input: {
   matterType: string;
   now: Date;
   days: number;
+  blockDays?: number;
   firstNoticeAt: Date | null;
   consent: StoredConsent | null;
+  parties?: ConsentParty[];
+  nominatedNeutralId?: string;
   documentKinds: Iterable<string>;
 }): ConsentState {
   if (input.matterType !== "ARBITRATION") return NOT_REQUIRED;
@@ -170,16 +195,10 @@ export function appointmentConsentState(input: {
   if (OVERRIDE_DOCUMENT_KINDS.some((kind) => kinds.has(kind))) {
     return { required: true, phase: "override", warning: "", awardBlocked: false, hearingBookingOpen: true };
   }
-  if (validConsent(input.consent)) {
-    return {
-      required: true,
-      phase: input.consent.choice === "PANEL" ? "panel" : "accepted",
-      warning: "",
-      awardBlocked: false,
-      hearingBookingOpen: true,
-    };
-  }
-  if (input.consent?.choice === "OBJECT") {
+  const parties = input.parties && input.parties.length > 0
+    ? input.parties
+    : [{ id: "", name: "", consent: input.consent }];
+  if (parties.some((party) => party.consent?.choice === "OBJECT")) {
     return {
       required: true,
       phase: "objected",
@@ -188,9 +207,38 @@ export function appointmentConsentState(input: {
       hearingBookingOpen: false,
     };
   }
-  const expired = input.firstNoticeAt ? input.now.getTime() > consentDueAt(input.firstNoticeAt, input.days).getTime() : false;
+  const agreed = partiesAgree(parties, input.nominatedNeutralId ?? "");
+  const complete = agreed && parties.every((party) => validConsent(party.consent));
+  if (complete) {
+    const picked = parties.some((party) => party.consent?.choice === "PANEL");
+    return {
+      required: true,
+      phase: picked ? "panel" : "accepted",
+      warning: "",
+      awardBlocked: false,
+      hearingBookingOpen: true,
+    };
+  }
+  if (!agreed) {
+    return {
+      required: true,
+      phase: "objected",
+      warning: NO_CONSENT_WARNING,
+      awardBlocked: true,
+      hearingBookingOpen: false,
+    };
+  }
+  const blockDays = Number.isInteger(input.blockDays) && (input.blockDays ?? 0) >= 1
+    ? input.blockDays!
+    : CONSENT_BLOCK_DAYS_DEFAULT;
+  const reminderDays = Math.min(input.days, blockDays);
+  const reminded = input.firstNoticeAt ? input.now.getTime() > consentDueAt(input.firstNoticeAt, reminderDays).getTime() : false;
+  const expired = input.firstNoticeAt ? input.now.getTime() > consentDueAt(input.firstNoticeAt, blockDays).getTime() : false;
   if (expired) {
     return { required: true, phase: "expired", warning: NO_CONSENT_WARNING, awardBlocked: true, hearingBookingOpen: false };
+  }
+  if (reminded) {
+    return { required: true, phase: "reminder", warning: CONSENT_REMINDER, awardBlocked: false, hearingBookingOpen: false };
   }
   return { required: true, phase: "pending", warning: "", awardBlocked: false, hearingBookingOpen: false };
 }
@@ -240,7 +288,7 @@ export function certificateLines(input: {
     ? `Choice: accepted ${input.arbitratorName} and waived Section 12(5) ineligibility in writing.`
     : input.choice === "PANEL"
       ? `Choice: chose ${input.chosenName} from the panel.`
-      : "Choice: objected.";
+      : "Choice: none of these / I object.";
   return [
     "Arbitrator consent record",
     `Case ${input.refNo}`,

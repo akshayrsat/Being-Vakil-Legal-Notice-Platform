@@ -4,7 +4,7 @@ import type { PrismaClient } from "@prisma/client";
 import { prisma } from "./db";
 import { ODR_LIVE_SEND_SETTING_ID, effectiveOdrLiveSend } from "./odr-live";
 import { ODR_SETTINGS_ID, parseTemplateMap, type OdrTemplateMap } from "./odr-templates";
-import { CONSENT_DAYS_DEFAULT } from "./odr-consent";
+import { CONSENT_BLOCK_DAYS_DEFAULT, CONSENT_DAYS_DEFAULT } from "./odr-consent";
 import { DEFAULT_SEND_WINDOW_END, DEFAULT_SEND_WINDOW_START, parseSendClock, validSendWindow } from "./send-window";
 
 export type OdrRules = {
@@ -22,6 +22,7 @@ export type OdrRules = {
   sheetRetentionDays: number;
   closedDataRetentionDays: number;
   consentDays: number;
+  consentBlockDays: number;
   liveStored: boolean;
   live: boolean;
 };
@@ -40,6 +41,7 @@ const DEFAULT_RULES: Omit<OdrRules, "templates" | "live" | "liveStored"> = {
   sheetRetentionDays: 30,
   closedDataRetentionDays: 0,
   consentDays: CONSENT_DAYS_DEFAULT,
+  consentBlockDays: CONSENT_BLOCK_DAYS_DEFAULT,
 };
 
 export async function readOdrRules(db: PrismaClient = prisma): Promise<OdrRules> {
@@ -63,6 +65,7 @@ export async function readOdrRules(db: PrismaClient = prisma): Promise<OdrRules>
     sheetRetentionDays: clamp(settings?.sheetRetentionDays, 1, 3650, DEFAULT_RULES.sheetRetentionDays),
     closedDataRetentionDays: clamp(settings?.closedDataRetentionDays, 0, 3650, DEFAULT_RULES.closedDataRetentionDays),
     consentDays: clamp(settings?.consentDays, 1, 90, DEFAULT_RULES.consentDays),
+    consentBlockDays: clamp(settings?.consentBlockDays, 1, 180, DEFAULT_RULES.consentBlockDays),
     liveStored,
     live: effectiveOdrLiveSend(liveRow?.enabled ?? null),
   };

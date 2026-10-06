@@ -38,12 +38,14 @@ export function OdrStatusForm({
   stage,
   exParte,
   matterType = "ARBITRATION",
+  legalRoute = "",
 }: {
   caseId: string;
   status: string;
   stage: string;
   exParte: boolean;
   matterType?: string;
+  legalRoute?: string;
 }) {
   const [state, action, pending] = useActionState(updateOdrStatus, null);
   return (
@@ -69,8 +71,14 @@ export function OdrStatusForm({
           ))}
         </select>
       </label>
-      {matterType === "MEDIATION" ? (
-        <p className="text-sm text-muted-foreground">Mediation is voluntary. A missed session does not decide the case.</p>
+      {matterType === "MEDIATION" || legalRoute === "CONCILIATION" || legalRoute === "LOK_ADALAT" || legalRoute === "MEDIATION" ? (
+        <p className="text-sm text-muted-foreground">
+          {legalRoute === "LOK_ADALAT"
+            ? "A Lok Adalat referral is not heard on this platform."
+            : legalRoute === "CONCILIATION"
+              ? "Conciliation is voluntary. A missed session is rescheduled or the matter is closed. It is not heard ex parte."
+              : "Contractual mediation is voluntary. A missed session is rescheduled or the matter is closed. The session is not recorded."}
+        </p>
       ) : (
         <p className="text-sm text-muted-foreground">
           {exParte
@@ -364,6 +372,20 @@ export function OdrNeutralForm() {
         Mobile
         <input name="mobile" inputMode="numeric" required autoComplete="tel" className={field} />
       </label>
+      <fieldset className="flex flex-col gap-1 text-sm font-medium">
+        <legend>Roles</legend>
+        <label className="flex items-center gap-2 font-normal"><input type="checkbox" name="role" value="ARBITRATOR" defaultChecked className="size-4 accent-primary" /> Arbitrator</label>
+        <label className="flex items-center gap-2 font-normal"><input type="checkbox" name="role" value="MEDIATOR" className="size-4 accent-primary" /> Mediator</label>
+        <label className="flex items-center gap-2 font-normal"><input type="checkbox" name="role" value="CONCILIATOR" className="size-4 accent-primary" /> Conciliator</label>
+      </fieldset>
+      <label className="flex flex-col gap-1 text-sm font-medium">
+        Court or LSA panel
+        <input name="empanelment" className={field} />
+      </label>
+      <label className="flex flex-col gap-1 text-sm font-medium">
+        Mediation Council registration number
+        <input name="mciRegistration" className={field} />
+      </label>
       <label className="flex flex-col gap-1 text-sm font-medium">
         Enrolment number
         <input name="enrolmentNo" className={field} />
@@ -387,6 +409,9 @@ export function OdrNeutralEditForm({
     email: string;
     mobile: string;
     active: boolean;
+    roles: string;
+    empanelment: string;
+    mciRegistration: string;
   };
 }) {
   const [open, setOpen] = useState(false);
@@ -420,6 +445,23 @@ export function OdrNeutralEditForm({
       <label className="flex flex-col gap-1 text-sm font-medium">
         Mobile
         <input name="mobile" inputMode="numeric" required defaultValue={neutral.mobile} autoComplete="tel" className={field} />
+      </label>
+      <fieldset className="flex flex-col gap-1 text-sm font-medium">
+        <legend>Roles</legend>
+        {(["ARBITRATOR", "MEDIATOR", "CONCILIATOR"] as const).map((role) => (
+          <label key={role} className="flex items-center gap-2 font-normal">
+            <input type="checkbox" name="role" value={role} defaultChecked={neutral.roles.split(",").includes(role)} className="size-4 accent-primary" />
+            {role === "ARBITRATOR" ? "Arbitrator" : role === "MEDIATOR" ? "Mediator" : "Conciliator"}
+          </label>
+        ))}
+      </fieldset>
+      <label className="flex flex-col gap-1 text-sm font-medium">
+        Court or LSA panel
+        <input name="empanelment" defaultValue={neutral.empanelment} className={field} />
+      </label>
+      <label className="flex flex-col gap-1 text-sm font-medium">
+        Mediation Council registration number
+        <input name="mciRegistration" defaultValue={neutral.mciRegistration} className={field} />
       </label>
       <label className="flex items-center gap-2 text-sm">
         <input type="checkbox" name="active" value="yes" defaultChecked={neutral.active} className="size-4 accent-primary" />

@@ -149,11 +149,15 @@ export function OdrTemplateForm({ rules, showIds }: { rules: OdrRules; showIds: 
           Uploads keep only the columns you map. A full card number is stored as the last 4 digits, and a 12-digit Aadhaar number is never stored. The raw spreadsheet is deleted when the cases or notices are created, or after the number of days above if it is still sitting here. Closed-case clearing is off until you set a number of days. That removes the customer’s name, contact, address, and account from the case. It does not delete the case itself.
         </p>
         <label className="flex flex-col gap-1 text-sm font-medium">
-          Days to accept or choose an arbitrator
+          Consent reminder (days)
           <input name="consentDays" type="number" min={1} max={90} defaultValue={rules.consentDays} className={field} />
         </label>
+        <label className="flex flex-col gap-1 text-sm font-medium">
+          Section 11 warning and award block (days)
+          <input name="consentBlockDays" type="number" min={1} max={180} defaultValue={rules.consentBlockDays} className={field} />
+        </label>
         <p className="text-sm leading-6 text-muted-foreground sm:col-span-2">
-          The days run from the first notice. If the customer has not accepted the named arbitrator or chosen one from the panel by then, or if they object, the case warns that there is no valid appointment consent. ODR sending stays off until you turn it on.
+          Both run from the first notice. The reminder is kept at 15 days. The “consider Section 11 / Lok Adalat” warning, and the block on the award, start only after the longer period (30 days unless you change it). Every borrower, co-borrower, and guarantor records their own choice, including “none of these / I object”. ODR sending stays off until you turn it on.
         </p>
         <label className="flex flex-col gap-1 text-sm font-medium">
           Maximum no-shows before a final-opportunity alert

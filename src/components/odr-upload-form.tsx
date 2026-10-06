@@ -15,24 +15,39 @@ export function OdrUploadForm({
   const [state, formAction, pending] = useActionState(uploadOdrExcel, null);
   const [count, setCount] = useState(1);
   const [mode, setMode] = useState<"SPLIT" | "PANEL">("SPLIT");
+  const [route, setRoute] = useState("ARBITRATION");
+  const lokAdalat = route === "LOK_ADALAT";
 
   return (
     <form action={formAction} className="flex flex-col gap-4">
       <fieldset className="flex flex-col gap-2">
         <legend className="text-sm font-medium">
-          Arbitration or mediation <span className="font-normal text-muted-foreground">Required</span>
+          Legal route <span className="font-normal text-muted-foreground">Required. This choice is the default for every row. You can change it on a case later.</span>
         </legend>
         <label className="flex items-center gap-2 text-sm">
-          <input type="radio" name="matterType" value="ARBITRATION" className="size-4 accent-primary" required />
+          <input type="radio" name="legalRoute" value="ARBITRATION" checked={route === "ARBITRATION"} onChange={() => setRoute("ARBITRATION")} className="size-4 accent-primary" required />
           Arbitration
         </label>
         <label className="flex items-center gap-2 text-sm">
-          <input type="radio" name="matterType" value="MEDIATION" className="size-4 accent-primary" required />
-          Mediation
+          <input type="radio" name="legalRoute" value="CONCILIATION" checked={route === "CONCILIATION"} onChange={() => setRoute("CONCILIATION")} className="size-4 accent-primary" />
+          Conciliation (A&C Act Part III)
+        </label>
+        <label className="flex items-center gap-2 text-sm">
+          <input type="radio" name="legalRoute" value="MEDIATION" checked={route === "MEDIATION"} onChange={() => setRoute("MEDIATION")} className="size-4 accent-primary" />
+          Contractual mediation
+        </label>
+        <label className="flex items-center gap-2 text-sm">
+          <input type="radio" name="legalRoute" value="LOK_ADALAT" checked={route === "LOK_ADALAT"} onChange={() => setRoute("LOK_ADALAT")} className="size-4 accent-primary" />
+          Lok Adalat
         </label>
       </fieldset>
+      {lokAdalat ? (
+        <p className="text-sm leading-6 text-muted-foreground">A Lok Adalat referral does not schedule a hearing on this platform. Export the pack from the case after upload.</p>
+      ) : null}
+      {lokAdalat ? null : (
+      <>
       <fieldset className="flex flex-col gap-2">
-        <legend className="text-sm font-medium">Number of arbitrators</legend>
+        <legend className="text-sm font-medium">Number of neutrals</legend>
         {[1, 2, 3].map((value) => (
           <label key={value} className="flex items-center gap-2 text-sm">
             <input
@@ -97,6 +112,8 @@ export function OdrUploadForm({
         </label>
       ))}
       <OdrSlotFields />
+      </>
+      )}
       <p className="text-sm leading-6 text-muted-foreground">
         Each customer gets the next open time. A hearing must finish by the end of the window, and none run through the lunch break. The email and mobile saved for the chosen name are used for the invite, the morning list, and the hearing notice.
       </p>
@@ -109,7 +126,7 @@ export function OdrUploadForm({
           {state.error}
         </p>
       ) : null}
-      <Button type="submit" className="h-11 w-fit px-4" disabled={pending || neutrals.length === 0}>
+      <Button type="submit" className="h-11 w-fit px-4" disabled={pending || (!lokAdalat && neutrals.length === 0)}>
         {pending ? "Uploading…" : "Upload and match columns"}
       </Button>
     </form>
