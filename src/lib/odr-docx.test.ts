@@ -97,3 +97,27 @@ test("the approved award template drops the contested branch when the matter is 
   assert.match(header, /BV\/ARB\/2026\/0001/);
   assert.match(header, /Ravi Shah/);
 });
+
+test("a panel award prints every name and a signature line", async () => {
+  const template = readFileSync(path.join(process.cwd(), "templates/odr/Arbitral_Award_Template.docx"));
+  const bytes = await renderDocx(template, model({
+    values: {
+      tribunal_heading: "Arbitral Tribunal",
+      arbitrator_name: "A. Rao and B. Shah",
+      arbitrator_signature_mode: "Signed in ink",
+    },
+    repeats: {
+      tribunal: [
+        { arbitrator_name: "A. Rao", tribunal_role: "Arbitrator", arbitrator_qualification: "Advocate", arbitrator_enrolment_no: "MH/1", arbitrator_signature_mode: "Signed in ink" },
+        { arbitrator_name: "B. Shah", tribunal_role: "Arbitrator", arbitrator_qualification: "Advocate", arbitrator_enrolment_no: "MH/2", arbitrator_signature_mode: "Signed in ink" },
+      ],
+    },
+  }));
+  const zip = await JSZip.loadAsync(bytes);
+  const text = xmlText(await zip.file("word/document.xml")!.async("string"));
+  assert.match(text, /Before the Arbitral Tribunal/);
+  assert.match(text, /A\. Rao/);
+  assert.match(text, /B\. Shah/);
+  assert.equal(text.split("______________________________").length - 1, 2);
+  assert.equal(text.includes("[["), false);
+});

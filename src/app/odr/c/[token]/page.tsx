@@ -11,7 +11,9 @@ import {
 } from "@/components/odr-customer-forms";
 import { joinOdrHearing } from "@/app/actions/odr-public";
 import { customerGrantMatches } from "@/app/actions/odr-public";
+import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { parsePanel } from "@/lib/odr-panel";
 import { odrCopy } from "@/lib/odr-copy";
 import { clientIp, clipAgent } from "@/lib/odr-access";
 import { accountLast4, formatHearingDate, formatHearingTime, googleCalendarUrl, hearingTitle } from "@/lib/odr-ref";
@@ -39,7 +41,8 @@ export default async function CustomerCasePage({ params }: { params: Promise<{ t
       })
     : null;
   if (!item) return <Frame><Missing /></Frame>;
-  if (!(await customerGrantMatches(item.id))) {
+  const staff = await getCurrentUser();
+  if (!staff && !(await customerGrantMatches(item.id))) {
     return (
       <Frame>
         <p className="text-xs font-medium tracking-[0.16em] text-primary uppercase">{copy.firmLine}</p>
@@ -50,16 +53,20 @@ export default async function CustomerCasePage({ params }: { params: Promise<{ t
     );
   }
 
-  const headerList = await headers();
-  await prisma.odrAccessLog.create({
-    data: {
-      caseId: item.id,
-      bankId: item.bankId,
-      kind: "OPEN",
-      ip: clientIp(headerList.get("x-forwarded-for")),
-      userAgent: clipAgent(headerList.get("user-agent")),
-    },
-  });
+  if (!staff) {
+    const headerList = await headers();
+    await prisma.odrAccessLog.create({
+      data: {
+        caseId: item.id,
+        bankId: item.bankId,
+        kind: "OPEN",
+        ip: clientIp(headerList.get("x-forwarded-for")),
+        userAgent: clipAgent(headerList.get("user-agent")),
+      },
+    });
+  }
+  const panel = parsePanel(item.panelJson);
+  const panelLabel = panel.length > 0 ? panel.map((member) => member.name).join(", ") : item.neutralName;
 
   const now = nowMs();
   const upcoming = [...item.hearings].reverse().find((hearing) => hearing.scheduledAt.getTime() > now - hearing.durationMinutes * 60 * 1000);
@@ -114,7 +121,7 @@ export default async function CustomerCasePage({ params }: { params: Promise<{ t
 
       <Section title={copy.whoHeading}>
         <ul className="flex flex-col gap-2 text-sm leading-6">
-          <li>{role}: {item.neutralName || "To be confirmed"}</li>
+          <li>{role}: {panelLabel || "To be confirmed"}</li>
           <li>Bank counsel / officer: {item.bankCounsel || `A representative of ${item.bank.name}`}</li>
           <li>Customer: {item.customerName}</li>
           {item.coParties ? <li>Co-borrowers / guarantors: {item.coParties}</li> : null}
@@ -133,8 +140,21 @@ export default async function CustomerCasePage({ params }: { params: Promise<{ t
       </Section>
 
       <Section title={copy.neutralHeading}>
-        <p className="font-medium">{item.neutralName || "To be confirmed"}</p>
-        <p className="mt-1 text-sm">{[item.neutralQualification, item.neutralEnrolment].filter(Boolean).join(" · ")}</p>
+        {panel.length > 1 ? (
+          <ul className="flex flex-col gap-2 text-sm">
+            {panel.map((member) => (
+              <li key={member.id || member.name}>
+                <span className="font-medium">{member.name}</span>
+                <span className="mt-1 block">{[member.qualification, member.enrolment].filter(Boolean).join(" · ")}</span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <>
+            <p className="font-medium">{item.neutralName || "To be confirmed"}</p>
+            <p className="mt-1 text-sm">{[item.neutralQualification, item.neutralEnrolment].filter(Boolean).join(" · ")}</p>
+          </>
+        )}
         <p className="mt-3 text-sm leading-6">
           {item.matterType === "MEDIATION" ? copy.independenceMediation : copy.independenceArbitration}
         </p>

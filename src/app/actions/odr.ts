@@ -21,6 +21,9 @@ import { ODR_NOT_SENT_DETAIL } from "@/lib/odr-live";
 import { applyAttendance, processOdrWork, retryMeetLink, scheduleHearingRecord, refreshCaseAttendance } from "@/lib/odr-runner";
 import { readOdrRules } from "@/lib/odr-store";
 import { durationMinutes, generateRefNo, indiaDateTime, newPublicToken, normalizeRefNo } from "@/lib/odr-ref";
+import { panelJson, parsePanel, type PanelMember } from "@/lib/odr-panel";
+import { busyByNeutral, planBatchHearings } from "@/lib/odr-slot-store";
+import { planSeats, readArbitratorChoice, readScheduleInput, rulesFromSchedule } from "@/lib/odr-slots";
 import { isOdrDocumentKind, isOdrMatter, isOdrStage, isOdrStatus, terminalOdrStatus } from "@/lib/odr-status";
 import { ODR_LIVE_SEND_SETTING_ID } from "@/lib/odr-live";
 import { ODR_SETTINGS_ID, odrTemplateSlots, parseTemplateMap } from "@/lib/odr-templates";
@@ -50,15 +53,21 @@ export async function uploadOdrExcel(_previous: OdrFormState, formData: FormData
   if (!scope.ok) return { error: scope.error };
   const matterType = String(formData.get("matterType") ?? "").trim().toUpperCase();
   if (!isOdrMatter(matterType)) return { error: "Choose Arbitration or Mediation before uploading." };
-  const neutral = await prisma.odrNeutral.findFirst({
-    where: { id: String(formData.get("neutralId") ?? ""), active: true },
-  });
-  if (!neutral) return { error: "Choose the arbitrator or mediator. Add one first if the list is empty." };
-  const when = indiaDateTime(String(formData.get("hearingDate") ?? ""), String(formData.get("hearingTime") ?? ""));
-  if (!when) return { error: "Enter the first hearing date and time." };
-  if (when.getTime() < Date.now() - 60 * 1000) return { error: "The first hearing time is already past." };
-  const duration = durationMinutes(String(formData.get("duration") ?? "60"));
-  if (!duration) return { error: "Session length must be between 15 and 240 minutes." };
+  const choice = readArbitratorChoice(formData);
+  if (!choice.ok) return { error: choice.error };
+  const found = await prisma.odrNeutral.findMany({ where: { id: { in: choice.ids }, active: true } });
+  const neutrals = choice.ids.flatMap((id) => found.filter((neutral) => neutral.id === id));
+  if (neutrals.length !== choice.ids.length) {
+    return { error: "Choose the arbitrator or mediator. Add one first if the list is empty." };
+  }
+  const schedule = readScheduleInput(formData);
+  if (!schedule.ok) return { error: schedule.error };
+  if (schedule.schedule.start.getTime() < Date.now() - 60 * 1000) {
+    return { error: "The first hearing time is already past." };
+  }
+  const rules = rulesFromSchedule(schedule.schedule);
+  const probe = rules ? planSeats([{ key: "1", label: "Customer" }], choice.mode, rules, neutrals.map(() => [])) : null;
+  if (!rules || !probe || !probe.ok) return { error: probe && !probe.ok ? probe.error : "Enter the hearing window again." };
 
   const file = formData.get("file");
   if (!(file instanceof File) || file.size === 0) return { error: "Choose an Excel file (.xlsx)." };
@@ -79,10 +88,19 @@ export async function uploadOdrExcel(_previous: OdrFormState, formData: FormData
       bankId: scope.bank.id,
       fileName,
       matterType,
-      neutralId: neutral.id,
-      neutralName: neutral.name,
-      hearingAt: when,
-      durationMinutes: duration,
+      neutralId: neutrals[0]?.id ?? "",
+      neutralName: neutrals.map((neutral) => neutral.name).join(", "),
+      hearingAt: schedule.schedule.start,
+      durationMinutes: schedule.schedule.durationMinutes,
+      windowStart: schedule.schedule.windowStart,
+      windowEnd: schedule.schedule.windowEnd,
+      gapMinutes: schedule.schedule.gapMinutes,
+      skipSundays: schedule.schedule.skipSundays,
+      holidays: JSON.stringify(schedule.schedule.holidays),
+      breakStart: schedule.schedule.breakStart,
+      breakEnd: schedule.schedule.breakEnd,
+      arbitratorMode: choice.mode,
+      neutralIds: JSON.stringify(choice.ids),
       headers: JSON.stringify(parsed.headers),
       rawRows: JSON.stringify(parsed.rows),
       createdById: scope.user.id,
@@ -154,9 +172,11 @@ export async function confirmOdrBatch(previousOrForm: OdrFormState | FormData, m
 
   const rules = await readOdrRules();
   const templates = templatesFor(rules.templates, batch.matterType, "first");
-  const neutral = batch.neutralId
-    ? await prisma.odrNeutral.findFirst({ where: { id: batch.neutralId } })
-    : null;
+  const planned = await planBatchHearings(batch, ready.map((row) => ({
+    key: String(row.rowNumber),
+    label: row.customerName,
+  })));
+  if (!planned.ok) return { error: planned.error };
   const taken = new Set<string>();
   const existingRefs = await prisma.odrCase.findMany({ select: { refNo: true } });
   for (const row of existingRefs) taken.add(row.refNo);
@@ -167,6 +187,7 @@ export async function confirmOdrBatch(previousOrForm: OdrFormState | FormData, m
     let refNo = normalizeRefNo(row.refNo);
     if (!refNo || taken.has(refNo)) refNo = generateRefNo(batch.matterType, taken);
     else taken.add(refNo);
+    const seat = planned.seatFor(String(row.rowNumber));
     const created = await prisma.odrCase.create({
       data: {
         bankId: scope.bank.id,
@@ -185,10 +206,11 @@ export async function confirmOdrBatch(previousOrForm: OdrFormState | FormData, m
         claimAmount: row.claimAmount,
         asOnDate: row.asOnDate,
         disputeSummary: row.disputeSummary,
-        neutralId: neutral?.id,
-        neutralName: neutral?.name || batch.neutralName,
-        neutralQualification: neutral?.qualification ?? "",
-        neutralEnrolment: neutral?.enrolmentNo ?? "",
+        neutralId: seat.primary.id || null,
+        neutralName: seat.name,
+        neutralQualification: seat.primary.qualification,
+        neutralEnrolment: seat.primary.enrolment,
+        panelJson: panelJson(seat.panel),
         publicToken: newPublicToken(),
         status: "NOTICE_SENT",
       },
@@ -200,7 +222,7 @@ export async function confirmOdrBatch(previousOrForm: OdrFormState | FormData, m
       mobile: row.mobile,
       email: row.email,
       number: 1,
-      scheduledAt: batch.hearingAt,
+      scheduledAt: seat.start,
       durationMinutes: batch.durationMinutes,
       kind: "FIRST",
       live: rules.live,
@@ -408,10 +430,11 @@ export async function scheduleBulkHearings(_previous: OdrFormState, formData: Fo
   const from = indiaDateTime(String(formData.get("fromDate") ?? ""), "00:00");
   const to = indiaDateTime(String(formData.get("fromDate") ?? ""), "23:59");
   if (!from || !to) return { error: "Choose the date of the no-show hearings." };
-  const when = indiaDateTime(String(formData.get("hearingDate") ?? ""), String(formData.get("hearingTime") ?? ""));
-  if (!when || when.getTime() < Date.now()) return { error: "Enter a future date and time for the next hearing." };
-  const duration = durationMinutes(String(formData.get("duration") ?? "60"));
-  if (!duration) return { error: "Session length must be between 15 and 240 minutes." };
+  const schedule = readScheduleInput(formData);
+  if (!schedule.ok) return { error: schedule.error };
+  if (schedule.schedule.start.getTime() < Date.now()) return { error: "Enter a future date and time for the next hearing." };
+  const slotRules = rulesFromSchedule(schedule.schedule);
+  if (!slotRules) return { error: "Enter the hearing window again." };
   const hearings = await prisma.odrHearing.findMany({
     where: {
       bankId: scope.bank.id,
@@ -422,33 +445,74 @@ export async function scheduleBulkHearings(_previous: OdrFormState, formData: Fo
   });
   const rules = await readOdrRules();
   const seen = new Set<string>();
-  let count = 0;
+  const waiting: Array<{ hearing: (typeof hearings)[number]; panel: PanelMember[] }> = [];
   for (const hearing of hearings) {
     if (seen.has(hearing.caseId)) continue;
     seen.add(hearing.caseId);
     if (terminalOdrStatus(hearing.case.status)) continue;
     const future = hearing.case.hearings.some((row) => row.scheduledAt.getTime() > Date.now());
     if (future) continue;
-    const number = hearing.case.hearings.reduce((max, row) => Math.max(max, row.number), 0) + 1;
-    const send = !hearing.case.flaggedExParte;
+    const panel = parsePanel(hearing.case.panelJson);
+    const members = panel.length > 0
+      ? panel
+      : hearing.case.neutralId
+        ? [{ id: hearing.case.neutralId, name: hearing.case.neutralName, qualification: hearing.case.neutralQualification, enrolment: hearing.case.neutralEnrolment }]
+        : [];
+    if (members.length === 0 || members.some((member) => !member.id)) {
+      return { error: `${hearing.case.refNo} has no arbitrator, so the next hearing cannot be placed.` };
+    }
+    waiting.push({ hearing, panel: members });
+  }
+  if (waiting.length === 0) return { error: "No no-show cases on that date still need a hearing." };
+  waiting.sort((a, b) =>
+    a.hearing.scheduledAt.getTime() - b.hearing.scheduledAt.getTime()
+    || a.hearing.case.customerName.localeCompare(b.hearing.case.customerName)
+    || a.hearing.caseId.localeCompare(b.hearing.caseId));
+  const groups = new Map<string, typeof waiting>();
+  for (const item of waiting) {
+    const key = item.panel.map((member) => member.id).sort().join("|");
+    const group = groups.get(key) ?? [];
+    group.push(item);
+    groups.set(key, group);
+  }
+  const busy = await busyByNeutral(waiting.flatMap((item) => item.panel.map((member) => member.id)), slotRules.start);
+  const placed: Array<{ item: (typeof waiting)[number]; start: Date }> = [];
+  for (const group of groups.values()) {
+    const members = group[0]?.panel ?? [];
+    const planned = planSeats(
+      group.map((item) => ({ key: item.hearing.caseId, label: item.hearing.case.customerName })),
+      "PANEL",
+      slotRules,
+      members.map((member) => busy.get(member.id) ?? []),
+    );
+    if (!planned.ok) return { error: planned.error };
+    for (const item of group) {
+      const seat = planned.seats.find((row) => row.key === item.hearing.caseId);
+      if (!seat) return { error: "A hearing time could not be placed." };
+      placed.push({ item, start: seat.start });
+    }
+  }
+  let count = 0;
+  for (const { item, start } of placed) {
+    const number = item.hearing.case.hearings.reduce((max, row) => Math.max(max, row.number), 0) + 1;
+    const send = !item.hearing.case.flaggedExParte;
     await scheduleHearingRecord(prisma, {
-      caseId: hearing.caseId,
+      caseId: item.hearing.caseId,
       bankId: scope.bank.id,
-      matterType: hearing.case.matterType,
-      mobile: hearing.case.mobile,
-      email: hearing.case.email,
+      matterType: item.hearing.case.matterType,
+      mobile: item.hearing.case.mobile,
+      email: item.hearing.case.email,
       number,
-      scheduledAt: when,
-      durationMinutes: duration,
+      scheduledAt: start,
+      durationMinutes: schedule.schedule.durationMinutes,
       kind: "NEXT",
       live: rules.live,
-      templates: templatesFor(rules.templates, hearing.case.matterType, "next"),
+      templates: templatesFor(rules.templates, item.hearing.case.matterType, "next"),
       actorName: scope.user.name,
       sendMessages: send,
     });
     count += 1;
   }
-  if (count === 0) return { error: "No no-show cases on that date still need a hearing." };
   await auditCurrentUser({
     action: "odr.hearing",
     summary: `Scheduled the next hearing for ${count} no-show ${count === 1 ? "case" : "cases"}.`,

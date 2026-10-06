@@ -427,6 +427,15 @@ model OdrBatch {
   neutralName     String    @default("")
   hearingAt       DateTime
   durationMinutes Int
+  windowStart     String    @default("10:00")
+  windowEnd       String    @default("18:00")
+  gapMinutes      Int       @default(15)
+  skipSundays     Boolean   @default(true)
+  holidays        String    @default("[]")
+  breakStart      String    @default("13:30")
+  breakEnd        String    @default("14:30")
+  arbitratorMode  String    @default("SPLIT")
+  neutralIds      String    @default("[]")
   headers         String    @default("[]")
   rawRows         String    @default("[]")
   mappingUsed     String    @default("")
@@ -467,6 +476,7 @@ model OdrCase {
   neutralName          String         @default("")
   neutralQualification String         @default("")
   neutralEnrolment     String         @default("")
+  panelJson            String         @default("[]")
   publicToken          String         @unique
   status               String         @default("HEARING_SCHEDULED")
   stage                String         @default("HEARING")

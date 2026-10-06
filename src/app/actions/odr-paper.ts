@@ -9,6 +9,7 @@ import { requiredBankId } from "@/lib/bank-data";
 import { workingBank } from "@/lib/bank-context";
 import { prisma } from "@/lib/db";
 import { renderDocx } from "@/lib/odr-docx";
+import { parsePanel } from "@/lib/odr-panel";
 import { isPdf, safePdfName } from "@/lib/odr-access";
 import {
   aadhaarLast4,
@@ -115,6 +116,7 @@ function toPaperCase(
     neutralName: item.neutralName,
     neutralQualification: item.neutralQualification,
     neutralEnrolment: item.neutralEnrolment,
+    panel: parsePanel(item.panelJson),
     exParte: item.exParte,
     flaggedExParte: item.flaggedExParte,
     bankCounsel: item.bankCounsel,

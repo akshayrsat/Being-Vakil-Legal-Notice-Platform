@@ -16,6 +16,7 @@ import {
   type PaperCase,
   type PaperKind,
 } from "@/lib/odr-paper";
+import { parsePanel } from "@/lib/odr-panel";
 import { backToCase } from "@/lib/odr-back";
 import { canSendNotices } from "@/lib/roles";
 
@@ -70,6 +71,7 @@ export default async function OdrPaperPage({
     neutralName: item.neutralName,
     neutralQualification: item.neutralQualification,
     neutralEnrolment: item.neutralEnrolment,
+    panel: parsePanel(item.panelJson),
     exParte: item.exParte,
     flaggedExParte: item.flaggedExParte,
     bankCounsel: item.bankCounsel,
