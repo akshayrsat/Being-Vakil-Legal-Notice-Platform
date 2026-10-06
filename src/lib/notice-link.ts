@@ -1,3 +1,5 @@
+import { maskAccountLast4 } from "./account-mask";
+
 // The public address of one notice.
 // SMS and email use https://www.notice.beingvakil.in/notice-<id>
 // when NOTICE_PUBLIC_BASE_URL is that host.
@@ -86,7 +88,7 @@ export function emailNoticeVars(input: {
   const notice_link = noticePublicUrl(notice_code);
   return {
     contact_name: input.customerName.trim(),
-    loan_account: input.loanAccount.trim() || notice_code,
+    loan_account: maskAccountLast4(input.loanAccount) || notice_code,
     notice_id: notice_link,
     notice_link,
     notice_code,

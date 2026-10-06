@@ -645,6 +645,16 @@ model OdrAccessLog {
   @@index([createdAt])
 }
 
+model NoticeVerifyGrant {
+  id           String   @id @default(cuid())
+  token        String   @unique
+  noticeNumber String
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+
+  @@index([noticeNumber])
+}
+
 model OdrVerifyGrant {
   id        String   @id @default(cuid())
   token     String   @unique
