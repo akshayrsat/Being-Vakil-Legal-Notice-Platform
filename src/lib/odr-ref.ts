@@ -104,6 +104,24 @@ export function last4Matches(account: string, attempt: string): boolean {
   return timingSafeEqual(Buffer.from(expected), Buffer.from(got));
 }
 
+export const MOBILE_LAST4_PROMPT = "Enter the last 4 digits of your mobile number";
+
+// Account last 4 when the loan or card number has them. Otherwise the customer's mobile.
+// Null means neither number has 4 digits, so the page asks the person to call.
+export function last4Challenge(account: string, mobile: string): { source: "account" | "mobile"; value: string } | null {
+  if (accountLast4(account)) return { source: "account", value: account };
+  if (accountLast4(mobile)) return { source: "mobile", value: mobile };
+  return null;
+}
+
+export function customerMobileFromDeliveries(rows: Array<{ channel: string; mobile: string }>): string {
+  for (const channel of ["SMS", "WHATSAPP", "EMAIL"]) {
+    const row = rows.find((item) => item.channel === channel && item.mobile.trim());
+    if (row) return row.mobile;
+  }
+  return rows.find((item) => item.mobile.trim())?.mobile ?? "";
+}
+
 export function newPublicToken(): string {
   return randomBytes(32).toString("base64url");
 }

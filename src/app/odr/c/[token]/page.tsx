@@ -19,7 +19,7 @@ import { parsePanel } from "@/lib/odr-panel";
 import { odrCopyFor } from "@/lib/odr-copy";
 import { conciliationState, resolveLegalRoute } from "@/lib/odr-route";
 import { clientIp, clipAgent } from "@/lib/odr-access";
-import { accountLast4, formatHearingDate, formatHearingTime, googleCalendarUrl, hearingTitle } from "@/lib/odr-ref";
+import { formatHearingDate, formatHearingTime, googleCalendarUrl, hearingTitle, last4Challenge, MOBILE_LAST4_PROMPT } from "@/lib/odr-ref";
 import { nowMs } from "@/lib/odr-schedule";
 import { customerCanSeeDocument } from "@/lib/odr-paper";
 import { showSection12Line } from "@/lib/odr-notice-gate";
@@ -55,13 +55,16 @@ export default async function CustomerCasePage({ params }: { params: Promise<{ t
   const route = resolveLegalRoute(item.legalRoute, item.matterType);
   const copy = odrCopyFor(item.matterType, route);
   const staff = await getCurrentUser();
+  const verify = last4Challenge(item.accountNumber, viewer ? viewer.mobile : item.mobile);
   if (!staff && !(await customerGrantMatches(item.id))) {
     return (
       <Frame>
         <p className="text-xs font-medium tracking-[0.16em] text-primary uppercase">{copy.firmLine}</p>
         <h1 className="mt-3 font-serif text-4xl tracking-tight">{copy.verifyTitle}</h1>
-        <p className="mt-4 max-w-xl text-base leading-7 text-muted-foreground">{copy.verifyBody}</p>
-        {accountLast4(item.accountNumber) ? <OdrVerifyForm token={token} /> : <p className="mt-4 text-sm">{copy.verifyUnavailable}</p>}
+        <p className="mt-4 max-w-xl text-base leading-7 text-muted-foreground">
+          {verify?.source === "mobile" ? MOBILE_LAST4_PROMPT : copy.verifyBody}
+        </p>
+        {verify ? <OdrVerifyForm token={token} source={verify.source} /> : <p className="mt-4 text-sm">{copy.verifyUnavailable}</p>}
       </Frame>
     );
   }

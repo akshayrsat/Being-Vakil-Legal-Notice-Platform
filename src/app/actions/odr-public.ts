@@ -16,7 +16,7 @@ import {
   safePdfName,
   verifyRateKey,
 } from "@/lib/odr-access";
-import { accountLast4, last4Matches, newGrantToken } from "@/lib/odr-ref";
+import { last4Challenge, last4Matches, newGrantToken } from "@/lib/odr-ref";
 import { CUSTOMER_DOCUMENT_KINDS } from "@/lib/odr-status";
 import { withPartyAttendance } from "@/lib/odr-parties";
 import { resolvePublicCase } from "@/lib/odr-public-case";
@@ -72,7 +72,8 @@ export async function verifyOdrCase(_previous: PublicOdrState, formData: FormDat
   const item = await caseByToken(token);
   if (!item) return { error: "This case link is not valid." };
   const meta = await requestMeta();
-  if (!accountLast4(item.accountNumber)) {
+  const challenge = last4Challenge(item.accountNumber, item.viewer ? item.viewer.mobile : item.mobile);
+  if (!challenge) {
     return { error: "This case cannot be opened online. Please call Being Vakil Associates." };
   }
   if (tooManyAttempts(verifyRateKey(token, meta.ip), ODR_VERIFY_LIMIT, ODR_VERIFY_WINDOW_MS)) {
@@ -82,11 +83,15 @@ export async function verifyOdrCase(_previous: PublicOdrState, formData: FormDat
     return { error: "Too many attempts. Wait a few minutes and try again." };
   }
   const attempt = String(formData.get("last4") ?? "");
-  if (!last4Matches(item.accountNumber, attempt)) {
+  if (!last4Matches(challenge.value, attempt)) {
     await prisma.odrAccessLog.create({
       data: { caseId: item.id, bankId: item.bankId, kind: "VERIFY_FAIL", ip: meta.ip, userAgent: meta.userAgent, detail: "Digits did not match" },
     });
-    return { error: "Those digits do not match this case. Check the account number and try again." };
+    return {
+      error: challenge.source === "mobile"
+        ? "Those digits do not match this case. Check the mobile number and try again."
+        : "Those digits do not match this case. Check the account number and try again.",
+    };
   }
   const grant = newGrantToken();
   await prisma.odrVerifyGrant.create({

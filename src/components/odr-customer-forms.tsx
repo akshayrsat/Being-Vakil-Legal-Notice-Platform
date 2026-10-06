@@ -25,13 +25,13 @@ function ErrorLine({ error }: { error?: string }) {
   );
 }
 
-export function OdrVerifyForm({ token }: { token: string }) {
+export function OdrVerifyForm({ token, source = "account" }: { token: string; source?: "account" | "mobile" }) {
   const [state, action, pending] = useActionState(verifyOdrCase, null);
   return (
     <form action={action} className="mt-6 flex flex-col gap-3">
       <input type="hidden" name="token" value={token} />
       <label className="flex flex-col gap-1 text-sm font-medium">
-        {copy.verifyLabel}
+        {source === "mobile" ? "Last 4 digits of your mobile number" : copy.verifyLabel}
         <input name="last4" inputMode="numeric" autoComplete="off" maxLength={4} pattern="[0-9]{4}" required className={field} />
       </label>
       <ErrorLine error={state?.error} />

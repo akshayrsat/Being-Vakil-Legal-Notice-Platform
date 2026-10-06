@@ -9,6 +9,7 @@ export type PublicViewer = {
   name: string;
   role: string;
   address: string;
+  mobile: string;
 };
 
 export async function resolvePublicCase(token: string): Promise<{
@@ -25,6 +26,6 @@ export async function resolvePublicCase(token: string): Promise<{
   if (!item) return null;
   return {
     item,
-    viewer: { id: party.id, name: party.name, role: party.role, address: party.address },
+    viewer: { id: party.id, name: party.name, role: party.role, address: party.address, mobile: party.mobile },
   };
 }

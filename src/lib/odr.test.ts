@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { ROLE_BANK_USER, ROLE_COORDINATOR, ROLE_OWNER } from "./roles";
 import { workspaceNav } from "./send-notice";
-import { last4Matches, hearingOrdinal, indiaDateTime, generateRefNo } from "./odr-ref";
+import { last4Matches, last4Challenge, customerMobileFromDeliveries, MOBILE_LAST4_PROMPT, hearingOrdinal, indiaDateTime, generateRefNo } from "./odr-ref";
 import { suggestOdrMapping, mapOdrRows, ODR_SAMPLE_HEADERS, emptyOdrMapping } from "./odr-fields";
 import { effectiveOdrLiveSend, ODR_NOT_SENT_DETAIL, ODR_SERVER_DISABLED_NOTE, odrEnvLive, odrServerDisabledNote } from "./odr-live";
 import { planOdrChannels, nextNoShowState, autoSendAllowed } from "./odr-plan";
@@ -109,6 +109,36 @@ test("the account check uses the last 4 digits and rejects a short account", () 
   assert.equal(last4Matches("LN-0042-7781", "7782"), false);
   assert.equal(last4Matches("LN-0042-7781", "781"), false);
   assert.equal(last4Matches("12", "0012"), false);
+});
+
+test("a short account falls back to the mobile last 4, and neither number stays closed", () => {
+  const account = last4Challenge("LN-0042-7781", "9876543210");
+  assert.equal(account?.source, "account");
+  assert.equal(last4Matches(account?.value ?? "", "7781"), true);
+  assert.equal(last4Matches(account?.value ?? "", "3210"), false);
+
+  const mobile = last4Challenge("N/A", "98765 43210");
+  assert.equal(mobile?.source, "mobile");
+  assert.equal(last4Matches(mobile?.value ?? "", "3210"), true);
+  assert.equal(last4Matches(mobile?.value ?? "", "7781"), false);
+  assert.equal(MOBILE_LAST4_PROMPT, "Enter the last 4 digits of your mobile number");
+
+  assert.equal(last4Challenge("", ""), null);
+  assert.equal(last4Challenge("12", "123"), null);
+  assert.equal(last4Challenge("AB", "+91"), null);
+});
+
+test("the notice mobile is the SMS number, then WhatsApp, then any saved number", () => {
+  assert.equal(customerMobileFromDeliveries([
+    { channel: "EMAIL", mobile: "9111111111" },
+    { channel: "WHATSAPP", mobile: "9222222222" },
+    { channel: "SMS", mobile: "9876543210" },
+  ]), "9876543210");
+  assert.equal(customerMobileFromDeliveries([
+    { channel: "SMS", mobile: " " },
+    { channel: "WHATSAPP", mobile: "9811111111" },
+  ]), "9811111111");
+  assert.equal(customerMobileFromDeliveries([{ channel: "EMAIL", mobile: "" }]), "");
 });
 
 test("hearing labels, times, and the no-show cap", () => {
