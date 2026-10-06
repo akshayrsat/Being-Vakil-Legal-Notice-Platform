@@ -248,4 +248,86 @@ function istParts(date: Date): { date: string; minutes: number } | null {
   return { date: key, minutes };
 }
 
+export type ScheduleInput = {
+  start: Date;
+  durationMinutes: number;
+  windowStart: string;
+  windowEnd: string;
+  gapMinutes: number;
+  skipSundays: boolean;
+  holidays: string[];
+  breakStart: string;
+  breakEnd: string;
+};
+
+export function readScheduleInput(formData: FormData): { ok: true; schedule: ScheduleInput } | { ok: false; error: string } {
+  const start = indiaDateTime(String(formData.get("hearingDate") ?? ""), String(formData.get("hearingTime") ?? ""));
+  if (!start) return { ok: false, error: "Enter the first hearing date and time." };
+  const durationMinutes = Number(formData.get("duration") ?? "");
+  if (!Number.isInteger(durationMinutes) || durationMinutes < 15 || durationMinutes > 240) {
+    return { ok: false, error: "Hearing length must be between 15 and 240 minutes." };
+  }
+  const gapMinutes = Number(formData.get("gapMinutes") ?? "");
+  if (!Number.isInteger(gapMinutes) || gapMinutes < 0 || gapMinutes > 180) {
+    return { ok: false, error: "The gap between hearings must be between 0 and 180 minutes." };
+  }
+  const windowStart = String(formData.get("windowStart") ?? "");
+  const windowEnd = String(formData.get("windowEnd") ?? "");
+  const breakStart = String(formData.get("breakStart") ?? "");
+  const breakEnd = String(formData.get("breakEnd") ?? "");
+  if (parseClock(windowStart) === null || parseClock(windowEnd) === null) {
+    return { ok: false, error: "Enter the daily window as a start and an end." };
+  }
+  if (parseClock(breakStart) === null || parseClock(breakEnd) === null) {
+    return { ok: false, error: "Enter the lunch break as a start and an end." };
+  }
+  const holidays = parseHolidayList(String(formData.get("holidays") ?? ""));
+  if (holidays.error) return { ok: false, error: holidays.error };
+  return {
+    ok: true,
+    schedule: {
+      start,
+      durationMinutes,
+      windowStart,
+      windowEnd,
+      gapMinutes,
+      skipSundays: formData.get("skipSundays") === "on",
+      holidays: holidays.dates,
+      breakStart,
+      breakEnd,
+    },
+  };
+}
+
+export function rulesFromSchedule(schedule: ScheduleInput): HearingRules | null {
+  const windowStart = parseClock(schedule.windowStart);
+  const windowEnd = parseClock(schedule.windowEnd);
+  const breakStart = parseClock(schedule.breakStart);
+  const breakEnd = parseClock(schedule.breakEnd);
+  if (windowStart === null || windowEnd === null || breakStart === null || breakEnd === null) return null;
+  return {
+    start: schedule.start,
+    windowStart,
+    windowEnd,
+    durationMinutes: schedule.durationMinutes,
+    gapMinutes: schedule.gapMinutes,
+    skipSundays: schedule.skipSundays,
+    holidays: new Set(schedule.holidays),
+    breakStart,
+    breakEnd,
+  };
+}
+
+export function readArbitratorChoice(formData: FormData): { ok: true; mode: "SPLIT" | "PANEL"; ids: string[] } | { ok: false; error: string } {
+  const count = Number(formData.get("arbitratorCount") ?? "1");
+  if (count !== 1 && count !== 2 && count !== 3) return { ok: false, error: "Choose one, two, or three arbitrators." };
+  const modeValue = String(formData.get("arbitratorMode") ?? "SPLIT");
+  const mode = modeValue === "PANEL" ? "PANEL" : modeValue === "SPLIT" ? "SPLIT" : null;
+  if (!mode) return { ok: false, error: "Choose split customers or a panel." };
+  const ids = [0, 1, 2].slice(0, count).map((index) => String(formData.get(index === 0 ? "neutralId" : `neutralId${index + 1}`) ?? "").trim());
+  if (ids.some((id) => !id)) return { ok: false, error: "Choose each arbitrator or mediator." };
+  if (new Set(ids).size !== ids.length) return { ok: false, error: "Choose a different person for each place." };
+  return { ok: true, mode, ids };
+}
+
 export { DAY_MS };

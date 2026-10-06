@@ -8,7 +8,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { getCurrentUser } from "@/lib/auth";
 import { workingBank } from "@/lib/bank-context";
 import { prisma } from "@/lib/db";
-import { formatHearingDate } from "@/lib/odr-ref";
+import { formatHearingDate, formatHearingTime } from "@/lib/odr-ref";
 import { odrCaseWhere, odrFiltersApplied, odrFiltersToSearch, readOdrFilters } from "@/lib/odr-reports";
 import { ODR_MATTERS, ODR_STATUSES, odrMatterLabel, odrStatusLabel } from "@/lib/odr-status";
 import { odrListBack } from "@/lib/odr-back";
@@ -110,14 +110,22 @@ export default async function OdrCasesPage({
               ) : null}
             </div>
           </form>
-          <CaseTable bankId={bank.id} filters={{ ...filters, applied: true }} />
+          <CaseTable bankId={bank.id} filters={{ ...filters, applied: true }} showCustomerPage={canSend} />
         </>
       )}
     </DeskShell>
   );
 }
 
-async function CaseTable({ bankId, filters }: { bankId: string; filters: ReturnType<typeof readOdrFilters> }) {
+async function CaseTable({
+  bankId,
+  filters,
+  showCustomerPage,
+}: {
+  bankId: string;
+  filters: ReturnType<typeof readOdrFilters>;
+  showCustomerPage: boolean;
+}) {
   if (!filters.applied && !filters.q) {
     const count = await prisma.odrCase.count({ where: { bankId } });
     return <p className="text-sm text-muted-foreground">{count} cases on this bank. Press Apply to list them.</p>;
@@ -140,6 +148,7 @@ async function CaseTable({ bankId, filters }: { bankId: string; filters: ReturnT
             <th className="px-3 py-2 font-medium">Type</th>
             <th className="px-3 py-2 font-medium">Arbitrator</th>
             <th className="px-3 py-2 font-medium">Hearing</th>
+            {showCustomerPage ? <th className="px-3 py-2 font-medium">Customer page</th> : null}
             <th className="px-3 py-2 font-medium">Status</th>
           </tr>
         </thead>
@@ -158,8 +167,15 @@ async function CaseTable({ bankId, filters }: { bankId: string; filters: ReturnT
                 <td className="px-3 py-2">{odrMatterLabel(item.matterType)}</td>
                 <td className="px-3 py-2">{item.neutralName || "—"}</td>
                 <td className="px-3 py-2">
-                  {hearing ? `${hearing.number} · ${formatHearingDate(hearing.scheduledAt)}` : "—"}
+                  {hearing ? `${hearing.number} · ${formatHearingDate(hearing.scheduledAt)} ${formatHearingTime(hearing.scheduledAt)}` : "—"}
                 </td>
+                {showCustomerPage ? (
+                  <td className="px-3 py-2">
+                    <a href={`/odr/c/${item.publicToken}`} target="_blank" rel="noopener noreferrer" className="underline">
+                      Open
+                    </a>
+                  </td>
+                ) : null}
                 <td className="px-3 py-2">
                   {odrStatusLabel(item.status)}
                   {item.exParte || item.flaggedExParte ? " · Ex parte" : ""}

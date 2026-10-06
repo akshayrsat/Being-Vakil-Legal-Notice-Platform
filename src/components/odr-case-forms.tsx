@@ -12,6 +12,7 @@ import {
   updateOdrStatus,
   uploadStaffDocument,
 } from "@/app/actions/odr";
+import { OdrSlotFields } from "@/components/odr-slot-fields";
 import { Button } from "@/components/ui/button";
 import { ODR_STAGES, ODR_STATUSES, STAFF_DOCUMENT_KINDS } from "@/lib/odr-status";
 
@@ -139,11 +140,10 @@ export function OdrBulkScheduleForm() {
         No-shows from this date
         <input name="fromDate" type="date" required className={field} />
       </label>
-      <div className="grid gap-3 sm:grid-cols-3">
-        <input name="hearingDate" type="date" required className={field} aria-label="Next hearing date" />
-        <input name="hearingTime" type="time" required className={field} aria-label="Next hearing time" />
-        <input name="duration" type="number" min={15} max={240} defaultValue={60} required className={field} aria-label="Session length" />
-      </div>
+      <OdrSlotFields dateLabel="Next hearing date" />
+      <p className="text-sm leading-6 text-muted-foreground">
+        Each case keeps its arbitrator. Times step through the day, and a case at the no-show limit is recorded without a message.
+      </p>
       <ErrorLine error={state?.error} />
       <Button type="submit" className="h-11 w-fit px-4" disabled={pending}>
         {pending ? "Scheduling…" : "Schedule these hearings"}

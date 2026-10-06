@@ -4,7 +4,7 @@ import { EmptyState } from "@/components/empty-state";
 import { prisma } from "@/lib/db";
 import { formatIndiaDateTime } from "@/lib/india-day";
 import { agreedSettlementAmount, isPaperSigned } from "@/lib/odr-paper";
-import { formatHearingDate } from "@/lib/odr-ref";
+import { formatHearingDate, formatHearingTime } from "@/lib/odr-ref";
 import { odrCaseWhere, odrFiltersApplied, odrFiltersToSearch, readOdrFilters, type OdrFilters } from "@/lib/odr-reports";
 import { ODR_MATTERS, ODR_STATUSES, odrDocumentLabel, odrMatterLabel, odrStatusLabel } from "@/lib/odr-status";
 
@@ -149,7 +149,11 @@ async function OdrRows({
               </td>
               <td className="px-3 py-2">{item.customerName}</td>
               <td className="px-3 py-2">{odrMatterLabel(item.matterType)}</td>
-              <td className="px-3 py-2">{item.hearings[0] ? formatHearingDate(item.hearings[0].scheduledAt) : "—"}</td>
+              <td className="px-3 py-2">
+                {item.hearings[0]
+                  ? `${formatHearingDate(item.hearings[0].scheduledAt)} ${formatHearingTime(item.hearings[0].scheduledAt)}`
+                  : "—"}
+              </td>
               <td className="px-3 py-2">{odrStatusLabel(item.status)}</td>
               <td className="px-3 py-2">{agreedSettlementAmount(item.paperJson) || "—"}</td>
               <td className="px-3 py-2">{item.awardAt ? formatIndiaDateTime(item.awardAt) : "—"}</td>

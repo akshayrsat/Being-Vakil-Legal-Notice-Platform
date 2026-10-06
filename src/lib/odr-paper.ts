@@ -3,6 +3,7 @@
 import { deliveryStatusLabel } from "./campaigns";
 import { formatIndiaDateTime } from "./india-day";
 import type { DocxModel } from "./odr-docx";
+import { joinNames, tribunalHeading, tribunalRole } from "./odr-panel";
 import { addAmounts, amountInWords, formatIndianAmount, parseAmount, subtractAmounts } from "./odr-money";
 import { odrDocumentLabel } from "./odr-status";
 import { normalizeHeader } from "./sheet-fields";
@@ -79,6 +80,7 @@ export type PaperCase = {
   neutralName: string;
   neutralQualification: string;
   neutralEnrolment: string;
+  panel?: Array<{ name: string; qualification: string; enrolment: string }>;
   exParte: boolean;
   flaggedExParte: boolean;
   bankCounsel: string;
@@ -473,6 +475,17 @@ export function composeModel(item: PaperCase, paper: PaperStore, kind: PaperKind
   const hearings = hearingRows(item);
   const joined = hearings.map((row) => row.hearing_respondent_attendance).filter((value) => value === "Joined" || value === "No-show");
   if (!fields.respondent_appearance && joined.includes("Joined")) fields.respondent_appearance = item.advocateName || "In person";
+  const tribunal = tribunalMembers(item);
+  fields.tribunal_heading = tribunalHeading(tribunal.length);
+  fields.arbitrator_name = joinNames(tribunal.map((member) => member.name)) || item.neutralName;
+  fields.mediator_name = fields.arbitrator_name;
+  const tribunalRows = tribunal.map((member) => ({
+    arbitrator_name: member.name,
+    tribunal_role: tribunalRole(tribunal.length),
+    arbitrator_qualification: member.qualification,
+    arbitrator_enrolment_no: member.enrolment,
+    arbitrator_signature_mode: fields.arbitrator_signature_mode ?? "",
+  }));
   return {
     values: fields,
     flags: {
@@ -488,7 +501,7 @@ export function composeModel(item: PaperCase, paper: PaperStore, kind: PaperKind
       other_proceedings: flagOn(fields, "other_proceedings", false),
       mediation_act_applicable: flagOn(fields, "mediation_act_applicable", false),
     },
-    repeats: { obligors, co_respondents: coRespondents },
+    repeats: { obligors, co_respondents: coRespondents, tribunal: tribunalRows },
     rows: {
       co_respondents: coRespondents,
       notice_log: noticeRows(item),
@@ -499,6 +512,13 @@ export function composeModel(item: PaperCase, paper: PaperStore, kind: PaperKind
       obligor_signatures: obligors,
     },
   };
+}
+
+function tribunalMembers(item: PaperCase): Array<{ name: string; qualification: string; enrolment: string }> {
+  const panel = (item.panel ?? []).filter((member) => member.name.trim());
+  if (panel.length > 0) return panel;
+  if (!item.neutralName.trim()) return [];
+  return [{ name: item.neutralName, qualification: item.neutralQualification, enrolment: item.neutralEnrolment }];
 }
 
 function interestAmount(fields: Record<string, string>): string {

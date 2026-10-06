@@ -10,6 +10,7 @@ import {
   OdrStatusForm,
 } from "@/components/odr-case-forms";
 import { OdrSignedUpload } from "@/components/odr-paper-form";
+import { CustomerPageLinks } from "@/components/customer-page-links";
 import { OdrBackLink } from "@/components/odr-back-link";
 import { DeskShell } from "@/components/desk-shell";
 import { getCurrentUser } from "@/lib/auth";
@@ -17,6 +18,7 @@ import { workingBank } from "@/lib/bank-context";
 import { deliveryStatusLabel } from "@/lib/campaigns";
 import { prisma } from "@/lib/db";
 import { formatIndiaDateTime } from "@/lib/india-day";
+import { parsePanel } from "@/lib/odr-panel";
 import { casePageUrl } from "@/lib/odr-runner";
 import { formatHearingDate, formatHearingTime, hearingOrdinal } from "@/lib/odr-ref";
 import { nowMs } from "@/lib/odr-schedule";
@@ -57,6 +59,7 @@ export default async function OdrCasePage({
   const technical = seesVendorDetail(user);
   const now = nowMs();
   const nextHearing = [...item.hearings].reverse().find((hearing) => hearing.scheduledAt.getTime() > now) ?? item.hearings.at(-1);
+  const panel = parsePanel(item.panelJson);
 
   return (
     <DeskShell user={user}>
@@ -68,6 +71,11 @@ export default async function OdrCasePage({
           {item.coParties ? ` and ${item.coParties}` : ""}. {odrMatterLabel(item.matterType)}. {odrStatusLabel(item.status)}
           {item.exParte || item.flaggedExParte ? ". Flagged for ex parte." : "."}
         </p>
+        {canSend ? (
+          <div className="mt-4">
+            <CustomerPageLinks href={casePageUrl(item.publicToken)} />
+          </div>
+        ) : null}
       </div>
 
       {item.settlementAmount ? (
@@ -122,15 +130,24 @@ export default async function OdrCasePage({
         </article>
         <article className="rounded-xl bg-card px-4 py-4 ring-1 ring-foreground/10">
           <h2 className="font-serif text-2xl">{odrNeutralRole(item.matterType)}</h2>
-          <p className="mt-3 text-sm leading-6">
-            {item.neutralName || "Not named"}
-            {item.neutralQualification ? `, ${item.neutralQualification}` : ""}
-            {item.neutralEnrolment ? `. Enrolment ${item.neutralEnrolment}` : ""}
-          </p>
+          {panel.length > 1 ? (
+            <ul className="mt-3 flex flex-col gap-2 text-sm leading-6">
+              {panel.map((member) => (
+                <li key={member.id || member.name}>
+                  {member.name}
+                  {member.qualification ? `, ${member.qualification}` : ""}
+                  {member.enrolment ? `. Enrolment ${member.enrolment}` : ""}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mt-3 text-sm leading-6">
+              {item.neutralName || "Not named"}
+              {item.neutralQualification ? `, ${item.neutralQualification}` : ""}
+              {item.neutralEnrolment ? `. Enrolment ${item.neutralEnrolment}` : ""}
+            </p>
+          )}
           <p className="mt-3 text-sm leading-6 text-muted-foreground">{item.disputeSummary || "No dispute summary."}</p>
-          <p className="mt-3 break-all text-sm">
-            Case page: {casePageUrl(item.publicToken)}
-          </p>
           {nextHearing ? (
             <p className="mt-2 text-sm">
               Hearing {nextHearing.number} ({hearingOrdinal(nextHearing.number)}) on {formatHearingDate(nextHearing.scheduledAt)} at {formatHearingTime(nextHearing.scheduledAt)}.

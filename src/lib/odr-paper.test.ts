@@ -46,6 +46,23 @@ function sampleCase(overrides: Partial<PaperCase> = {}): PaperCase {
   };
 }
 
+test("a panel award lists every arbitrator and a signature line for each", () => {
+  const model = composeModel(sampleCase({
+    panel: [
+      { name: "Justice A. Mehta", qualification: "Former District Judge", enrolment: "MH/1234/1998" },
+      { name: "B. Shah", qualification: "Advocate", enrolment: "MH/99/2010" },
+    ],
+  }), parsePaper("{}"), "award");
+  assert.equal(model.values.tribunal_heading, "Arbitral Tribunal");
+  assert.equal(model.values.arbitrator_name, "Justice A. Mehta and B. Shah");
+  assert.equal(model.repeats.tribunal?.length, 2);
+  assert.equal(model.repeats.tribunal?.[0]?.tribunal_role, "Arbitrator");
+  assert.equal(model.repeats.tribunal?.[1]?.arbitrator_name, "B. Shah");
+  const sole = composeModel(sampleCase(), parsePaper("{}"), "award");
+  assert.equal(sole.values.tribunal_heading, "Sole Arbitrator");
+  assert.equal(sole.repeats.tribunal?.[0]?.tribunal_role, "Sole Arbitrator");
+});
+
 test("amounts use the Indian lakh and crore system", () => {
   assert.equal(amountInWords("123456"), "One Lakh Twenty-Three Thousand Four Hundred Fifty-Six");
   assert.equal(amountInWords("1,00,00,000"), "One Crore");
