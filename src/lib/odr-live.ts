@@ -17,6 +17,29 @@ export function effectiveOdrLiveSend(
   return stored === true && odrEnvLive(envValue);
 }
 
+export const ODR_SERVER_DISABLED_NOTE = "ODR sending is disabled on the server";
+
+export function odrServerDisabledNote(envOn: boolean): string {
+  return envOn ? "" : ODR_SERVER_DISABLED_NOTE;
+}
+
+export function odrMessagesWarning(input: { switchOn: boolean; envOn: boolean; technical?: boolean }): string {
+  const technical = input.technical !== false;
+  if (!input.switchOn) {
+    return technical
+      ? "Confirming records a dry run. Nothing is sent."
+      : "Confirming records the message. Nothing is sent.";
+  }
+  if (!input.envOn) {
+    return technical
+      ? "ODR messages are turned on, but the server has sending disabled, so a confirm cannot send."
+      : "ODR messages are turned on, but sending is not ready yet, so a confirm cannot send.";
+  }
+  return technical
+    ? "Confirming sends the ODR message for real. Messages go out."
+    : "Confirming sends the ODR message for real by SMS, email, or WhatsApp.";
+}
+
 export function odrLiveWarning(input: { storedOn: boolean; envOn: boolean }): string {
   if (input.storedOn && input.envOn) {
     return "ODR sending is on. Confirming a hearing sends SMS, email, and WhatsApp where a template is set.";

@@ -522,7 +522,7 @@ export async function setOdrLiveSwitch(_previous: OdrFormState, formData: FormDa
     bankId: null,
     bankName: "",
   });
-  redirect("/settings?saved=odr");
+  redirect("/settings?saved=odr-send");
 }
 
 export async function saveOdrSettings(_previous: OdrFormState, formData: FormData): Promise<OdrFormState> {

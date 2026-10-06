@@ -18,7 +18,7 @@ import { isOwnerAdmin } from "@/lib/owner-admin";
 import { confirmWarning } from "@/lib/send-notice";
 import { msg91AuthKey } from "@/lib/msg91";
 import { OdrLiveForm, OdrTemplateForm } from "@/components/odr-settings-form";
-import { odrEnvLive, odrLiveWarning } from "@/lib/odr-live";
+import { odrEnvLive, odrMessagesWarning } from "@/lib/odr-live";
 import { readOdrRules } from "@/lib/odr-store";
 import { approvedWording } from "@/lib/odr-templates";
 
@@ -40,10 +40,16 @@ export default async function SettingsPage({
   const query = await searchParams;
   const enabled = await liveSendIsOn();
   const odrRules = await readOdrRules();
+  const odrEnvOn = odrEnvLive();
   const vendor = isOwnerAdmin(user);
   const warning = confirmWarning({
     switchOn: enabled,
     authKeySet: Boolean(msg91AuthKey()),
+    technical: vendor,
+  });
+  const odrWarning = odrMessagesWarning({
+    switchOn: odrRules.liveStored,
+    envOn: odrEnvOn,
     technical: vendor,
   });
 
@@ -63,6 +69,11 @@ export default async function SettingsPage({
             Saved. {warning}
           </p>
         ) : null}
+        {query.saved === "odr-send" ? (
+          <p className="rounded-lg border border-border bg-card px-3 py-2 text-sm" role="status">
+            Saved. {odrWarning}
+          </p>
+        ) : null}
         {query.saved === "odr" ? (
           <p className="rounded-lg border border-border bg-card px-3 py-2 text-sm" role="status">
             ODR settings saved. Notice sending was not changed.
@@ -79,13 +90,19 @@ export default async function SettingsPage({
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle>ODR sending is {odrRules.live ? "on" : "off"}</CardTitle>
-            <CardDescription>
-              {odrLiveWarning({ storedOn: odrRules.liveStored, envOn: odrEnvLive() })} This does not change notice sending.
-            </CardDescription>
+            <CardTitle>ODR messages are {odrRules.liveStored ? "on" : "off"}</CardTitle>
+            <CardDescription>{odrWarning} This does not change notice sending.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <OdrLiveForm enabled={odrRules.liveStored} serverDisabled={!odrEnvOn} technical={vendor} />
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>ODR templates and reminders</CardTitle>
+            <CardDescription>Empty template slots are not sent. This does not change notice sending.</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-6">
-            <OdrLiveForm enabled={odrRules.liveStored} />
             <OdrTemplateForm rules={odrRules} showIds={vendor} />
             <div>
               <h2 className="font-serif text-2xl">Approved first-hearing wording</h2>
