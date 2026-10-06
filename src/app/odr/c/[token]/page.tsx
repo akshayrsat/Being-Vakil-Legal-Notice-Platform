@@ -10,12 +10,14 @@ import {
   OdrConsentForm,
   OdrVerifyForm,
 } from "@/components/odr-customer-forms";
+import { OdrConciliationReplyForm } from "@/components/odr-route-forms";
 import { joinOdrHearing } from "@/app/actions/odr-public";
 import { customerGrantMatches } from "@/app/actions/odr-public";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { parsePanel } from "@/lib/odr-panel";
 import { odrCopyFor } from "@/lib/odr-copy";
+import { conciliationState, resolveLegalRoute } from "@/lib/odr-route";
 import { clientIp, clipAgent } from "@/lib/odr-access";
 import { accountLast4, formatHearingDate, formatHearingTime, googleCalendarUrl, hearingTitle } from "@/lib/odr-ref";
 import { nowMs } from "@/lib/odr-schedule";
@@ -44,12 +46,14 @@ export default async function CustomerCasePage({ params }: { params: Promise<{ t
             orderBy: { createdAt: "desc" },
             select: { id: true, kind: true, fileName: true, uploadedBy: true },
           },
+          routeReplies: true,
         },
       })
     : null;
   const viewer = found?.viewer ?? null;
   if (!item) return <Frame><Missing /></Frame>;
-  const copy = odrCopyFor(item.matterType);
+  const route = resolveLegalRoute(item.legalRoute, item.matterType);
+  const copy = odrCopyFor(item.matterType, route);
   const staff = await getCurrentUser();
   if (!staff && !(await customerGrantMatches(item.id))) {
     return (
@@ -98,7 +102,25 @@ export default async function CustomerCasePage({ params }: { params: Promise<{ t
     enrolment: item.neutralEnrolment,
     panel: choicePanel,
   });
-  const certificate = item.documents.find((doc) => doc.kind === "CONSENT_CERTIFICATE");
+  const certificate = item.documents.find((doc) => doc.kind === "CONSENT_CERTIFICATE" && doc.uploadedBy === "customer");
+  const viewerId = viewer?.id ?? "";
+  const myConsent = appointment.parties.find((party) => party.id === viewerId)?.consent ?? null;
+  const replyFor = (id: string) => item.routeReplies.find((reply) => reply.respondentId === id) ?? null;
+  const conciliation = conciliationState({
+    route,
+    now: new Date(),
+    invitedAt: item.firstNoticeAt,
+    parties: [
+      { id: "", name: item.customerName, reply: replyFor("") },
+      ...item.respondents.map((party) => ({ id: party.id, name: party.name, reply: replyFor(party.id) })),
+    ],
+  });
+  const myReply = replyFor(viewerId);
+  const sessionOpen = route === "CONCILIATION"
+    ? conciliation.phase === "accepted"
+    : route === "LOK_ADALAT"
+      ? false
+      : appointment.hearingBookingOpen;
 
   const now = nowMs();
   const upcoming = [...item.hearings].reverse().find((hearing) => hearing.scheduledAt.getTime() > now - hearing.durationMinutes * 60 * 1000);
@@ -206,22 +228,22 @@ export default async function CustomerCasePage({ params }: { params: Promise<{ t
       {item.matterType === "ARBITRATION" ? (
         <Section title="Arbitrator consent">
           <p className="text-sm leading-6">
-            You can accept the named arbitrator, choose another name from the panel, or object. Your choice is recorded. It does not decide the dispute.
+            You can accept the named arbitrator, choose another name from the panel, or say none of these / I object. Every borrower, co-borrower, and guarantor records their own choice. It does not decide the dispute.
           </p>
           {appointment.warning ? (
-            <p className="mt-3 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive" role="status">
+            <p className={`mt-3 rounded-lg border px-3 py-2 text-sm ${appointment.phase === "reminder" ? "border-border bg-muted/40" : "border-destructive/30 bg-destructive/10 text-destructive"}`} role="status">
               {appointment.warning}
             </p>
           ) : null}
-          {appointment.consent ? (
+          {myConsent ? (
             <div className="mt-3 text-sm leading-6">
-              <p>Recorded {appointment.consent.recordedAtIst}. This record is not edited.</p>
+              <p>Recorded {myConsent.recordedAtIst}. This record is not edited.</p>
               <p>
-                {appointment.consent.choice === "ACCEPT"
+                {myConsent.choice === "ACCEPT"
                   ? `Accepted ${item.neutralName || item.nominatedNeutralName}.`
-                  : appointment.consent.choice === "PANEL"
-                    ? `Chose ${appointment.consent.chosenNeutralName} from the panel.`
-                    : `Objected. ${appointment.consent.objection}`}
+                  : myConsent.choice === "PANEL"
+                    ? `Chose ${myConsent.chosenNeutralName} from the panel.`
+                    : `None of these / I object. ${myConsent.objection}`}
               </p>
               {certificate ? (
                 <p className="mt-2">
@@ -231,6 +253,20 @@ export default async function CustomerCasePage({ params }: { params: Promise<{ t
             </div>
           ) : (
             <OdrConsentForm token={token} shownText={shownConsent} panel={choicePanel} />
+          )}
+        </Section>
+      ) : null}
+
+      {route === "CONCILIATION" ? (
+        <Section title="Invitation to conciliate">
+          <p className="text-sm leading-6">
+            This is a written invitation under Section 62. You may accept or decline. If you do not reply within 30 days, the invitation is declined. The conciliator does not decide the dispute, and the session is not recorded.
+          </p>
+          <p className="mt-3 text-sm leading-6">{conciliation.note}</p>
+          {myReply ? (
+            <p className="mt-3 text-sm">Your reply: {myReply.choice === "ACCEPT" ? "Accepted" : "Declined"}. Recorded {myReply.recordedAtIst}.</p>
+          ) : conciliation.phase === "declined" ? null : (
+            <OdrConciliationReplyForm token={token} />
           )}
         </Section>
       ) : null}
@@ -246,7 +282,9 @@ export default async function CustomerCasePage({ params }: { params: Promise<{ t
             </li>
           ))}
         </ol>
-        {hearing ? (
+        {route === "LOK_ADALAT" ? (
+          <p className="mt-4 text-sm">A hearing is not scheduled on this page. The Lok Adalat sits at the Legal Services Authority or the DRT.</p>
+        ) : hearing ? (
           <div className="mt-5 rounded-lg border border-primary/30 px-4 py-4">
             <p className="text-sm text-muted-foreground">{copy.nextHearing}</p>
             <p className="mt-1 font-serif text-2xl">{formatHearingDate(hearing.scheduledAt)}</p>
@@ -255,7 +293,7 @@ export default async function CustomerCasePage({ params }: { params: Promise<{ t
               <p className="mt-2 text-sm">Your attendance: {partyAttendanceLabel(partyAttendanceMap(hearing.partyAttendance)[viewer.id] ?? "")}</p>
             ) : null}
             {hearing.meetFake ? <p className="mt-2 text-sm text-muted-foreground">{copy.practiceMeet}</p> : null}
-            {appointment.hearingBookingOpen ? (
+            {sessionOpen ? (
               <div className="mt-4 flex flex-wrap gap-2">
                 <form action={joinOdrHearing}>
                   <input type="hidden" name="token" value={token} />
@@ -271,15 +309,19 @@ export default async function CustomerCasePage({ params }: { params: Promise<{ t
                 ) : null}
               </div>
             ) : (
-              <p className="mt-3 text-sm">{appointment.warning || "Joining opens after you record your choice of arbitrator."}</p>
+              <p className="mt-3 text-sm">{route === "CONCILIATION" ? "A session link opens after every respondent accepts the invitation." : appointment.warning || "Joining opens after you record your choice of arbitrator."}</p>
             )}
           </div>
         ) : (
           <p className="mt-4 text-sm">{copy.noHearing}</p>
         )}
-        <h3 className="mt-6 font-medium">{copy.rescheduleHeading}</h3>
-        <p className="mt-1 text-sm text-muted-foreground">{copy.rescheduleBody}</p>
-        {item.rescheduleAt ? <p className="mt-3 text-sm">{copy.rescheduleReceived}</p> : appointment.hearingBookingOpen ? <OdrRescheduleForm token={token} /> : null}
+        {route === "LOK_ADALAT" ? null : (
+          <>
+            <h3 className="mt-6 font-medium">{copy.rescheduleHeading}</h3>
+            <p className="mt-1 text-sm text-muted-foreground">{copy.rescheduleBody}</p>
+            {item.rescheduleAt ? <p className="mt-3 text-sm">{copy.rescheduleReceived}</p> : sessionOpen ? <OdrRescheduleForm token={token} /> : null}
+          </>
+        )}
       </Section>
 
       <Section title={copy.settleHeading}>

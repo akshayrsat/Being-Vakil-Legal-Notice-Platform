@@ -18,6 +18,9 @@ export type NeutralDraft = {
   email: string;
   mobile: string;
   active: boolean;
+  roles?: string;
+  empanelment?: string;
+  mciRegistration?: string;
 };
 
 export function indianMobileDigits(value: string): string | null {
@@ -65,6 +68,15 @@ export function neutralEditSummary(before: NeutralDraft, after: NeutralDraft): s
   }
   if (before.email !== after.email) fields.push(`email from ${before.email || "blank"} to ${after.email}`);
   if (before.mobile !== after.mobile) fields.push(`mobile from ${before.mobile || "blank"} to ${after.mobile}`);
+  if ((before.roles ?? "") !== (after.roles ?? "")) {
+    fields.push(`roles from ${before.roles || "blank"} to ${after.roles || "blank"}`);
+  }
+  if ((before.empanelment ?? "") !== (after.empanelment ?? "")) {
+    fields.push(`empanelment from ${before.empanelment || "blank"} to ${after.empanelment || "blank"}`);
+  }
+  if ((before.mciRegistration ?? "") !== (after.mciRegistration ?? "")) {
+    fields.push(`Mediation Council registration from ${before.mciRegistration || "blank"} to ${after.mciRegistration || "blank"}`);
+  }
   const parts: string[] = [];
   if (fields.length > 0) parts.push(`Changed ${fields.join(", ")}`);
   if (before.active !== after.active) parts.push(after.active ? "Marked active" : "Marked inactive");

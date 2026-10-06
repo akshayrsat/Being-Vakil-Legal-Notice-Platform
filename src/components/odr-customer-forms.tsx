@@ -68,7 +68,7 @@ export function OdrConsentForm({
         </label>
         <label className="flex items-start gap-2 text-sm">
           <input type="radio" name="choice" value="OBJECT" className="mt-1 size-4 accent-primary" />
-          Object
+          None of these / I object
         </label>
       </fieldset>
       <label className="flex items-start gap-2 text-sm">

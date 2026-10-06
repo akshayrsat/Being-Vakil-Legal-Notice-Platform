@@ -421,13 +421,18 @@ model OdrNeutral {
   email         String    @default("")
   mobile        String    @default("")
   qualification String    @default("")
-  enrolmentNo   String    @default("")
-  active        Boolean   @default(true)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  cases         OdrCase[]
-  panelSeats    OdrBankPanel[]
-  edits         OdrNeutralEdit[]
+  enrolmentNo     String    @default("")
+  roles           String    @default("ARBITRATOR")
+  empanelment     String    @default("")
+  mciRegistration String    @default("")
+  active          Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  cases           OdrCase[]
+  panelSeats      OdrBankPanel[]
+  edits           OdrNeutralEdit[]
+  files           OdrNeutralFile[]
+  services        OdrNeutralService[]
 }
 
 // Who changed an arbitrator or mediator, and when. The contact used for invites
@@ -442,6 +447,37 @@ model OdrNeutralEdit {
   summary   String
   createdAt DateTime   @default(now())
 
+  @@index([neutralId])
+}
+
+// MCPC training certificate and the annual independence declaration.
+model OdrNeutralFile {
+  id         String     @id @default(cuid())
+  neutralId  String
+  neutral    OdrNeutral @relation(fields: [neutralId], references: [id], onDelete: Cascade)
+  kind       String
+  fileName   String
+  mimeType   String     @default("application/pdf")
+  content    Bytes
+  uploadedBy String     @default("")
+  createdAt  DateTime   @default(now())
+
+  @@index([neutralId])
+}
+
+// The role a person actually performed on one case. An arbitrator appointment
+// is refused when this person already mediated or conciliated that case.
+model OdrNeutralService {
+  id        String     @id @default(cuid())
+  caseId    String
+  case      OdrCase    @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  neutralId String
+  neutral   OdrNeutral @relation(fields: [neutralId], references: [id], onDelete: Cascade)
+  role      String
+  createdAt DateTime   @default(now())
+
+  @@unique([caseId, neutralId, role])
+  @@index([caseId])
   @@index([neutralId])
 }
 
@@ -479,6 +515,7 @@ model OdrBatch {
   bank            Bank      @relation(fields: [bankId], references: [id], onDelete: Cascade)
   fileName        String
   matterType      String
+  legalRoute      String    @default("")
   neutralId       String    @default("")
   neutralName     String    @default("")
   hearingAt       DateTime
@@ -516,6 +553,7 @@ model OdrCase {
   rowNumber            Int            @default(0)
   refNo                String         @unique
   matterType           String
+  legalRoute           String         @default("")
   customerName         String
   coParties            String         @default("")
   accountNumber        String         @default("")
@@ -558,6 +596,14 @@ model OdrCase {
   rescheduleNote       String         @default("")
   reschedulePreferred  String         @default("")
   rescheduleAt         DateTime?
+  limitationDate       String         @default("")
+  pleadingsClosedOn    String         @default("")
+  awardExtension       Boolean        @default(false)
+  awardDeliveredOn     String         @default("")
+  processDeadlineOn    String         @default("")
+  settlementSanctionRef String        @default("")
+  settlementInstalmentMonths Int      @default(0)
+  lokAdalatStatus      String         @default("")
   createdAt            DateTime       @default(now())
   updatedAt            DateTime       @updatedAt
   hearings             OdrHearing[]
@@ -568,6 +614,8 @@ model OdrCase {
   accessLogs           OdrAccessLog[]
   alerts               OdrAlert[]
   consents             OdrConsent[]
+  services             OdrNeutralService[]
+  routeReplies         OdrRouteReply[]
 
   @@index([bankId])
   @@index([batchId])
@@ -687,10 +735,30 @@ model OdrConsent {
   ip                String   @default("")
   userAgent         String   @default("")
   documentId        String   @default("")
+  respondentId      String   @default("")
+  respondentName    String   @default("")
   createdAt         DateTime @default(now())
 
   @@index([caseId])
   @@index([bankId])
+  @@index([respondentId])
+}
+
+// Accept or decline a conciliation invitation. One row per respondent.
+model OdrRouteReply {
+  id             String   @id @default(cuid())
+  caseId         String
+  case           OdrCase  @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  bankId         String
+  respondentId   String   @default("")
+  respondentName String   @default("")
+  choice         String
+  recordedAt     DateTime
+  recordedAtIst  String   @default("")
+  createdAt      DateTime @default(now())
+
+  @@unique([caseId, respondentId])
+  @@index([caseId])
 }
 
 model OdrStatusEvent {
@@ -785,5 +853,6 @@ model OdrSettings {
   sheetRetentionDays  Int      @default(30)
   closedDataRetentionDays Int  @default(0)
   consentDays         Int      @default(15)
+  consentBlockDays    Int      @default(30)
   updatedAt           DateTime @updatedAt
 }

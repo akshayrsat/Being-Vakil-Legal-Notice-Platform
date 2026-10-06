@@ -105,13 +105,15 @@ test("the text stored is the text shown, including the Section 12(5) waiver", ()
   assert.equal(BANK_NOMINATED_MODE, "bank nominated, subject to post-dispute consent");
 });
 
-test("no choice inside 15 days waits, and a late silence or an objection blocks the award", () => {
+test("no choice inside 15 days waits, a reminder follows, and silence after 30 days blocks the award", () => {
   const first = new Date("2026-10-01T04:30:00.000Z");
   assert.equal(consentDueAt(first, 15).toISOString(), new Date("2026-10-16T04:30:00.000Z").toISOString());
+  assert.equal(consentDueAt(first, 30).toISOString(), new Date("2026-10-31T04:30:00.000Z").toISOString());
   const pending = appointmentConsentState({
     matterType: "ARBITRATION",
     now: new Date("2026-10-10T04:30:00.000Z"),
     days: 15,
+    blockDays: 30,
     firstNoticeAt: first,
     consent: null,
     documentKinds: [],
@@ -121,10 +123,25 @@ test("no choice inside 15 days waits, and a late silence or an objection blocks 
   assert.equal(pending.awardBlocked, false);
   assert.equal(pending.hearingBookingOpen, false);
 
-  const expired = appointmentConsentState({
+  const reminder = appointmentConsentState({
     matterType: "ARBITRATION",
     now: new Date("2026-10-20T04:30:00.000Z"),
     days: 15,
+    blockDays: 30,
+    firstNoticeAt: first,
+    consent: null,
+    documentKinds: [],
+  });
+  assert.equal(reminder.phase, "reminder");
+  assert.equal(reminder.awardBlocked, false);
+  assert.match(reminder.warning, /Reminder/);
+  assert.doesNotMatch(reminder.warning, /Section 11/);
+
+  const expired = appointmentConsentState({
+    matterType: "ARBITRATION",
+    now: new Date("2026-11-02T04:30:00.000Z"),
+    days: 15,
+    blockDays: 30,
     firstNoticeAt: first,
     consent: null,
     documentKinds: [],
@@ -172,6 +189,59 @@ test("no choice inside 15 days waits, and a late silence or an objection blocks 
     consent: null,
     documentKinds: [],
   }).required, false);
+});
+
+test("every respondent must consent, and one objection or two different names blocks the award", () => {
+  const first = new Date("2026-10-01T04:30:00.000Z");
+  const accepted = consent({ choice: "ACCEPT" });
+  const waiting = appointmentConsentState({
+    matterType: "ARBITRATION",
+    now: first,
+    days: 15,
+    blockDays: 30,
+    firstNoticeAt: first,
+    consent: null,
+    parties: [
+      { id: "", name: "Ravi Shah", consent: accepted },
+      { id: "co", name: "Meera Shah", consent: null },
+    ],
+    documentKinds: [],
+  });
+  assert.equal(waiting.phase, "pending");
+  assert.equal(waiting.awardBlocked, false);
+  assert.equal(waiting.hearingBookingOpen, false);
+
+  const objected = appointmentConsentState({
+    matterType: "ARBITRATION",
+    now: first,
+    days: 15,
+    blockDays: 30,
+    firstNoticeAt: first,
+    consent: null,
+    parties: [
+      { id: "", name: "Ravi Shah", consent: accepted },
+      { id: "co", name: "Meera Shah", consent: consent({ choice: "OBJECT", objection: "None of these.", typedName: "Meera Shah" }) },
+    ],
+    documentKinds: [],
+  });
+  assert.equal(objected.phase, "objected");
+  assert.equal(objected.awardBlocked, true);
+
+  const split = appointmentConsentState({
+    matterType: "ARBITRATION",
+    now: first,
+    days: 15,
+    blockDays: 30,
+    firstNoticeAt: first,
+    consent: null,
+    nominatedNeutralId: "a",
+    parties: [
+      { id: "", name: "Ravi Shah", consent: accepted },
+      { id: "co", name: "Meera Shah", consent: consent({ choice: "PANEL", chosenNeutralId: "b", chosenNeutralName: "B. Iyer", typedName: "Meera Shah" }) },
+    ],
+    documentKinds: [],
+  });
+  assert.equal(split.awardBlocked, true);
 });
 
 test("the award appointment paragraph follows the consent record or a Section 11 order", () => {
@@ -261,7 +331,7 @@ test("an arbitration notice mentions the consent step, and a mediation notice do
     kind: "first" as const,
   };
   const arbitration = hearingMessageText({ ...shared, matterType: "ARBITRATION" });
-  assert.match(arbitration, /accept the named arbitrator, choose one name from the panel, or object/);
+  assert.match(arbitration, /accept the named arbitrator, choose one name from the panel, or say none of these \/ I object/);
   const mediation = hearingMessageText({ ...shared, matterType: "MEDIATION" });
   assert.doesNotMatch(mediation, /Section 12\(5\)|choose one name from the panel/);
 });

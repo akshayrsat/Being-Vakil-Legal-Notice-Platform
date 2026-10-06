@@ -136,9 +136,53 @@ export function odrCopy(locale = "en"): OdrCopy {
   return ENGLISH;
 }
 
-export function odrCopyFor(matterType: string): OdrCopy {
+const CONCILIATION_RULES = [
+  "This is an invitation to conciliate under the Arbitration and Conciliation Act, 1996. You may accept or decline.",
+  "If you do not reply within 30 days, the invitation is declined.",
+  "The conciliator does not decide the dispute.",
+  "Please do not record the session.",
+  "What is said in the session is confidential.",
+  "A settlement is recorded only if the parties sign it.",
+];
+
+const LOK_ADALAT_RULES = [
+  "This matter is for a Lok Adalat. A hearing is not held on this page.",
+  "The sitting is arranged by the Legal Services Authority or the Debts Recovery Tribunal.",
+  "A Lok Adalat award is made only if the parties settle.",
+];
+
+export function odrCopyFor(matterType: string, legalRoute = ""): OdrCopy {
   const copy = odrCopy("en");
-  if (matterType !== "MEDIATION") return copy;
+  if (legalRoute === "LOK_ADALAT") {
+    return {
+      ...copy,
+      pageTitle: "Your Lok Adalat referral",
+      rulesHeading: "About this referral",
+      rules: LOK_ADALAT_RULES,
+      neutralHeading: "Referral",
+      nextHearing: "Sitting",
+      noHearing: "A hearing is not scheduled on this page.",
+      join: "Join",
+      timelineHeading: "Timeline",
+    };
+  }
+  if (legalRoute === "CONCILIATION") {
+    return {
+      ...copy,
+      pageTitle: "Your conciliation",
+      rulesHeading: "About this invitation",
+      rules: CONCILIATION_RULES,
+      neutralHeading: "Conciliator",
+      independenceMediation:
+        "The conciliator is independent of the parties and does not decide the dispute. A settlement is recorded only if the parties sign it, and it is authenticated by the conciliator.",
+      nextHearing: "Next session",
+      noHearing: "A session date will appear here after the invitation is accepted.",
+      join: "Join session",
+      rescheduleBody: "You may ask for another date. Joining is voluntary.",
+      settleBody: "If you want to propose a settlement, send the amount and a short note. It is recorded only if the parties agree.",
+    };
+  }
+  if (matterType !== "MEDIATION" && legalRoute !== "MEDIATION") return copy;
   return {
     ...copy,
     pageTitle: "Your mediation session",

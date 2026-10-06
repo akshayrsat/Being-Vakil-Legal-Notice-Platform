@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { OdrBankPanelForm, OdrNeutralEditForm, OdrNeutralForm } from "@/components/odr-case-forms";
+import { OdrNeutralFileForm } from "@/components/odr-route-forms";
 import { OdrBackLink } from "@/components/odr-back-link";
 import { DeskShell } from "@/components/desk-shell";
 import { getCurrentUser } from "@/lib/auth";
@@ -19,8 +20,18 @@ export default async function NeutralsPage() {
   const bank = workingBank(user);
   const neutrals = await prisma.odrNeutral.findMany({
     orderBy: { name: "asc" },
-    include: { edits: { orderBy: { createdAt: "desc" }, take: 8 } },
+    include: {
+      edits: { orderBy: { createdAt: "desc" }, take: 8 },
+      files: { orderBy: { createdAt: "desc" }, select: { id: true, kind: true, fileName: true, createdAt: true } },
+    },
   });
+  const appointments = await prisma.odrCase.groupBy({
+    by: ["neutralId", "bankId"],
+    where: { neutralId: { not: null } },
+    _count: { _all: true },
+  });
+  const banks = await prisma.bank.findMany({ select: { id: true, name: true } });
+  const bankName = new Map(banks.map((row) => [row.id, row.name]));
   const panel = bank
     ? await prisma.odrBankPanel.findMany({ where: { bankId: bank.id }, orderBy: { sortOrder: "asc" }, select: { neutralId: true } })
     : [];
@@ -44,7 +55,21 @@ export default async function NeutralsPage() {
               {neutral.enrolmentNo ? ` · ${neutral.enrolmentNo}` : ""}
               {neutral.active ? "" : " · Inactive"}
             </p>
+            <p className="mt-1 text-muted-foreground">
+              Roles: {neutral.roles || "Arbitrator"}
+              {neutral.empanelment ? ` · Panel: ${neutral.empanelment}` : ""}
+              {neutral.mciRegistration ? ` · Mediation Council ${neutral.mciRegistration}` : " · Mediation Council number not issued yet"}
+            </p>
+            <p className="mt-1 text-muted-foreground">
+              {appointments.filter((row) => row.neutralId === neutral.id).map((row) => `${bankName.get(row.bankId) ?? "Bank"}: ${row._count._all}`).join(" · ") || "No appointments yet"}
+            </p>
+            <p className="mt-1 text-muted-foreground">
+              {neutral.files.some((file) => file.kind === "MCPC_CERTIFICATE") ? "MCPC 40-hour certificate on file." : "No MCPC 40-hour certificate yet."}
+              {" "}
+              {neutral.files.some((file) => file.kind === "INDEPENDENCE_DECLARATION") ? "Annual independence declaration on file." : "No annual independence declaration yet."}
+            </p>
             <OdrNeutralEditForm neutral={neutral} />
+            <OdrNeutralFileForm neutralId={neutral.id} />
             <div className="mt-3">
               <p className="font-medium">Edit history</p>
               {neutral.edits.length === 0 ? (

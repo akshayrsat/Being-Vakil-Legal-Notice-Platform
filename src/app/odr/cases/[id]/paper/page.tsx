@@ -18,6 +18,7 @@ import {
 } from "@/lib/odr-paper";
 import { parsePanel } from "@/lib/odr-panel";
 import { appointmentParagraph, istDayKey } from "@/lib/odr-consent";
+import { INSTALMENT_WARNING, outcomeKind, resolveLegalRoute } from "@/lib/odr-route";
 import { loadAppointmentConsent, storedConsent } from "@/lib/odr-consent-store";
 import { backToCase } from "@/lib/odr-back";
 import { canSendNotices } from "@/lib/roles";
@@ -52,8 +53,10 @@ export default async function OdrPaperPage({
     },
   });
   if (!item) notFound();
-  if (kind === "award" && item.matterType !== "ARBITRATION") redirect(`/odr/cases/${item.id}`);
-  if (kind === "settlement" && item.matterType !== "MEDIATION") redirect(`/odr/cases/${item.id}`);
+  const route = resolveLegalRoute(item.legalRoute, item.matterType);
+  const outcome = outcomeKind(route, item.matterType);
+  if (kind === "award" && outcome !== "award") redirect(`/odr/cases/${item.id}`);
+  if (kind === "settlement" && outcome !== "settlement" && outcome !== "conciliation") redirect(`/odr/cases/${item.id}`);
   const batch = await prisma.odrBatch.findFirst({
     where: { id: item.batchId, bankId: bank.id },
     select: { headers: true, rawRows: true },
@@ -108,7 +111,7 @@ export default async function OdrPaperPage({
       <OdrBackLink target={backToCase(item.id)} />
       <div>
         <h1 className="font-serif text-4xl tracking-tight">
-          {kind === "award" ? "Generate award" : "Generate settlement agreement"}
+          {kind === "award" ? "Generate award" : outcome === "conciliation" ? "Generate conciliation settlement" : "Generate settlement agreement"}
         </h1>
         {appointmentGate?.awardBlocked ? (
           <p className="mt-3 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive" role="status">
@@ -118,6 +121,12 @@ export default async function OdrPaperPage({
         <p className="mt-3 max-w-2xl text-base leading-7 text-muted-foreground">
           {bank.name} vs {item.customerName}. Fields already known from the case are filled in. Interest rates stay empty, and both are required before a draft can be made. The Word file is saved on the case as v1, v2, and so on. It is not sent.
         </p>
+        {kind === "settlement" && item.settlementInstalmentMonths > 3 ? (
+          <p className="mt-3 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive" role="status">{INSTALMENT_WARNING}</p>
+        ) : null}
+        {kind === "settlement" ? (
+          <p className="mt-3 text-sm leading-6 text-muted-foreground">The bank’s settlement sanction reference is required before this document is generated.</p>
+        ) : null}
         {query.saved === "1" ? <p className="mt-3 text-sm">Answers saved. You can generate the draft when you are ready.</p> : null}
       </div>
       <OdrPaperForm
