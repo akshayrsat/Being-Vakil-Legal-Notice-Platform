@@ -482,6 +482,7 @@ model OdrCase {
   bankCounsel          String         @default("")
   bankContact          String         @default("")
   paymentInfo          String         @default("")
+  paperJson            String         @default("{}")
   rescheduleNote       String         @default("")
   reschedulePreferred  String         @default("")
   rescheduleAt         DateTime?

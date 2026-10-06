@@ -66,7 +66,7 @@ export function isOdrStage(value: string): value is OdrStageId {
 }
 
 export function isOdrDocumentKind(value: string): boolean {
-  return DOC_IDS.has(value);
+  return DOC_IDS.has(value) || value in PAPER_LABELS;
 }
 
 export function odrMatterLabel(value: string): string {
@@ -90,8 +90,16 @@ export function odrStageLabel(value: string, matterType = "ARBITRATION"): string
   return ODR_STAGES.find((item) => item.id === value)?.label ?? value;
 }
 
+const PAPER_LABELS: Record<string, string> = {
+  AWARD_DRAFT: "Award draft",
+  SETTLEMENT_DRAFT: "Settlement draft",
+  AWARD_SIGNED: "Signed award",
+  SETTLEMENT_SIGNED: "Signed settlement",
+};
+
 export function odrDocumentLabel(value: string): string {
   return (
+    PAPER_LABELS[value] ??
     STAFF_DOCUMENT_KINDS.find((item) => item.id === value)?.label ??
     CUSTOMER_DOCUMENT_KINDS.find((item) => item.id === value)?.label ??
     value

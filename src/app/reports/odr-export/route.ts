@@ -2,6 +2,7 @@ import ExcelJS from "exceljs";
 import { auditCurrentUser } from "@/lib/audit";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { agreedSettlementAmount } from "@/lib/odr-paper";
 import { buildOdrExportRows, odrCaseWhere, odrFiltersApplied, readOdrFilters } from "@/lib/odr-reports";
 import { resolveReportBank } from "@/lib/report-bank";
 
@@ -39,6 +40,7 @@ export async function GET(request: Request) {
       exParte: item.exParte,
       settlementAmount: item.settlementAmount,
       settlementNote: item.settlementNote,
+      agreedSettlement: agreedSettlementAmount(item.paperJson),
       awardAt: item.awardAt,
       hearings: item.hearings,
       messages: item.messages,

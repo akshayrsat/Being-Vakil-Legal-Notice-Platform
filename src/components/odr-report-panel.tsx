@@ -2,6 +2,8 @@ import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 import { EmptyState } from "@/components/empty-state";
 import { prisma } from "@/lib/db";
+import { formatIndiaDateTime } from "@/lib/india-day";
+import { agreedSettlementAmount } from "@/lib/odr-paper";
 import { formatHearingDate } from "@/lib/odr-ref";
 import { odrCaseWhere, odrFiltersApplied, odrFiltersToSearch, readOdrFilters, type OdrFilters } from "@/lib/odr-reports";
 import { ODR_MATTERS, ODR_STATUSES, odrMatterLabel, odrStatusLabel } from "@/lib/odr-status";
@@ -115,6 +117,8 @@ async function OdrRows({ bankId, bankName, filters }: { bankId: string; bankName
             <th className="px-3 py-2 font-medium">Type</th>
             <th className="px-3 py-2 font-medium">Hearing</th>
             <th className="px-3 py-2 font-medium">Status</th>
+            <th className="px-3 py-2 font-medium">Settlement amount</th>
+            <th className="px-3 py-2 font-medium">Award date</th>
           </tr>
         </thead>
         <tbody>
@@ -129,6 +133,8 @@ async function OdrRows({ bankId, bankName, filters }: { bankId: string; bankName
               <td className="px-3 py-2">{odrMatterLabel(item.matterType)}</td>
               <td className="px-3 py-2">{item.hearings[0] ? formatHearingDate(item.hearings[0].scheduledAt) : "—"}</td>
               <td className="px-3 py-2">{odrStatusLabel(item.status)}</td>
+              <td className="px-3 py-2">{agreedSettlementAmount(item.paperJson) || "—"}</td>
+              <td className="px-3 py-2">{item.awardAt ? formatIndiaDateTime(item.awardAt) : "—"}</td>
             </tr>
           ))}
         </tbody>

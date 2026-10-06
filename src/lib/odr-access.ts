@@ -18,6 +18,11 @@ export function clipAgent(userAgent: string | null): string {
   return (userAgent ?? "").trim().slice(0, 300);
 }
 
+export function safeDownloadName(name: string): string {
+  const base = name.trim().replace(/[/\\]+/g, " ").replace(/[^\w.\- ()]+/g, "").slice(0, 120);
+  return base || "document";
+}
+
 export function safePdfName(name: string): string {
   const base = name.trim().replace(/[/\\]+/g, " ").replace(/[^\w.\- ()]+/g, "").slice(0, 80);
   if (!base) return "document.pdf";

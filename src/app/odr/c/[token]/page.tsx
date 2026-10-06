@@ -16,6 +16,7 @@ import { odrCopy } from "@/lib/odr-copy";
 import { clientIp, clipAgent } from "@/lib/odr-access";
 import { accountLast4, formatHearingDate, formatHearingTime, googleCalendarUrl, hearingTitle } from "@/lib/odr-ref";
 import { nowMs } from "@/lib/odr-schedule";
+import { customerCanSeeDocument } from "@/lib/odr-paper";
 import { odrDocumentLabel, odrMatterLabel, odrNeutralRole, stageTracker } from "@/lib/odr-status";
 
 export const metadata: Metadata = { title: "Your hearing" };
@@ -100,7 +101,7 @@ export default async function CustomerCasePage({ params }: { params: Promise<{ t
         <h3 className="mt-4 font-medium">{copy.documentsHeading}</h3>
         {item.documents.length === 0 ? <p className="mt-2 text-sm text-muted-foreground">{copy.noDocuments}</p> : (
           <ul className="mt-2 flex flex-col gap-1 text-sm">
-            {item.documents.map((doc) => (
+            {item.documents.filter((doc) => customerCanSeeDocument(doc.kind)).map((doc) => (
               <li key={doc.id}>
                 <a className="underline" href={`/odr/c/${token}/documents/${doc.id}`}>{odrDocumentLabel(doc.kind)} · {doc.fileName}</a>
               </li>

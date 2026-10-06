@@ -9,6 +9,7 @@ import {
   OdrScheduleForm,
   OdrStatusForm,
 } from "@/components/odr-case-forms";
+import { OdrSignedUpload } from "@/components/odr-paper-form";
 import { DeskShell } from "@/components/desk-shell";
 import { getCurrentUser } from "@/lib/auth";
 import { workingBank } from "@/lib/bank-context";
@@ -18,6 +19,7 @@ import { formatIndiaDateTime } from "@/lib/india-day";
 import { casePageUrl } from "@/lib/odr-runner";
 import { formatHearingDate, formatHearingTime, hearingOrdinal } from "@/lib/odr-ref";
 import { nowMs } from "@/lib/odr-schedule";
+import { bankUserCanSeeDocument } from "@/lib/odr-paper";
 import { odrDocumentLabel, odrMatterLabel, odrNeutralRole, odrStatusLabel } from "@/lib/odr-status";
 import { canSendNotices } from "@/lib/roles";
 import { hideVendorWording, seesVendorDetail } from "@/lib/staff-language";
@@ -76,6 +78,25 @@ export default async function OdrCasePage({
           {item.settlementNote ? ` — ${item.settlementNote}` : ""}
         </p>
       ) : null}
+      {canSend ? (
+        <section className="rounded-xl bg-card px-4 py-4 ring-1 ring-foreground/10">
+          <h2 className="font-serif text-2xl">Award and settlement</h2>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
+            Prepare a Word draft from the case. Nothing is sent to the customer. After you sign it offline, upload the signed file.
+          </p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            {item.matterType === "ARBITRATION" ? (
+              <Link href={`/odr/cases/${item.id}/paper?kind=award`} className="inline-flex h-11 items-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground">
+                Generate award
+              </Link>
+            ) : null}
+            <Link href={`/odr/cases/${item.id}/paper?kind=settlement`} className="inline-flex h-11 items-center rounded-lg border border-border px-4 text-sm">
+              Generate settlement agreement
+            </Link>
+          </div>
+        </section>
+      ) : null}
+
       {item.rescheduleAt ? (
         <p className="rounded-lg border border-border bg-card px-3 py-2 text-sm">
           Reschedule request: {item.reschedulePreferred || "No date given"}. {item.rescheduleNote}
@@ -160,18 +181,20 @@ export default async function OdrCasePage({
       <section>
         <h2 className="font-serif text-2xl">Documents</h2>
         <ul className="mt-3 flex flex-col gap-2 text-sm">
-          {item.documents.map((doc) => (
+          {item.documents.filter((doc) => canSend || bankUserCanSeeDocument(doc.kind)).map((doc) => (
             <li key={doc.id}>
               <a href={`/odr/cases/${item.id}/documents/${doc.id}`} className="underline">
                 {odrDocumentLabel(doc.kind)} · {doc.fileName}
               </a>
-              <span className="text-muted-foreground"> · {doc.uploaderName || "Staff"} · {formatIndiaDateTime(doc.createdAt)}</span>
+              <span className="text-muted-foreground"> · {doc.note ? `${doc.note} · ` : ""}{doc.uploaderName || "Staff"} · {formatIndiaDateTime(doc.createdAt)}</span>
             </li>
           ))}
         </ul>
         {canSend ? (
-          <div className="mt-4">
+          <div className="mt-4 flex flex-col gap-6">
             <OdrDocumentForm caseId={item.id} />
+            {item.matterType === "ARBITRATION" ? <OdrSignedUpload caseId={item.id} which="award" /> : null}
+            <OdrSignedUpload caseId={item.id} which="settlement" />
           </div>
         ) : null}
       </section>

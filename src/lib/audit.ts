@@ -34,6 +34,7 @@ export const AUDIT_ACTIONS = [
   { id: "odr.status", label: "Updated an ODR case" },
   { id: "odr.hearing", label: "Scheduled an ODR hearing" },
   { id: "odr.document", label: "Added an ODR document" },
+  { id: "odr.paper", label: "Prepared an ODR award or settlement" },
   { id: "odr.neutral", label: "Updated an arbitrator" },
   { id: "odr.settings", label: "Updated ODR settings" },
   { id: "odr.attendance", label: "Refreshed ODR attendance" },

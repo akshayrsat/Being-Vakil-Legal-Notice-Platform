@@ -99,6 +99,7 @@ export type OdrExportSource = {
   exParte: boolean;
   settlementAmount: string;
   settlementNote: string;
+  agreedSettlement?: string;
   awardAt: Date | null;
   hearings: OdrExportHearing[];
   messages: OdrExportMessage[];
@@ -119,6 +120,7 @@ export type OdrExportRow = {
   whatsapp: string;
   status: string;
   settlement: string;
+  agreedSettlement: string;
   awardDate: string;
 };
 
@@ -159,6 +161,7 @@ export function buildOdrExportRows(rows: OdrExportSource[], bankId: string): { c
     "WhatsApp",
     "Current status",
     "Settlement offer",
+    "Settlement amount",
     "Award date",
   ];
   const body = own.map((row) => {
@@ -169,6 +172,7 @@ export function buildOdrExportRows(rows: OdrExportSource[], bankId: string): { c
       return hearing ? attendedMark(hearing.attendance) : "";
     });
     const offer = [row.settlementAmount, row.settlementNote].filter(Boolean).join(" — ");
+    const agreed = row.agreedSettlement?.trim() ?? "";
     return [
       row.refNo,
       row.bankName,
@@ -184,6 +188,7 @@ export function buildOdrExportRows(rows: OdrExportSource[], bankId: string): { c
       latestChannelStatus(row.messages, "WHATSAPP"),
       `${odrStatusLabel(row.status)}${row.exParte ? " (ex parte)" : ""}`,
       offer,
+      agreed,
       row.awardAt ? formatIndiaDateTime(row.awardAt) : "",
     ];
   });
