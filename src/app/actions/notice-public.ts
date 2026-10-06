@@ -6,10 +6,9 @@ import { prisma } from "@/lib/db";
 import { clientIp, ODR_GRANT_HOURS, ODR_VERIFY_LIMIT, ODR_VERIFY_WINDOW_MS } from "@/lib/odr-access";
 import { accountLast4, last4Matches, newGrantToken } from "@/lib/odr-ref";
 import { normalizeNoticeNumber } from "@/lib/public-notice";
+import { NOTICE_VERIFY_COOKIE } from "@/lib/notice-access";
 import { noticePageHref } from "@/lib/notice-link";
 import { tooManyAttempts } from "@/lib/rate-limit";
-
-export const NOTICE_VERIFY_COOKIE = "notice_verify";
 
 export type NoticeVerifyState = { error: string } | null;
 
