@@ -49,7 +49,9 @@ import {
   scheduleDigestPlan,
   scheduleEmailBody,
   selectHearingGuests,
+  validGuestEmail,
 } from "./odr-guests";
+import { contactsForHearing, indianMobileDigits } from "./odr-neutral";
 
 const CLAIM = "CREATING";
 const STALE_MS = 2 * 60 * 1000;
@@ -782,6 +784,20 @@ async function sendDueReminders(db: PrismaClient, deps: OdrDeps): Promise<number
       });
       queued += 1;
     }
+    queued += await queueArbitratorNotices(db, {
+      caseId: hearing.caseId,
+      hearingId: hearing.id,
+      bankId: hearing.bankId,
+      matterType: hearing.case.matterType,
+      neutralId: hearing.case.neutralId,
+      panelJson: hearing.case.panelJson,
+      kind: "REMINDER",
+      live: deps.live,
+      templates,
+      now: deps.now,
+      window,
+      maxPerDay: deps.rules.maxMessagesPerDay,
+    });
     if (queued === 0) continue;
     const sent = [...parseReminderKeys(hearing.remindersSent), ...keys];
     await db.odrHearing.update({ where: { id: hearing.id }, data: { remindersSent: JSON.stringify(sent) } });
@@ -861,6 +877,17 @@ export async function releaseArbitrationNotices(db: PrismaClient, caseId: string
         respondentId: person.respondentId,
       });
     }
+    await queueArbitratorNotices(db, {
+      caseId: item.id,
+      hearingId: hearing.id,
+      bankId: item.bankId,
+      matterType: item.matterType,
+      neutralId: item.neutralId,
+      panelJson: item.panelJson,
+      kind,
+      live: rules.live,
+      templates,
+    });
   }
 }
 
@@ -897,6 +924,80 @@ export async function queueRespondentNotices(db: PrismaClient, respondentId: str
       respondentId: party.id,
     });
   }
+}
+
+async function queueArbitratorNotices(
+  db: PrismaClient,
+  input: {
+    caseId: string;
+    hearingId: string;
+    bankId: string;
+    matterType: string;
+    neutralId: string | null;
+    panelJson: string;
+    kind: "FIRST" | "NEXT" | "REMINDER";
+    live: boolean;
+    templates: { smsFlowId: string; emailTemplateId: string; whatsappTemplate: string };
+    now?: Date;
+    window?: SendWindow;
+    maxPerDay?: number;
+  },
+): Promise<number> {
+  const panel = parsePanel(input.panelJson);
+  const ids = [...new Set([input.neutralId ?? "", ...panel.map((member) => member.id)].filter(Boolean))];
+  if (ids.length === 0) return 0;
+  const saved = await db.odrNeutral.findMany({
+    where: { id: { in: ids } },
+    select: { id: true, name: true, email: true, mobile: true },
+  });
+  const people = contactsForHearing({
+    panelIds: panel.map((member) => member.id),
+    assignedId: input.neutralId ?? "",
+    saved,
+  }).filter((person) => validGuestEmail(person.email) || Boolean(indianMobileDigits(person.mobile)));
+  let queued = 0;
+  for (const person of people) {
+    const plans = planOdrChannels({
+      live: input.live,
+      mobile: person.mobile,
+      email: person.email,
+      templates: input.templates,
+    }).filter((plan) => plan.channel !== "WHATSAPP");
+    let notBefore: Date | null = null;
+    let detail = "";
+    if (input.now && input.window && input.maxPerDay !== undefined) {
+      const outside = windowHold(input.now, input.window);
+      if (outside.hold) {
+        notBefore = outside.notBefore;
+        detail = outside.detail;
+      } else {
+        const address = plans.find((plan) => plan.status === "QUEUED")?.to ?? person.email;
+        const usedToday = await messagesUsedToday(db, input.caseId, input.now, "", address);
+        const capped = dayHold(input.now, input.window, usedToday, input.maxPerDay);
+        if (capped.hold) {
+          notBefore = capped.notBefore;
+          detail = capped.detail;
+        }
+      }
+    }
+    await queueMessages(db, {
+      caseId: input.caseId,
+      hearingId: input.hearingId,
+      bankId: input.bankId,
+      matterType: input.matterType,
+      mobile: person.mobile,
+      email: person.email,
+      kind: input.kind,
+      live: input.live,
+      templates: input.templates,
+      plans,
+      notBefore,
+      detail,
+      respondentId: `neutral:${person.id}`,
+    });
+    queued += plans.length;
+  }
+  return queued;
 }
 
 export async function queueMessages(
@@ -1007,6 +1108,23 @@ export async function scheduleHearingRecord(
         mobile: person.mobile,
         email: person.email,
         respondentId: person.respondentId,
+      });
+    }
+    const item = await db.odrCase.findUnique({
+      where: { id: input.caseId },
+      select: { neutralId: true, panelJson: true },
+    });
+    if (item) {
+      await queueArbitratorNotices(db, {
+        caseId: input.caseId,
+        hearingId: hearing.id,
+        bankId: input.bankId,
+        matterType: input.matterType,
+        neutralId: item.neutralId,
+        panelJson: item.panelJson,
+        kind: input.kind,
+        live: input.live,
+        templates: input.templates,
       });
     }
   }

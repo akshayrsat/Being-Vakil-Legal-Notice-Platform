@@ -23,6 +23,7 @@ import { resolvePublicCase } from "@/lib/odr-public-case";
 import { tooManyAttempts } from "@/lib/rate-limit";
 import { getCurrentUser } from "@/lib/auth";
 import { consentCertificateDocx } from "@/lib/odr-consent-docx";
+import { neutralContactError } from "@/lib/odr-neutral";
 import {
   certificateLines,
   consentChoiceError,
@@ -269,6 +270,10 @@ export async function recordArbitratorConsent(_previous: PublicOdrState, formDat
   if (problem) return { error: problem };
   const picked = choice as ConsentChoice;
   const chosen = panel.find((member) => member.id === panelNeutralId) ?? null;
+  const chosenRow = seats.find((seat) => seat.neutral.id === chosen?.id)?.neutral;
+  if (picked === "PANEL" && chosenRow && neutralContactError(chosenRow)) {
+    return { error: "That name cannot be chosen yet. The firm has not saved an email and mobile for them." };
+  }
   const shownText = consentShownText({
     customer: expectedName,
     bank: bank?.name ?? "",

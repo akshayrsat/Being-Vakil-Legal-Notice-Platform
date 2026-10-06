@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import {
   confirmOdrBatch,
   refreshAttendance,
@@ -11,7 +11,7 @@ import {
   setPartyAttendance,
   saveBankPanel,
   saveNeutral,
-  saveNeutralEmail,
+  updateNeutral,
   scheduleBulkHearings,
   scheduleOneHearing,
   updateOdrStatus,
@@ -361,6 +361,10 @@ export function OdrNeutralForm() {
         <input name="email" type="email" required autoComplete="off" className={field} />
       </label>
       <label className="flex flex-col gap-1 text-sm font-medium">
+        Mobile
+        <input name="mobile" inputMode="numeric" required autoComplete="tel" className={field} />
+      </label>
+      <label className="flex flex-col gap-1 text-sm font-medium">
         Enrolment number
         <input name="enrolmentNo" className={field} />
       </label>
@@ -372,19 +376,64 @@ export function OdrNeutralForm() {
   );
 }
 
-export function OdrNeutralEmailForm({ neutralId, email }: { neutralId: string; email: string }) {
-  const [state, action, pending] = useActionState(saveNeutralEmail, null);
-  return (
-    <form action={action} className="mt-2 flex flex-wrap items-end gap-2">
-      <input type="hidden" name="neutralId" value={neutralId} />
-      <label className="flex flex-col gap-1 text-sm">
-        Email
-        <input name="email" type="email" required defaultValue={email} className={field} />
-      </label>
-      <Button type="submit" variant="outline" className="h-11 px-3" disabled={pending}>
-        {pending ? "Saving…" : "Save email"}
+export function OdrNeutralEditForm({
+  neutral,
+}: {
+  neutral: {
+    id: string;
+    name: string;
+    qualification: string;
+    enrolmentNo: string;
+    email: string;
+    mobile: string;
+    active: boolean;
+  };
+}) {
+  const [open, setOpen] = useState(false);
+  const [state, action, pending] = useActionState(updateNeutral, null);
+  if (!open) {
+    return (
+      <Button type="button" variant="outline" className="mt-2 h-9 px-3" onClick={() => setOpen(true)}>
+        Edit
       </Button>
-      {state?.error ? <span className="text-sm text-destructive">{state.error}</span> : null}
+    );
+  }
+  return (
+    <form action={action} className="mt-3 grid max-w-xl gap-3">
+      <input type="hidden" name="neutralId" value={neutral.id} />
+      <label className="flex flex-col gap-1 text-sm font-medium">
+        Name
+        <input name="name" required defaultValue={neutral.name} className={field} />
+      </label>
+      <label className="flex flex-col gap-1 text-sm font-medium">
+        Qualification
+        <input name="qualification" defaultValue={neutral.qualification} className={field} />
+      </label>
+      <label className="flex flex-col gap-1 text-sm font-medium">
+        Enrolment number
+        <input name="enrolmentNo" defaultValue={neutral.enrolmentNo} className={field} />
+      </label>
+      <label className="flex flex-col gap-1 text-sm font-medium">
+        Email
+        <input name="email" type="email" required defaultValue={neutral.email} autoComplete="off" className={field} />
+      </label>
+      <label className="flex flex-col gap-1 text-sm font-medium">
+        Mobile
+        <input name="mobile" inputMode="numeric" required defaultValue={neutral.mobile} autoComplete="tel" className={field} />
+      </label>
+      <label className="flex items-center gap-2 text-sm">
+        <input type="checkbox" name="active" value="yes" defaultChecked={neutral.active} className="size-4 accent-primary" />
+        Active
+      </label>
+      <ErrorLine error={state?.error} />
+      <div className="flex flex-wrap gap-2">
+        <Button type="submit" className="h-11 px-4" disabled={pending}>
+          {pending ? "Saving…" : "Save changes"}
+        </Button>
+        <Button type="button" variant="outline" className="h-11 px-4" onClick={() => setOpen(false)}>
+          Close
+        </Button>
+      </div>
     </form>
   );
 }
@@ -395,7 +444,7 @@ export function OdrBankPanelForm({
   selectedIds,
 }: {
   bankName: string;
-  neutrals: Array<{ id: string; name: string; qualification: string; enrolmentNo: string; email: string; active: boolean }>;
+  neutrals: Array<{ id: string; name: string; qualification: string; enrolmentNo: string; email: string; mobile: string; active: boolean }>;
   selectedIds: string[];
 }) {
   const [state, action, pending] = useActionState(saveBankPanel, null);
@@ -403,7 +452,7 @@ export function OdrBankPanelForm({
   return (
     <form action={action} className="flex flex-col gap-3">
       <p className="text-sm leading-6 text-muted-foreground">
-        Panel for {bankName}. Tick at least 3 names. Each needs a qualification, an enrolment number, and an email. The customer can choose one of these names after the dispute.
+        Panel for {bankName}. Tick at least 3 names. Each needs a qualification, an enrolment number, an email, and a 10-digit mobile. Invites, the morning list, and hearing notices use those saved details. The customer can choose one of these names after the dispute.
       </p>
       <ul className="flex flex-col gap-2">
         {neutrals.filter((neutral) => neutral.active).map((neutral) => (
@@ -415,6 +464,7 @@ export function OdrBankPanelForm({
                 {neutral.qualification ? ` · ${neutral.qualification}` : ""}
                 {neutral.enrolmentNo ? ` · ${neutral.enrolmentNo}` : ""}
                 {neutral.email ? ` · ${neutral.email}` : ""}
+                {neutral.mobile ? ` · ${neutral.mobile}` : ""}
               </span>
             </label>
           </li>

@@ -31,6 +31,7 @@ import { odrCaseBack } from "@/lib/odr-back";
 import { arbitrationNoticeError, arbitrationNoticeGaps } from "@/lib/odr-notice-gate";
 import { loadAppointmentConsent } from "@/lib/odr-consent-store";
 import { parseGuestVisits } from "@/lib/odr-guests";
+import { contactsForHearing } from "@/lib/odr-neutral";
 import { redactCell } from "@/lib/data-min";
 import { partyAttendanceLabel, partyAttendanceMap } from "@/lib/odr-parties";
 import { readOdrRules } from "@/lib/odr-store";
@@ -80,6 +81,18 @@ export default async function OdrCasePage({
   const now = nowMs();
   const nextHearing = [...item.hearings].reverse().find((hearing) => hearing.scheduledAt.getTime() > now) ?? item.hearings.at(-1);
   const panel = parsePanel(item.panelJson);
+  const contactIds = [...new Set([item.neutralId ?? "", ...panel.map((member) => member.id)].filter(Boolean))];
+  const savedContacts = contactIds.length
+    ? await prisma.odrNeutral.findMany({
+        where: { id: { in: contactIds } },
+        select: { id: true, name: true, email: true, mobile: true },
+      })
+    : [];
+  const hearingContacts = contactsForHearing({
+    panelIds: panel.map((member) => member.id),
+    assignedId: item.neutralId ?? "",
+    saved: savedContacts,
+  });
 
   return (
     <DeskShell user={user}>
@@ -224,6 +237,15 @@ export default async function OdrCasePage({
               {item.neutralEnrolment ? `. Enrolment ${item.neutralEnrolment}` : ""}
             </p>
           )}
+          {hearingContacts.length > 0 ? (
+            <ul className="mt-3 flex flex-col gap-1 text-sm text-muted-foreground">
+              {hearingContacts.map((person) => (
+                <li key={person.id}>
+                  Invites and notices for {person.name} use {person.email || "no email"} and {person.mobile || "no mobile"}.
+                </li>
+              ))}
+            </ul>
+          ) : null}
           <p className="mt-3 text-sm leading-6 text-muted-foreground">{item.disputeSummary || "No dispute summary."}</p>
           {nextHearing ? (
             <p className="mt-2 text-sm">

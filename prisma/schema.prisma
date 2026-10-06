@@ -419,6 +419,7 @@ model OdrNeutral {
   id            String    @id @default(cuid())
   name          String
   email         String    @default("")
+  mobile        String    @default("")
   qualification String    @default("")
   enrolmentNo   String    @default("")
   active        Boolean   @default(true)
@@ -426,6 +427,22 @@ model OdrNeutral {
   updatedAt     DateTime  @updatedAt
   cases         OdrCase[]
   panelSeats    OdrBankPanel[]
+  edits         OdrNeutralEdit[]
+}
+
+// Who changed an arbitrator or mediator, and when. The contact used for invites
+// and notices is always the current row, not a copy from an old edit.
+model OdrNeutralEdit {
+  id        String     @id @default(cuid())
+  neutralId String
+  neutral   OdrNeutral @relation(fields: [neutralId], references: [id], onDelete: Cascade)
+  actorId   String     @default("")
+  actorName String
+  actorRole String     @default("")
+  summary   String
+  createdAt DateTime   @default(now())
+
+  @@index([neutralId])
 }
 
 // People from the bank who are invited to the hearing. The customer is not in this list.
