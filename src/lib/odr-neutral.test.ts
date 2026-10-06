@@ -61,4 +61,11 @@ test("an edit records what changed, including a new email", () => {
     neutralEditSummary(before, { ...before, mobile: "9810098100", active: false }),
     "Changed mobile from 9876543210 to 9810098100. Marked inactive.",
   );
+  assert.equal(
+    neutralEditSummary(
+      { ...before, roles: "ARBITRATOR", empanelment: "" },
+      { ...before, roles: "ARBITRATOR,CONCILIATOR", empanelment: "DLSA panel" },
+    ),
+    "Changed roles from ARBITRATOR to ARBITRATOR,CONCILIATOR, empanelment from blank to DLSA panel.",
+  );
 });

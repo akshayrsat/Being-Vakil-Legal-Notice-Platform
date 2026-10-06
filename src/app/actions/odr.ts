@@ -459,6 +459,9 @@ export async function updateNeutral(_previous: OdrFormState, formData: FormData)
     email: neutral.email,
     mobile: neutral.mobile,
     active: neutral.active,
+    roles: neutral.roles,
+    empanelment: neutral.empanelment,
+    mciRegistration: neutral.mciRegistration,
   };
   const summary = neutralEditSummary(before, parsed.draft);
   if (!summary) return { error: "Nothing changed." };

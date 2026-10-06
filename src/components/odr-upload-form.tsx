@@ -114,9 +114,11 @@ export function OdrUploadForm({
       <OdrSlotFields />
       </>
       )}
-      <p className="text-sm leading-6 text-muted-foreground">
-        Each customer gets the next open time. A hearing must finish by the end of the window, and none run through the lunch break. The email and mobile saved for the chosen name are used for the invite, the morning list, and the hearing notice.
-      </p>
+      {lokAdalat ? null : (
+        <p className="text-sm leading-6 text-muted-foreground">
+          Each customer gets the next open time. A hearing must finish by the end of the window, and none run through the lunch break. The email and mobile saved for the chosen name are used for the invite, the morning list, and the hearing notice.
+        </p>
+      )}
       <label className="flex flex-col gap-1 text-sm font-medium">
         Bank Excel file
         <input name="file" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" required className="text-sm" />
