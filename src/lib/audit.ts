@@ -26,6 +26,7 @@ export const AUDIT_ACTIONS = [
   { id: "speedpost.update", label: "Updated Speed Post" },
   { id: "speedpost.import", label: "Imported Speed Post" },
   { id: "bank.pdf", label: "Changed notice PDF emails" },
+  { id: "bank.grievance", label: "Updated a bank grievance officer" },
   { id: "live-send.update", label: "Changed live send" },
   { id: "user.create", label: "Added a login" },
   { id: "odr.upload", label: "Uploaded an ODR sheet" },
@@ -38,6 +39,7 @@ export const AUDIT_ACTIONS = [
   { id: "odr.neutral", label: "Updated an arbitrator" },
   { id: "odr.settings", label: "Updated ODR settings" },
   { id: "odr.attendance", label: "Refreshed ODR attendance" },
+  { id: "odr.respondent", label: "Updated a co-borrower or guarantor" },
   { id: "odr.export", label: "Downloaded an ODR report" },
 ] as const;
 
