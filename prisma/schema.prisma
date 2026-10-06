@@ -58,6 +58,7 @@ model Bank {
   grievanceOfficerEmail String @default("")
   grievanceOmbudsman    String @default("")
   wordingApprovedOn     String @default("")
+  odrPanel   OdrBankPanel[]
   createdAt  DateTime       @default(now())
 }
 
@@ -422,6 +423,21 @@ model OdrNeutral {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   cases         OdrCase[]
+  panelSeats    OdrBankPanel[]
+}
+
+// Names the customer may choose after the dispute, for one bank. At least three.
+model OdrBankPanel {
+  id        String     @id @default(cuid())
+  bankId    String
+  bank      Bank       @relation(fields: [bankId], references: [id], onDelete: Cascade)
+  neutralId String
+  neutral   OdrNeutral @relation(fields: [neutralId], references: [id], onDelete: Cascade)
+  sortOrder Int        @default(0)
+  createdAt DateTime   @default(now())
+
+  @@unique([bankId, neutralId])
+  @@index([bankId])
 }
 
 model OdrBatch {
@@ -501,6 +517,10 @@ model OdrCase {
   paymentInfo          String         @default("")
   claimReference       String         @default("")
   defenceDeadline      String         @default("")
+  appointmentMode      String         @default("")
+  nominatedNeutralId   String         @default("")
+  nominatedNeutralName String         @default("")
+  firstNoticeAt        DateTime?
   paperJson            String         @default("{}")
   rescheduleNote       String         @default("")
   reschedulePreferred  String         @default("")
@@ -514,6 +534,7 @@ model OdrCase {
   statusEvents         OdrStatusEvent[]
   accessLogs           OdrAccessLog[]
   alerts               OdrAlert[]
+  consents             OdrConsent[]
 
   @@index([bankId])
   @@index([batchId])
@@ -612,6 +633,29 @@ model OdrDocument {
   @@index([bankId])
 }
 
+// One row, written once. Later choices do not change it.
+model OdrConsent {
+  id                String   @id @default(cuid())
+  caseId            String
+  case              OdrCase  @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  bankId            String
+  choice            String
+  typedName         String   @default("")
+  chosenNeutralId   String   @default("")
+  chosenNeutralName String   @default("")
+  objection         String   @default("")
+  shownText         String
+  recordedAt        DateTime
+  recordedAtIst     String   @default("")
+  ip                String   @default("")
+  userAgent         String   @default("")
+  documentId        String   @default("")
+  createdAt         DateTime @default(now())
+
+  @@index([caseId])
+  @@index([bankId])
+}
+
 model OdrStatusEvent {
   id         String   @id @default(cuid())
   caseId     String
@@ -703,5 +747,6 @@ model OdrSettings {
   maxMessagesPerDay   Int      @default(1)
   sheetRetentionDays  Int      @default(30)
   closedDataRetentionDays Int  @default(0)
+  consentDays         Int      @default(15)
   updatedAt           DateTime @updatedAt
 }

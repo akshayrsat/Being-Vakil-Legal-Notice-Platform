@@ -40,6 +40,7 @@ export const AUDIT_ACTIONS = [
   { id: "odr.settings", label: "Updated ODR settings" },
   { id: "odr.attendance", label: "Refreshed ODR attendance" },
   { id: "odr.respondent", label: "Updated a co-borrower or guarantor" },
+  { id: "odr.panel", label: "Updated an arbitrator panel" },
   { id: "odr.export", label: "Downloaded an ODR report" },
 ] as const;
 

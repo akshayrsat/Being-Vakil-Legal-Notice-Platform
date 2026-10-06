@@ -29,6 +29,7 @@ import { bankUserCanSeeDocument } from "@/lib/odr-paper";
 import { odrDocumentLabel, odrMatterLabel, odrNeutralRole, odrStatusLabel } from "@/lib/odr-status";
 import { odrCaseBack } from "@/lib/odr-back";
 import { arbitrationNoticeError, arbitrationNoticeGaps } from "@/lib/odr-notice-gate";
+import { loadAppointmentConsent } from "@/lib/odr-consent-store";
 import { redactCell } from "@/lib/data-min";
 import { partyAttendanceLabel, partyAttendanceMap } from "@/lib/odr-parties";
 import { readOdrRules } from "@/lib/odr-store";
@@ -66,6 +67,7 @@ export default async function OdrCasePage({
   const canSend = canSendNotices(user.role);
   const rules = await readOdrRules();
   const noticeGaps = arbitrationNoticeGaps(item.matterType, item.documents.map((doc) => doc.kind));
+  const appointment = await loadAppointmentConsent(item);
   const technical = seesVendorDetail(user);
   const now = nowMs();
   const nextHearing = [...item.hearings].reverse().find((hearing) => hearing.scheduledAt.getTime() > now) ?? item.hearings.at(-1);
@@ -112,6 +114,38 @@ export default async function OdrCasePage({
               </Link>
             ) : null}
           </div>
+        </section>
+      ) : null}
+
+      {item.alerts.length > 0 ? (
+        <ul className="flex flex-col gap-2">
+          {item.alerts.map((alert) => (
+            <li key={alert.id} className="rounded-lg border border-border bg-card px-3 py-2 text-sm">{alert.summary}</li>
+          ))}
+        </ul>
+      ) : null}
+      {item.matterType === "ARBITRATION" ? (
+        <section className="rounded-xl bg-card px-4 py-4 ring-1 ring-foreground/10">
+          <h2 className="font-serif text-2xl">Appointment</h2>
+          <p className="mt-2 text-sm leading-6">{item.appointmentMode || "No appointment mode recorded."}</p>
+          <p className="mt-1 text-sm">Nominated by the bank: {item.nominatedNeutralName || item.neutralName || "—"}</p>
+          <p className="mt-1 text-sm">
+            Consent: {appointment.consent
+              ? `${appointment.consent.choice === "ACCEPT" ? "Accepted" : appointment.consent.choice === "PANEL" ? `Chose ${appointment.consent.chosenNeutralName}` : "Objected"} · ${appointment.consent.recordedAtIst} · ${appointment.consent.typedName}`
+              : appointment.phase === "override"
+                ? "A Section 11 order or a signed consent is on the case."
+                : appointment.phase === "expired"
+                  ? "No choice within the allowed days."
+                  : "Waiting for the customer."}
+          </p>
+          {appointment.warning ? (
+            <p className="mt-3 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive" role="status">
+              {appointment.warning}
+            </p>
+          ) : null}
+          {isBankUser(user.role) ? (
+            <p className="mt-3 text-sm text-muted-foreground">You can read this status. You cannot change it.</p>
+          ) : null}
         </section>
       ) : null}
 

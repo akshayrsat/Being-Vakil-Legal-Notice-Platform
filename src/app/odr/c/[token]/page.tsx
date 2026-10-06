@@ -7,6 +7,7 @@ import {
   OdrCustomerUploadForm,
   OdrRescheduleForm,
   OdrSettleForm,
+  OdrConsentForm,
   OdrVerifyForm,
 } from "@/components/odr-customer-forms";
 import { joinOdrHearing } from "@/app/actions/odr-public";
@@ -20,6 +21,8 @@ import { accountLast4, formatHearingDate, formatHearingTime, googleCalendarUrl, 
 import { nowMs } from "@/lib/odr-schedule";
 import { customerCanSeeDocument } from "@/lib/odr-paper";
 import { showSection12Line } from "@/lib/odr-notice-gate";
+import { consentShownText } from "@/lib/odr-consent";
+import { loadAppointmentConsent } from "@/lib/odr-consent-store";
 import { partyAttendanceLabel, partyAttendanceMap } from "@/lib/odr-parties";
 import { resolvePublicCase } from "@/lib/odr-public-case";
 import { grievanceFooter, grievanceFromBank } from "@/lib/grievance";
@@ -73,6 +76,29 @@ export default async function CustomerCasePage({ params }: { params: Promise<{ t
   }
   const panel = parsePanel(item.panelJson);
   const panelLabel = panel.length > 0 ? panel.map((member) => member.name).join(", ") : item.neutralName;
+  const appointment = await loadAppointmentConsent(item);
+  const panelSeats = item.matterType === "ARBITRATION"
+    ? await prisma.odrBankPanel.findMany({
+        where: { bankId: item.bankId },
+        orderBy: { sortOrder: "asc" },
+        include: { neutral: true },
+      })
+    : [];
+  const choicePanel = panelSeats.flatMap((seat) => seat.neutral.active ? [{
+    id: seat.neutral.id,
+    name: seat.neutral.name,
+    qualification: seat.neutral.qualification,
+    enrolment: seat.neutral.enrolmentNo,
+  }] : []);
+  const shownConsent = consentShownText({
+    customer: viewer?.name || item.customerName,
+    bank: item.bank.name,
+    arbitrator: item.nominatedNeutralName || item.neutralName,
+    qualification: item.neutralQualification,
+    enrolment: item.neutralEnrolment,
+    panel: choicePanel,
+  });
+  const certificate = item.documents.find((doc) => doc.kind === "CONSENT_CERTIFICATE");
 
   const now = nowMs();
   const upcoming = [...item.hearings].reverse().find((hearing) => hearing.scheduledAt.getTime() > now - hearing.durationMinutes * 60 * 1000);
@@ -177,6 +203,38 @@ export default async function CustomerCasePage({ params }: { params: Promise<{ t
         ) : null}
       </Section>
 
+      {item.matterType === "ARBITRATION" ? (
+        <Section title="Arbitrator consent">
+          <p className="text-sm leading-6">
+            You can accept the named arbitrator, choose another name from the panel, or object. Your choice is recorded. It does not decide the dispute.
+          </p>
+          {appointment.warning ? (
+            <p className="mt-3 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive" role="status">
+              {appointment.warning}
+            </p>
+          ) : null}
+          {appointment.consent ? (
+            <div className="mt-3 text-sm leading-6">
+              <p>Recorded {appointment.consent.recordedAtIst}. This record is not edited.</p>
+              <p>
+                {appointment.consent.choice === "ACCEPT"
+                  ? `Accepted ${item.neutralName || item.nominatedNeutralName}.`
+                  : appointment.consent.choice === "PANEL"
+                    ? `Chose ${appointment.consent.chosenNeutralName} from the panel.`
+                    : `Objected. ${appointment.consent.objection}`}
+              </p>
+              {certificate ? (
+                <p className="mt-2">
+                  <a className="underline" href={`/odr/c/${token}/documents/${certificate.id}`}>Download the consent certificate</a>
+                </p>
+              ) : null}
+            </div>
+          ) : (
+            <OdrConsentForm token={token} shownText={shownConsent} panel={choicePanel} />
+          )}
+        </Section>
+      ) : null}
+
       <Section title={copy.timelineHeading}>
         <ol className="flex flex-col gap-2">
           {stages.map((stage) => (
@@ -197,27 +255,31 @@ export default async function CustomerCasePage({ params }: { params: Promise<{ t
               <p className="mt-2 text-sm">Your attendance: {partyAttendanceLabel(partyAttendanceMap(hearing.partyAttendance)[viewer.id] ?? "")}</p>
             ) : null}
             {hearing.meetFake ? <p className="mt-2 text-sm text-muted-foreground">{copy.practiceMeet}</p> : null}
-            <div className="mt-4 flex flex-wrap gap-2">
-              <form action={joinOdrHearing}>
-                <input type="hidden" name="token" value={token} />
-                <input type="hidden" name="hearingId" value={hearing.id} />
-                <button type="submit" className="inline-flex h-11 items-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground">
-                  {copy.join}
-                </button>
-              </form>
-              {calendar ? (
-                <a href={calendar} className="inline-flex h-11 items-center rounded-lg border border-border px-4 text-sm">
-                  {copy.addToCalendar}
-                </a>
-              ) : null}
-            </div>
+            {appointment.hearingBookingOpen ? (
+              <div className="mt-4 flex flex-wrap gap-2">
+                <form action={joinOdrHearing}>
+                  <input type="hidden" name="token" value={token} />
+                  <input type="hidden" name="hearingId" value={hearing.id} />
+                  <button type="submit" className="inline-flex h-11 items-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground">
+                    {copy.join}
+                  </button>
+                </form>
+                {calendar ? (
+                  <a href={calendar} className="inline-flex h-11 items-center rounded-lg border border-border px-4 text-sm">
+                    {copy.addToCalendar}
+                  </a>
+                ) : null}
+              </div>
+            ) : (
+              <p className="mt-3 text-sm">{appointment.warning || "Joining opens after you record your choice of arbitrator."}</p>
+            )}
           </div>
         ) : (
           <p className="mt-4 text-sm">{copy.noHearing}</p>
         )}
         <h3 className="mt-6 font-medium">{copy.rescheduleHeading}</h3>
         <p className="mt-1 text-sm text-muted-foreground">{copy.rescheduleBody}</p>
-        {item.rescheduleAt ? <p className="mt-3 text-sm">{copy.rescheduleReceived}</p> : <OdrRescheduleForm token={token} />}
+        {item.rescheduleAt ? <p className="mt-3 text-sm">{copy.rescheduleReceived}</p> : appointment.hearingBookingOpen ? <OdrRescheduleForm token={token} /> : null}
       </Section>
 
       <Section title={copy.settleHeading}>

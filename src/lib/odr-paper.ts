@@ -94,6 +94,8 @@ export type PaperCase = {
   documents: PaperDocument[];
   speedPosts: PaperPost[];
   agreementSeat?: string;
+  appointmentParagraph?: string;
+  appointmentDate?: string;
 };
 
 const MONTHS = [
@@ -427,6 +429,9 @@ export function prefillFields(item: PaperCase, paper: PaperStore, kind: PaperKin
     claimant_counsel_name: item.bankCounsel,
     payee_account_no: item.paymentInfo,
     seat_city: item.agreementSeat?.trim() ?? "",
+    appointment_mode: item.appointmentParagraph?.trim() ?? "",
+    appointment_date: item.appointmentDate?.trim() ?? "",
+    consent_date: item.appointmentDate?.trim() ?? "",
     pendente_lite_rate: "",
     post_award_rate: "",
     ex_parte: exParte ? "true" : "false",
@@ -448,6 +453,11 @@ export function prefillFields(item: PaperCase, paper: PaperStore, kind: PaperKin
     merged.seat_city = item.agreementSeat?.trim() ?? "";
     merged.pendente_lite_rate = "";
     merged.post_award_rate = "";
+  }
+  if (item.appointmentParagraph?.trim()) merged.appointment_mode = item.appointmentParagraph.trim();
+  if (item.appointmentDate?.trim()) {
+    merged.appointment_date = item.appointmentDate.trim();
+    merged.consent_date = item.appointmentDate.trim();
   }
   return merged;
 }

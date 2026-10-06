@@ -26,6 +26,8 @@ import {
   type PaperStore,
 } from "@/lib/odr-paper";
 import { canSendNotices } from "@/lib/roles";
+import { appointmentParagraph, istDayKey } from "@/lib/odr-consent";
+import { loadAppointmentConsent, storedConsent } from "@/lib/odr-consent-store";
 
 export type PaperFormState = { error: string } | null;
 
@@ -92,6 +94,7 @@ async function loadCase(caseId: string, bankId: string) {
       respondents: { orderBy: { sortOrder: "asc" }, select: { name: true, role: true, mobile: true, email: true, address: true } },
       messages: { orderBy: { createdAt: "asc" } },
       documents: { orderBy: { createdAt: "asc" }, select: { kind: true, fileName: true, createdAt: true } },
+      consents: { orderBy: { createdAt: "asc" }, take: 1 },
       accessLogs: { where: { kind: "OPEN" }, select: { id: true } },
     },
   });
@@ -132,7 +135,34 @@ function toPaperCase(
     documents: item.documents,
     speedPosts,
     agreementSeat,
+    ...appointmentFields(item),
   };
+}
+
+function appointmentFields(item: {
+  neutralName: string;
+  nominatedNeutralName: string;
+  documents: Array<{ kind: string }>;
+  consents: Array<{
+    choice: string;
+    typedName: string;
+    chosenNeutralId: string;
+    chosenNeutralName: string;
+    objection: string;
+    shownText: string;
+    recordedAt: Date;
+    recordedAtIst: string;
+  }>;
+}): Pick<PaperCase, "appointmentParagraph" | "appointmentDate"> {
+  const consent = storedConsent(item.consents[0] ?? null);
+  const paragraph = appointmentParagraph({
+    consent,
+    documentKinds: item.documents.map((doc) => doc.kind),
+    arbitratorName: item.neutralName,
+    nominatedName: item.nominatedNeutralName,
+  });
+  const dated = consent && (consent.choice === "ACCEPT" || consent.choice === "PANEL") ? istDayKey(consent.recordedAt) : "";
+  return { appointmentParagraph: paragraph, appointmentDate: dated };
 }
 
 export async function saveOdrPaper(_previous: PaperFormState, formData: FormData): Promise<PaperFormState> {
@@ -157,6 +187,8 @@ export async function saveOdrPaper(_previous: PaperFormState, formData: FormData
       documents: item.documents.map((doc) => doc.kind),
     });
     if (blocked) return { error: blocked };
+    const appointment = await loadAppointmentConsent(item);
+    if (appointment.awardBlocked) return { error: appointment.warning };
   }
   if (!generate) {
     await auditCurrentUser({

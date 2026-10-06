@@ -90,6 +90,7 @@ test("an ODR case stays on its bank, and a switched-off send does not call the m
           maxMessagesPerDay: 1,
           sheetRetentionDays: 30,
           closedDataRetentionDays: 0,
+          consentDays: 15,
           liveStored: false,
           live: false,
         },

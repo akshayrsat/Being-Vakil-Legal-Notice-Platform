@@ -29,6 +29,7 @@ export const FIRST_HEARING_EMAIL_TEXT = [
   "Statement of claim: {{claimRef}}",
   "Defence or reply by: {{defenceBy}}",
   "You may object to the arbitrator within 15 days of receiving this notice, under Section 13 of the Arbitration and Conciliation Act, 1996.",
+  "On your case page you may accept the named arbitrator, choose one name from the panel, or object. That step is recorded. It does not decide the dispute.",
   "",
   "{{when}} is on {{date}} at {{time}} through Google Meet.",
   "Hearing Link: {{link}}",

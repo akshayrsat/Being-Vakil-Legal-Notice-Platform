@@ -9,6 +9,7 @@ import {
   saveCasePartyInfo,
   saveRespondent,
   setPartyAttendance,
+  saveBankPanel,
   saveNeutral,
   scheduleBulkHearings,
   scheduleOneHearing,
@@ -361,6 +362,44 @@ export function OdrNeutralForm() {
       <ErrorLine error={state?.error} />
       <Button type="submit" className="h-11 w-fit px-4" disabled={pending}>
         {pending ? "Saving…" : "Add to the list"}
+      </Button>
+    </form>
+  );
+}
+
+export function OdrBankPanelForm({
+  bankName,
+  neutrals,
+  selectedIds,
+}: {
+  bankName: string;
+  neutrals: Array<{ id: string; name: string; qualification: string; enrolmentNo: string; active: boolean }>;
+  selectedIds: string[];
+}) {
+  const [state, action, pending] = useActionState(saveBankPanel, null);
+  const selected = new Set(selectedIds);
+  return (
+    <form action={action} className="flex flex-col gap-3">
+      <p className="text-sm leading-6 text-muted-foreground">
+        Panel for {bankName}. Tick at least 3 names. Each needs a qualification and an enrolment number. The customer can choose one of these names after the dispute.
+      </p>
+      <ul className="flex flex-col gap-2">
+        {neutrals.filter((neutral) => neutral.active).map((neutral) => (
+          <li key={neutral.id}>
+            <label className="flex items-start gap-2 text-sm">
+              <input type="checkbox" name="neutralId" value={neutral.id} defaultChecked={selected.has(neutral.id)} className="mt-1 size-4 accent-primary" />
+              <span>
+                {neutral.name}
+                {neutral.qualification ? ` · ${neutral.qualification}` : ""}
+                {neutral.enrolmentNo ? ` · ${neutral.enrolmentNo}` : ""}
+              </span>
+            </label>
+          </li>
+        ))}
+      </ul>
+      <ErrorLine error={state?.error} />
+      <Button type="submit" className="h-11 w-fit px-4" disabled={pending}>
+        {pending ? "Saving…" : "Save this bank’s panel"}
       </Button>
     </form>
   );
