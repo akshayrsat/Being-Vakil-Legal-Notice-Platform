@@ -337,9 +337,11 @@
 .notice-letter {
   font-family: "Times New Roman", Times, serif;
   color: #161616;
+  font-size: 12pt;
+  line-height: 1.45;
 }
 
-/* One A4 sheet: 210mm by 297mm. Screen padding is the stationery margin. */
+/* A4 is 210mm by 297mm. A longer letter continues on the next page. */
 .notice-screen {
   display: flex;
   flex-direction: column;
@@ -349,70 +351,79 @@
 
 .notice-stage {
   width: 210mm;
-  height: 297mm;
+  max-width: 100%;
 }
 
 .notice-sheet {
   box-sizing: border-box;
   width: 210mm;
-  height: 297mm;
-  padding: 10mm 14mm 8mm;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
+  max-width: 100%;
+  min-height: 297mm;
+  height: auto;
+  padding: 19mm;
+  overflow: visible;
   background: #fff;
 }
 
-.notice-letterhead img {
-  display: block;
-  width: 112mm;
-  height: auto;
-  margin: 0 auto;
-}
-
-.notice-letterfoot {
-  margin-top: auto;
-}
-
+.notice-letterhead img,
 .notice-letterfoot img {
   display: block;
-  width: 100%;
-  height: auto;
-  max-height: 18mm;
+  width: 100% !important;
+  max-width: 100% !important;
+  height: auto !important;
   object-fit: contain;
 }
 
+.notice-letterfoot {
+  margin-top: 8mm;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
 .notice-copy {
-  margin-top: 2.5mm;
-  font-size: 9.4pt;
-  line-height: 1.22;
+  margin-top: 6mm;
+  font-size: 12pt;
+  line-height: 1.45;
 }
 
 .notice-copy p,
 .notice-copy .notice-status {
-  margin: 0 0 1.35mm;
+  margin: 0 0 3.5mm;
 }
 
 .notice-copy h1 {
-  margin: 0 0 1.4mm;
-  font-size: 13pt;
-  line-height: 1.15;
+  margin: 0 0 4mm;
+  font-size: 14pt;
+  line-height: 1.35;
   text-align: center;
   font-weight: 700;
 }
 
 .notice-kicker {
-  margin: 0 0 0.6mm;
+  margin: 0 0 2mm;
   text-align: center;
-  font-size: 8.5pt;
+  font-size: 12pt;
   font-weight: 700;
   letter-spacing: 0.04em;
 }
 
+.notice-sign,
+.notice-grievance,
+.notice-closing {
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
 .notice-sign {
-  margin-top: 1mm;
-  font-size: 9.4pt;
-  line-height: 1.15;
+  margin-top: 8mm;
+  font-size: 12pt;
+  line-height: 1.45;
+}
+
+.notice-grievance {
+  margin-top: 6mm;
+  font-size: 12pt;
+  line-height: 1.45;
 }
 
 .notice-stamp {
@@ -431,21 +442,21 @@
 }
 
 @media screen and (max-width: 220mm) {
-  .notice-stage {
-    width: calc(100vw - 16px);
-    height: calc((100vw - 16px) * 297 / 210);
+  .notice-stage,
+  .notice-sheet {
+    width: 100%;
   }
 
   .notice-sheet {
-    transform: scale(calc((100vw - 16px) / 210mm));
-    transform-origin: top left;
+    min-height: 0;
+    padding: 16px;
   }
 }
 
 @media print {
   @page {
     size: A4;
-    margin: 0;
+    margin: 19mm;
   }
 
   html,
@@ -463,17 +474,32 @@
   }
 
   .notice-stage {
-    width: 210mm;
-    height: 297mm;
+    width: auto;
+    max-width: none;
+    height: auto;
   }
 
   .notice-sheet {
-    transform: none;
+    width: auto;
+    max-width: none;
+    min-height: 0;
+    height: auto;
     margin: 0;
+    padding: 0;
+    overflow: visible;
     box-shadow: none !important;
-    page-break-after: avoid;
-    break-after: avoid;
+    break-inside: auto;
+    page-break-after: auto;
+    break-after: auto;
+  }
+
+  .notice-letterhead,
+  .notice-letterfoot,
+  .notice-sign,
+  .notice-grievance,
+  .notice-closing {
     break-inside: avoid;
+    page-break-inside: avoid;
   }
 
   .no-print {

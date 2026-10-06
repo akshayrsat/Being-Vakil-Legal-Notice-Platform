@@ -2,14 +2,14 @@
 // The header and footer images are a render of the Being Vakil Associates Word letterhead.
 
 import Image from "next/image";
-import { FIRM_NAME } from "@/lib/letterhead";
+import { FIRM_NAME, FIRM_TAGLINE } from "@/lib/letterhead";
 
 export function NoticeLetterhead() {
   return (
     <header className="notice-letterhead">
       <Image
         src="/branding/letterhead-header.png"
-        alt="Being Vakil Associates. Empowering You, Protecting You, Being Vakil!"
+        alt={`${FIRM_NAME}. ${FIRM_TAGLINE}`}
         width={1260}
         height={504}
         unoptimized
