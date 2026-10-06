@@ -58,7 +58,8 @@ model Bank {
   grievanceOfficerEmail String @default("")
   grievanceOmbudsman    String @default("")
   wordingApprovedOn     String @default("")
-  odrPanel   OdrBankPanel[]
+  odrPanel        OdrBankPanel[]
+  representatives BankRepresentative[]
   createdAt  DateTime       @default(now())
 }
 
@@ -417,6 +418,7 @@ model AuditEvent {
 model OdrNeutral {
   id            String    @id @default(cuid())
   name          String
+  email         String    @default("")
   qualification String    @default("")
   enrolmentNo   String    @default("")
   active        Boolean   @default(true)
@@ -424,6 +426,20 @@ model OdrNeutral {
   updatedAt     DateTime  @updatedAt
   cases         OdrCase[]
   panelSeats    OdrBankPanel[]
+}
+
+// People from the bank who are invited to the hearing. The customer is not in this list.
+model BankRepresentative {
+  id        String   @id @default(cuid())
+  bankId    String
+  bank      Bank     @relation(fields: [bankId], references: [id], onDelete: Cascade)
+  name      String
+  email     String
+  mobile    String   @default("")
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([bankId])
 }
 
 // Names the customer may choose after the dispute, for one bank. At least three.
@@ -561,6 +577,10 @@ model OdrHearing {
   attendanceNote   String      @default("")
   remindersSent    String      @default("[]")
   partyAttendance  String      @default("{}")
+  guestInviteNote  String      @default("")
+  spaceName        String      @default("")
+  invitedGuests    String      @default("[]")
+  guestAttendance  String      @default("[]")
   createdAt        DateTime    @default(now())
   updatedAt        DateTime    @updatedAt
   messages         OdrMessage[]

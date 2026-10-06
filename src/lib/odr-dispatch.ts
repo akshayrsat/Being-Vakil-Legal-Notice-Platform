@@ -24,6 +24,7 @@ export type OdrDeliveryInput = {
     link: string;
     caseLink: string;
     grievance?: string;
+    schedule?: string;
   };
 };
 
@@ -114,6 +115,7 @@ async function deliverEmail(
             link: input.vars.link,
             case: input.vars.caseLink,
             grievance: input.vars.grievance ?? "",
+            schedule: input.vars.schedule ?? "",
           },
         },
       ],

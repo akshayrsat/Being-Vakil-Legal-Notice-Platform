@@ -311,7 +311,11 @@ export async function saveNeutral(previousOrForm: OdrFormState | FormData, maybe
   if (name.length < 3) return { error: "Enter the arbitrator or mediator’s name." };
   const qualification = String(formData.get("qualification") ?? "").trim().slice(0, 160);
   const enrolmentNo = String(formData.get("enrolmentNo") ?? "").trim().slice(0, 80);
-  const neutral = await prisma.odrNeutral.create({ data: { name, qualification, enrolmentNo } });
+  const email = String(formData.get("email") ?? "").trim().toLowerCase().slice(0, 160);
+  if (!email.includes("@") || email.startsWith("@") || !email.split("@")[1]?.includes(".")) {
+    return { error: "Enter the arbitrator’s email." };
+  }
+  const neutral = await prisma.odrNeutral.create({ data: { name, qualification, enrolmentNo, email } });
   await auditCurrentUser({
     action: "odr.neutral",
     summary: `Added ${name} to the arbitrator list.`,
@@ -319,6 +323,29 @@ export async function saveNeutral(previousOrForm: OdrFormState | FormData, maybe
     bankName: scope.bank.name,
     targetId: neutral.id,
   });
+  redirect("/odr/neutrals");
+}
+
+export async function saveNeutralEmail(_previous: OdrFormState, formData: FormData): Promise<OdrFormState> {
+  const scope = await staffBank();
+  if (!scope.ok) return { error: scope.error };
+  const id = String(formData.get("neutralId") ?? "");
+  const email = String(formData.get("email") ?? "").trim().toLowerCase().slice(0, 160);
+  if (!email.includes("@") || email.startsWith("@") || !email.split("@")[1]?.includes(".")) {
+    return { error: "Enter the arbitrator’s email." };
+  }
+  const neutral = await prisma.odrNeutral.findUnique({ where: { id } });
+  if (!neutral) return { error: "That name was not found." };
+  await prisma.odrNeutral.update({ where: { id }, data: { email } });
+  await auditCurrentUser({
+    action: "odr.neutral",
+    summary: `Saved the email for ${neutral.name}.`,
+    bankId: scope.bank.id,
+    bankName: scope.bank.name,
+    targetId: neutral.id,
+  });
+  const { syncNeutralCalendarGuests } = await import("@/lib/odr-runner");
+  await syncNeutralCalendarGuests(prisma, neutral.id);
   redirect("/odr/neutrals");
 }
 
@@ -337,6 +364,10 @@ export async function saveBankPanel(_previous: OdrFormState, formData: FormData)
     enrolment: neutral.enrolmentNo,
   })));
   if (problem) return { error: problem };
+  const missingEmail = ordered.filter((neutral) => !neutral.email.includes("@"));
+  if (missingEmail.length > 0) {
+    return { error: `Add an email for ${missingEmail.map((neutral) => neutral.name).join(", ")} before saving the panel.` };
+  }
   await prisma.$transaction([
     prisma.odrBankPanel.deleteMany({ where: { bankId: scope.bank.id } }),
     prisma.odrBankPanel.createMany({

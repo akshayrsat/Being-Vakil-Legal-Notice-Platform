@@ -1,6 +1,14 @@
 // Google Meet for one hearing, on the calendar of the impersonated mediator.
 // Cloud Run has no key file. The runtime account asks IAM to sign a JWT, then
 // exchanges that JWT for an access token. Without the two settings, the link is fake.
+// Calendar guests are added only when ODR sending is on. The customer is not a guest.
+// Business Starter cannot appoint co-hosts or enforce a waiting room. See MEET_WORKSPACE_NOTE.
+
+import {
+  admissionSummary,
+  INVITES_NOT_SENT,
+  type HearingGuest,
+} from "./odr-guests";
 
 export type MeetConfig = {
   serviceAccount: string;
@@ -14,18 +22,23 @@ export type MeetLinkResult =
       link: string;
       eventId: string;
       meetingCode: string;
+      inviteNote: string;
+      spaceName: string;
     }
   | { ok: false; error: string };
 
 export type MeetParticipant = {
   displayName: string;
   email: string;
+  joinedAt?: string;
+  leftAt?: string;
 };
 
 const MEET_SCOPES = [
   "https://www.googleapis.com/auth/calendar.events",
   "https://www.googleapis.com/auth/meetings.space.created",
   "https://www.googleapis.com/auth/meetings.space.readonly",
+  "https://www.googleapis.com/auth/meetings.space.settings",
 ].join(" ");
 
 const TOKEN_URL = "https://oauth2.googleapis.com/token";
@@ -176,8 +189,9 @@ export function calendarEventBody(input: {
   start: Date;
   end: Date;
   requestId: string;
+  guests?: HearingGuest[];
 }): Record<string, unknown> {
-  return {
+  const body: Record<string, unknown> = {
     summary: input.title,
     description: input.description,
     start: { dateTime: isoInIndia(input.start), timeZone: "Asia/Kolkata" },
@@ -188,6 +202,29 @@ export function calendarEventBody(input: {
         conferenceSolutionKey: { type: "hangoutsMeet" },
       },
     },
+  };
+  const guests = (input.guests ?? []).filter((guest) => guest.email.includes("@"));
+  if (guests.length > 0) {
+    body.attendees = guests.map((guest) => ({ email: guest.email, displayName: guest.name }));
+    body.guestsCanSeeOtherGuests = false;
+    body.guestsCanInviteOthers = false;
+  }
+  return body;
+}
+
+export function calendarGuestPatch(input: {
+  start: Date;
+  end: Date;
+  guests: HearingGuest[];
+  invitesLive: boolean;
+}): Record<string, unknown> {
+  const guests = input.invitesLive ? input.guests.filter((guest) => guest.email.includes("@")) : [];
+  return {
+    start: { dateTime: isoInIndia(input.start), timeZone: "Asia/Kolkata" },
+    end: { dateTime: isoInIndia(input.end), timeZone: "Asia/Kolkata" },
+    attendees: guests.map((guest) => ({ email: guest.email, displayName: guest.name })),
+    guestsCanSeeOtherGuests: false,
+    guestsCanInviteOthers: false,
   };
 }
 
@@ -215,11 +252,24 @@ export async function createHearingMeet(input: {
   start: Date;
   durationMinutes: number;
   requestId: string;
+  guests?: HearingGuest[];
+  invitesLive?: boolean;
   fetchImpl?: FetchLike;
   nowSeconds?: number;
 }): Promise<MeetLinkResult> {
+  const invitesLive = input.invitesLive === true;
+  const guests = invitesLive ? input.guests ?? [] : [];
+  const offline = INVITES_NOT_SENT;
   if (!meetConfigured(input.config)) {
-    return { ok: true, fake: true, link: fakeMeetLink(input.requestId), eventId: "", meetingCode: "" };
+    return {
+      ok: true,
+      fake: true,
+      link: fakeMeetLink(input.requestId),
+      eventId: "",
+      meetingCode: "",
+      inviteNote: invitesLive ? "Practice link. Invites were not sent." : offline,
+      spaceName: "",
+    };
   }
   const fetchImpl = input.fetchImpl ?? fetch;
   const access = await impersonatedAccessToken({
@@ -230,9 +280,10 @@ export async function createHearingMeet(input: {
   if (!access) return { ok: false, error: "Google Meet could not be authorised. The hearing was saved without a live link." };
 
   const end = new Date(input.start.getTime() + input.durationMinutes * 60 * 1000);
+  const sendUpdates = guests.length > 0 ? "&sendUpdates=all" : "";
   try {
     const response = await fetchImpl(
-      "https://www.googleapis.com/calendar/v3/calendars/primary/events?conferenceDataVersion=1",
+      `https://www.googleapis.com/calendar/v3/calendars/primary/events?conferenceDataVersion=1${sendUpdates}`,
       {
         method: "POST",
         headers: {
@@ -246,6 +297,7 @@ export async function createHearingMeet(input: {
             start: input.start,
             end,
             requestId: input.requestId,
+            guests,
           }),
         ),
         signal: AbortSignal.timeout(20000),
@@ -255,10 +307,129 @@ export async function createHearingMeet(input: {
     if (!response.ok) return { ok: false, error: "Google Calendar did not create the hearing. Try again." };
     const parsed = linkFromCalendarEvent(payload);
     if (!parsed) return { ok: false, error: "Google Calendar did not return a Meet link. Try again." };
-    return { ok: true, fake: false, ...parsed };
+    if (!invitesLive) {
+      return { ok: true, fake: false, ...parsed, inviteNote: offline, spaceName: "" };
+    }
+    const admission = parsed.meetingCode
+      ? await applyMeetAdmission({
+          meetingCode: parsed.meetingCode,
+          arbitratorEmails: guests.filter((guest) => guest.role === "arbitrator").map((guest) => guest.email),
+          accessToken: access,
+          fetchImpl,
+        })
+      : { accessSet: false, cohostSet: false, spaceName: "" };
+    const invited = guests.length
+      ? admissionSummary(admission)
+      : "No arbitrator or bank representative email is on file, so no calendar guest was added.";
+    return { ok: true, fake: false, ...parsed, inviteNote: invited, spaceName: admission.spaceName };
   } catch {
     return { ok: false, error: "Google Calendar could not be reached. Try again." };
   }
+}
+
+export async function updateHearingMeetGuests(input: {
+  config: MeetConfig;
+  eventId: string;
+  meetingCode: string;
+  start: Date;
+  durationMinutes: number;
+  guests: HearingGuest[];
+  invitesLive: boolean;
+  fetchImpl?: FetchLike;
+}): Promise<{ ok: true; inviteNote: string; spaceName: string } | { ok: false; error: string }> {
+  if (!input.eventId || !meetConfigured(input.config)) {
+    return {
+      ok: true,
+      inviteNote: input.invitesLive ? "Practice link. Invites were not sent." : INVITES_NOT_SENT,
+      spaceName: "",
+    };
+  }
+  const fetchImpl = input.fetchImpl ?? fetch;
+  const access = await impersonatedAccessToken({ config: input.config, fetchImpl });
+  if (!access) return { ok: false, error: "Google Calendar could not be authorised, so the guest list was not changed." };
+  const end = new Date(input.start.getTime() + input.durationMinutes * 60 * 1000);
+  const sendUpdates = input.invitesLive && input.guests.length > 0 ? "all" : "none";
+  try {
+    const response = await fetchImpl(
+      `https://www.googleapis.com/calendar/v3/calendars/primary/events/${encodeURIComponent(input.eventId)}?sendUpdates=${sendUpdates}`,
+      {
+        method: "PATCH",
+        headers: { Authorization: `Bearer ${access}`, "Content-Type": "application/json" },
+        body: JSON.stringify(calendarGuestPatch({
+          start: input.start,
+          end,
+          guests: input.guests,
+          invitesLive: input.invitesLive,
+        })),
+        signal: AbortSignal.timeout(20000),
+      },
+    );
+    if (!response.ok) return { ok: false, error: "Google Calendar did not update the hearing guests." };
+  } catch {
+    return { ok: false, error: "Google Calendar could not be reached, so the guest list was not changed." };
+  }
+  if (!input.invitesLive) return { ok: true, inviteNote: INVITES_NOT_SENT, spaceName: "" };
+  if (!input.meetingCode) {
+    return { ok: true, inviteNote: "Calendar guests updated. The Meet space could not be read.", spaceName: "" };
+  }
+  const admission = await applyMeetAdmission({
+    meetingCode: input.meetingCode,
+    arbitratorEmails: input.guests.filter((guest) => guest.role === "arbitrator").map((guest) => guest.email),
+    accessToken: access,
+    fetchImpl,
+  });
+  return { ok: true, inviteNote: admissionSummary(admission), spaceName: admission.spaceName };
+}
+
+export async function applyMeetAdmission(input: {
+  meetingCode: string;
+  arbitratorEmails: string[];
+  accessToken: string;
+  fetchImpl: FetchLike;
+}): Promise<{ accessSet: boolean; cohostSet: boolean; spaceName: string }> {
+  const headers = { Authorization: `Bearer ${input.accessToken}`, "Content-Type": "application/json" };
+  let spaceName = "";
+  let accessSet = false;
+  try {
+    const listed = await input.fetchImpl(`https://meet.googleapis.com/v2/spaces/${encodeURIComponent(input.meetingCode)}`, {
+      headers,
+      signal: AbortSignal.timeout(15000),
+    });
+    const space = (await readJson(listed)) as { name?: string } | null;
+    spaceName = listed.ok ? (space?.name ?? "").trim() : "";
+    if (spaceName.startsWith("spaces/")) {
+      const patched = await input.fetchImpl(
+        `https://meet.googleapis.com/v2/${spaceName}?updateMask=config.accessType`,
+        {
+          method: "PATCH",
+          headers,
+          body: JSON.stringify({ config: { accessType: "RESTRICTED" } }),
+          signal: AbortSignal.timeout(15000),
+        },
+      );
+      accessSet = patched.ok;
+    }
+  } catch {
+    accessSet = false;
+  }
+  const emails = [...new Set(input.arbitratorEmails.map((email) => email.trim().toLowerCase()).filter((email) => email.includes("@")))];
+  if (!spaceName || emails.length === 0) return { accessSet, cohostSet: false, spaceName };
+  let cohostSet = true;
+  for (const email of emails) {
+    try {
+      const created = await input.fetchImpl(`https://meet.googleapis.com/v2/${spaceName}/members`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ email, role: "COHOST" }),
+        signal: AbortSignal.timeout(15000),
+      });
+      if (!created.ok && created.status !== 409) cohostSet = false;
+    } catch {
+      cohostSet = false;
+    }
+  }
+  if (!cohostSet) return { accessSet, cohostSet: false, spaceName };
+  return { accessSet, cohostSet: true, spaceName };
 }
 
 export function participantsFromPayload(payload: unknown): MeetParticipant[] {
@@ -267,6 +438,8 @@ export function participantsFromPayload(payload: unknown): MeetParticipant[] {
   if (!Array.isArray(people)) return [];
   return people.map((person) => {
     const row = person as {
+      earliestStartTime?: string;
+      latestEndTime?: string;
       signedinUser?: { displayName?: string; email?: string };
       anonymousUser?: { displayName?: string };
       phoneUser?: { displayName?: string };
@@ -275,6 +448,26 @@ export function participantsFromPayload(payload: unknown): MeetParticipant[] {
     return {
       displayName: (signed?.displayName || row.anonymousUser?.displayName || row.phoneUser?.displayName || "").trim(),
       email: (signed?.email || "").trim(),
+      joinedAt: (row.earliestStartTime ?? "").trim(),
+      leftAt: (row.latestEndTime ?? "").trim(),
+    };
+  });
+}
+
+export function guestVisitsFromParticipants(input: {
+  guests: HearingGuest[];
+  participants: MeetParticipant[];
+}): Array<HearingGuest & { joinedAt: string; leftAt: string }> {
+  return input.guests.map((guest) => {
+    const email = guest.email.trim().toLowerCase();
+    const person = input.participants.find((row) => {
+      if (email && row.email.toLowerCase() === email) return true;
+      return namesMatch(guest.name, row.displayName);
+    });
+    return {
+      ...guest,
+      joinedAt: person?.joinedAt ?? "",
+      leftAt: person?.leftAt ?? "",
     };
   });
 }

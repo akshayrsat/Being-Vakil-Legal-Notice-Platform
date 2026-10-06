@@ -48,6 +48,9 @@ export default async function OdrCasesPage({
               : `Cases for ${bank.name}. You can look. You cannot change a case or see another bank.`
             : "Choose a bank first."}
         </p>
+        <p className="mt-3">
+          <Link href="/odr/today" className="text-sm underline">Today’s hearings</Link>
+        </p>
       </div>
       {!bank ? (
         <EmptyState title="No bank selected">Open Banks and press Use this bank.</EmptyState>

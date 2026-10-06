@@ -11,6 +11,7 @@ import {
   setPartyAttendance,
   saveBankPanel,
   saveNeutral,
+  saveNeutralEmail,
   scheduleBulkHearings,
   scheduleOneHearing,
   updateOdrStatus,
@@ -356,6 +357,10 @@ export function OdrNeutralForm() {
         <input name="qualification" className={field} />
       </label>
       <label className="flex flex-col gap-1 text-sm font-medium">
+        Email
+        <input name="email" type="email" required autoComplete="off" className={field} />
+      </label>
+      <label className="flex flex-col gap-1 text-sm font-medium">
         Enrolment number
         <input name="enrolmentNo" className={field} />
       </label>
@@ -367,13 +372,30 @@ export function OdrNeutralForm() {
   );
 }
 
+export function OdrNeutralEmailForm({ neutralId, email }: { neutralId: string; email: string }) {
+  const [state, action, pending] = useActionState(saveNeutralEmail, null);
+  return (
+    <form action={action} className="mt-2 flex flex-wrap items-end gap-2">
+      <input type="hidden" name="neutralId" value={neutralId} />
+      <label className="flex flex-col gap-1 text-sm">
+        Email
+        <input name="email" type="email" required defaultValue={email} className={field} />
+      </label>
+      <Button type="submit" variant="outline" className="h-11 px-3" disabled={pending}>
+        {pending ? "Saving…" : "Save email"}
+      </Button>
+      {state?.error ? <span className="text-sm text-destructive">{state.error}</span> : null}
+    </form>
+  );
+}
+
 export function OdrBankPanelForm({
   bankName,
   neutrals,
   selectedIds,
 }: {
   bankName: string;
-  neutrals: Array<{ id: string; name: string; qualification: string; enrolmentNo: string; active: boolean }>;
+  neutrals: Array<{ id: string; name: string; qualification: string; enrolmentNo: string; email: string; active: boolean }>;
   selectedIds: string[];
 }) {
   const [state, action, pending] = useActionState(saveBankPanel, null);
@@ -381,7 +403,7 @@ export function OdrBankPanelForm({
   return (
     <form action={action} className="flex flex-col gap-3">
       <p className="text-sm leading-6 text-muted-foreground">
-        Panel for {bankName}. Tick at least 3 names. Each needs a qualification and an enrolment number. The customer can choose one of these names after the dispute.
+        Panel for {bankName}. Tick at least 3 names. Each needs a qualification, an enrolment number, and an email. The customer can choose one of these names after the dispute.
       </p>
       <ul className="flex flex-col gap-2">
         {neutrals.filter((neutral) => neutral.active).map((neutral) => (
@@ -392,6 +414,7 @@ export function OdrBankPanelForm({
                 {neutral.name}
                 {neutral.qualification ? ` · ${neutral.qualification}` : ""}
                 {neutral.enrolmentNo ? ` · ${neutral.enrolmentNo}` : ""}
+                {neutral.email ? ` · ${neutral.email}` : ""}
               </span>
             </label>
           </li>

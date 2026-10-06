@@ -47,6 +47,9 @@ export default async function OdrPage() {
         <Link href="/odr/cases" className={buttonVariants({ variant: "outline", className: "h-11 px-4" })}>
           Cases
         </Link>
+        <Link href="/odr/today" className={buttonVariants({ variant: "outline", className: "h-11 px-4" })}>
+          Today’s hearings
+        </Link>
         <Link href="/odr/queue" className={buttonVariants({ variant: "outline", className: "h-11 px-4" })}>
           Next hearing needed{alerts ? ` · ${alerts} new` : ""}
         </Link>

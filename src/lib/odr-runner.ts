@@ -9,9 +9,11 @@ import { ODR_NOT_SENT_DETAIL } from "./odr-live";
 import {
   createHearingMeet,
   fetchMeetParticipants,
+  guestVisitsFromParticipants,
   impersonatedAccessToken,
   readMeetConfig,
   attendanceFromParticipants,
+  updateHearingMeetGuests,
   type MeetLinkResult,
 } from "./odr-meet";
 import { autoSendAllowed, nextNoShowState, planOdrChannels, type ChannelPlan } from "./odr-plan";
@@ -39,6 +41,15 @@ import { CLOSED_CASE_BLANK, EMPTY_SHEET, closedCaseExpired, sheetExpired } from 
 import { grievanceFooter, grievanceFromBank, withGrievanceFooter } from "./grievance";
 import { noticeRecipients } from "./odr-parties";
 import { terminalOdrStatus } from "./odr-status";
+import {
+  INVITES_NOT_SENT,
+  neutralHearsCase,
+  parseInvitedGuests,
+  scheduleDigestDue,
+  scheduleDigestPlan,
+  scheduleEmailBody,
+  selectHearingGuests,
+} from "./odr-guests";
 
 const CLAIM = "CREATING";
 const STALE_MS = 2 * 60 * 1000;
@@ -65,6 +76,10 @@ export type OdrDeps = {
 
 export function casePageUrl(token: string): string {
   return `${noticePublicBaseUrl()}/odr/c/${token}`;
+}
+
+export function staffCaseUrl(caseId: string): string {
+  return `${noticePublicBaseUrl()}/odr/cases/${caseId}`;
 }
 
 export async function defaultDeps(db: PrismaClient, now = new Date()): Promise<OdrDeps> {
@@ -107,6 +122,7 @@ export async function processOdrWork(
       data: { meetError: CLAIM },
     });
     if (claim.count !== 1) continue;
+    const selection = await loadHearingGuests(db, hearing.case, deps.live);
     const meet = await deps.createMeet({
       config: readMeetConfig(),
       title: hearingTitle({
@@ -119,6 +135,8 @@ export async function processOdrWork(
       start: hearing.scheduledAt,
       durationMinutes: hearing.durationMinutes,
       requestId: `${hearing.id}-${hearing.number}`,
+      guests: selection.guests,
+      invitesLive: deps.live,
     });
     if (!meet.ok) {
       await db.odrHearing.update({ where: { id: hearing.id }, data: { meetError: meet.error } });
@@ -132,6 +150,9 @@ export async function processOdrWork(
         meetError: "",
         calendarEventId: meet.eventId,
         meetingCode: meet.meetingCode,
+        guestInviteNote: hearingInviteNote(deps.live, meet.fake, selection.inviteNote, meet.inviteNote),
+        spaceName: meet.spaceName,
+        invitedGuests: JSON.stringify(deps.live ? selection.guests : []),
       },
     });
   }
@@ -290,6 +311,178 @@ async function bankName(db: PrismaClient, bankId: string): Promise<string> {
   return bank?.name ?? "Bank";
 }
 
+async function loadHearingGuests(
+  db: PrismaClient,
+  item: { bankId: string; neutralId: string | null; neutralName: string; panelJson: string },
+  live: boolean,
+) {
+  const panel = parsePanel(item.panelJson);
+  const ids = [...new Set([item.neutralId ?? "", ...panel.map((member) => member.id)].filter(Boolean))];
+  const neutrals = ids.length
+    ? await db.odrNeutral.findMany({ where: { id: { in: ids } }, select: { id: true, name: true, email: true } })
+    : [];
+  const byId = new Map(neutrals.map((neutral) => [neutral.id, neutral]));
+  const reps = await db.bankRepresentative.findMany({
+    where: { bankId: item.bankId },
+    orderBy: { sortOrder: "asc" },
+    select: { name: true, email: true },
+  });
+  const assignedRow = item.neutralId ? byId.get(item.neutralId) : undefined;
+  return selectHearingGuests({
+    live,
+    panel: panel.map((member) => {
+      const row = byId.get(member.id);
+      return { id: member.id, name: row?.name || member.name, email: row?.email ?? "" };
+    }),
+    assigned: { name: assignedRow?.name || item.neutralName, email: assignedRow?.email ?? "" },
+    representatives: reps,
+  });
+}
+
+export async function syncCaseCalendarGuests(db: PrismaClient, caseId: string): Promise<void> {
+  const item = await db.odrCase.findUnique({ where: { id: caseId }, include: { hearings: true } });
+  if (!item) return;
+  const rules = await readOdrRules(db);
+  const selection = await loadHearingGuests(db, item, rules.live);
+  const config = readMeetConfig();
+  for (const hearing of item.hearings) {
+    if (!hearing.calendarEventId) {
+      if (!rules.live) {
+        await db.odrHearing.update({
+          where: { id: hearing.id },
+          data: { guestInviteNote: INVITES_NOT_SENT, invitedGuests: "[]" },
+        });
+      }
+      continue;
+    }
+    const result = await updateHearingMeetGuests({
+      config,
+      eventId: hearing.calendarEventId,
+      meetingCode: hearing.meetingCode,
+      start: hearing.scheduledAt,
+      durationMinutes: hearing.durationMinutes,
+      guests: selection.guests,
+      invitesLive: rules.live,
+    });
+    await db.odrHearing.update({
+      where: { id: hearing.id },
+      data: {
+        guestInviteNote: result.ok ? result.inviteNote : result.error,
+        spaceName: result.ok && result.spaceName ? result.spaceName : hearing.spaceName,
+        invitedGuests: JSON.stringify(rules.live ? selection.guests : []),
+      },
+    });
+  }
+}
+
+export async function syncBankCalendarGuests(db: PrismaClient, bankId: string): Promise<void> {
+  const hearings = await db.odrHearing.findMany({
+    where: { bankId, calendarEventId: { not: "" }, scheduledAt: { gt: new Date() } },
+    select: { caseId: true },
+  });
+  for (const caseId of [...new Set(hearings.map((hearing) => hearing.caseId))]) {
+    await syncCaseCalendarGuests(db, caseId);
+  }
+}
+
+export async function syncNeutralCalendarGuests(db: PrismaClient, neutralId: string): Promise<void> {
+  const hearings = await db.odrHearing.findMany({
+    where: { calendarEventId: { not: "" }, scheduledAt: { gt: new Date() } },
+    select: { caseId: true, case: { select: { neutralId: true, panelJson: true } } },
+  });
+  const caseIds = new Set<string>();
+  for (const hearing of hearings) {
+    const panelIds = parsePanel(hearing.case.panelJson).map((member) => member.id);
+    if (neutralHearsCase(neutralId, panelIds, hearing.case.neutralId ?? "")) caseIds.add(hearing.caseId);
+  }
+  for (const caseId of caseIds) await syncCaseCalendarGuests(db, caseId);
+}
+
+function hearingInviteNote(live: boolean, fake: boolean, selectionNote: string, meetNote: string): string {
+  if (!live) return INVITES_NOT_SENT;
+  if (fake) return meetNote;
+  if (!meetNote || meetNote === selectionNote) return selectionNote;
+  return `${selectionNote} ${meetNote}`.replace(/\s+/g, " ").trim();
+}
+
+async function sendArbitratorDigests(db: PrismaClient, deps: OdrDeps): Promise<number> {
+  if (!scheduleDigestDue(deps.now)) return 0;
+  const { start, end } = istDayBounds(deps.now);
+  const hearings = await db.odrHearing.findMany({
+    where: { scheduledAt: { gte: start, lt: end } },
+    include: { case: { include: { bank: true } } },
+    orderBy: { scheduledAt: "asc" },
+    take: 200,
+  });
+  const neutrals = await db.odrNeutral.findMany({ where: { active: true }, orderBy: { name: "asc" } });
+  const templateId = (process.env.ODR_SCHEDULE_EMAIL_TEMPLATE_ID ?? "").trim();
+  const plan = scheduleDigestPlan({ live: deps.live, templateId });
+  let recorded = 0;
+  for (const neutral of neutrals) {
+    if (!neutral.email.includes("@")) continue;
+    const rows = hearings.filter((hearing) => neutralHearsCase(
+      neutral.id,
+      parsePanel(hearing.case.panelJson).map((member) => member.id),
+      hearing.case.neutralId ?? "",
+    ));
+    if (rows.length === 0) continue;
+    const already = await db.odrMessage.findFirst({
+      where: { kind: "SCHEDULE", channel: "EMAIL", toAddress: neutral.email, createdAt: { gte: start, lt: end } },
+      select: { id: true },
+    });
+    if (already) continue;
+    const first = rows[0]!;
+    const body = scheduleEmailBody({
+      arbitratorName: neutral.name,
+      day: formatHearingDate(deps.now),
+      rows: rows.map((hearing) => ({
+        customerName: hearing.case.customerName,
+        refNo: hearing.case.refNo,
+        time: formatHearingTime(hearing.scheduledAt),
+        meetLink: hearing.meetLink,
+        caseUrl: staffCaseUrl(hearing.caseId),
+      })),
+    });
+    let status = "SKIPPED";
+    let detail = plan.detail;
+    if (plan.send) {
+      const result = await deps.deliver({
+        live: true,
+        channel: "EMAIL",
+        to: neutral.email,
+        templateId,
+        vars: {
+          customer: neutral.name,
+          bank: first.case.bank.name,
+          number: first.case.refNo,
+          date: formatHearingDate(first.scheduledAt),
+          time: formatHearingTime(first.scheduledAt),
+          link: first.meetLink || "Meet link not ready",
+          caseLink: staffCaseUrl(first.caseId),
+          schedule: body,
+        },
+      });
+      status = result.ok ? "SENT" : "FAILED";
+      detail = result.detail;
+    }
+    await db.odrMessage.create({
+      data: {
+        caseId: first.caseId,
+        hearingId: first.id,
+        bankId: first.bankId,
+        channel: "EMAIL",
+        kind: "SCHEDULE",
+        toAddress: neutral.email,
+        status,
+        detail,
+        messageText: body,
+      },
+    });
+    recorded += 1;
+  }
+  return recorded;
+}
+
 async function countPending(db: PrismaClient, bankId: string, batchId: string): Promise<number> {
   const hearingWhere = {
     meetLink: "",
@@ -366,6 +559,11 @@ export async function refreshCaseAttendance(
       customerEmail: hearing.case.email,
       participants: participants.participants,
     });
+    const visits = guestVisitsFromParticipants({
+      guests: parseInvitedGuests(hearing.invitedGuests),
+      participants: participants.participants,
+    });
+    await db.odrHearing.update({ where: { id: hearing.id }, data: { guestAttendance: JSON.stringify(visits) } });
     const applied = await applyAttendance(db, hearing, attendance, "auto", deps.rules.maxNoShow);
     if (applied) updated += 1;
     note = attendance === "JOINED" ? "Marked Joined from Meet." : "Marked No-show from Meet.";
@@ -462,15 +660,16 @@ async function purgeExpiredPersonalData(
 export async function runOdrMaintenance(
   db: PrismaClient = prisma,
   deps?: OdrDeps,
-): Promise<{ reminders: number; rescheduled: number; attendance: number }> {
+): Promise<{ reminders: number; rescheduled: number; attendance: number; schedules: number }> {
   const liveDeps = deps ?? (await defaultDeps(db));
   const attendance = await refreshEndedAttendance(db, liveDeps);
   const reminders = await sendDueReminders(db, liveDeps);
   const rescheduled = await autoRescheduleNoShows(db, liveDeps);
+  const schedules = await sendArbitratorDigests(db, liveDeps);
   await releaseHeldNoticeSends(liveDeps.now);
   await purgeExpiredPersonalData(db, liveDeps.now, liveDeps.rules);
   await processOdrWork(db, { limit: 6, deps: liveDeps });
-  return { reminders, rescheduled, attendance };
+  return { reminders, rescheduled, attendance, schedules };
 }
 
 async function refreshEndedAttendance(db: PrismaClient, deps: OdrDeps): Promise<number> {
@@ -496,6 +695,11 @@ async function refreshEndedAttendance(db: PrismaClient, deps: OdrDeps): Promise<
       customerEmail: hearing.case.email,
       participants: participants.participants,
     });
+    const visits = guestVisitsFromParticipants({
+      guests: parseInvitedGuests(hearing.invitedGuests),
+      participants: participants.participants,
+    });
+    await db.odrHearing.update({ where: { id: hearing.id }, data: { guestAttendance: JSON.stringify(visits) } });
     if (await applyAttendance(db, hearing, attendance, "auto", deps.rules.maxNoShow)) updated += 1;
   }
   return updated;

@@ -30,6 +30,7 @@ import { odrDocumentLabel, odrMatterLabel, odrNeutralRole, odrStatusLabel } from
 import { odrCaseBack } from "@/lib/odr-back";
 import { arbitrationNoticeError, arbitrationNoticeGaps } from "@/lib/odr-notice-gate";
 import { loadAppointmentConsent } from "@/lib/odr-consent-store";
+import { parseGuestVisits } from "@/lib/odr-guests";
 import { redactCell } from "@/lib/data-min";
 import { partyAttendanceLabel, partyAttendanceMap } from "@/lib/odr-parties";
 import { readOdrRules } from "@/lib/odr-store";
@@ -37,6 +38,13 @@ import { canSendNotices, isBankUser } from "@/lib/roles";
 import { hideVendorWording, seesVendorDetail } from "@/lib/staff-language";
 
 export const metadata: Metadata = { title: "ODR case" };
+
+function visitStamp(label: string, raw: string): string {
+  if (!raw) return "";
+  const date = new Date(raw);
+  if (Number.isNaN(date.getTime())) return "";
+  return `${label} ${formatIndiaDateTime(date)}`;
+}
 
 export default async function OdrCasePage({
   params,
@@ -239,6 +247,23 @@ export default async function OdrCasePage({
                 {hearing.meetFake ? " · Practice link, not a real Google Meet" : ""}
                 {hearing.meetError && hearing.meetError !== "CREATING" ? ` · ${hearing.meetError}` : ""}
               </p>
+              {hearing.guestInviteNote ? <p className="mt-1 text-muted-foreground">{hearing.guestInviteNote}</p> : null}
+              {hearing.meetLink ? (
+                <a href={hearing.meetLink} className="mt-2 inline-flex h-9 items-center rounded-lg bg-primary px-3 text-sm font-medium text-primary-foreground">
+                  Join
+                </a>
+              ) : null}
+              {parseGuestVisits(hearing.guestAttendance).length > 0 ? (
+                <ul className="mt-2 flex flex-col gap-1">
+                  {parseGuestVisits(hearing.guestAttendance).map((visit) => (
+                    <li key={`${visit.role}-${visit.email}`}>
+                      {visit.role === "arbitrator" ? "Arbitrator" : "Bank representative"} {visit.name}
+                      {visitStamp(": joined", visit.joinedAt) || ": not seen in Meet"}
+                      {visitStamp(", left", visit.leftAt)}
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
               {item.respondents.length > 0 ? (
                 <ul className="mt-3 flex flex-col gap-2">
                   {item.respondents.map((party) => {

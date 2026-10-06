@@ -397,6 +397,10 @@ export async function recordArbitratorConsent(_previous: PublicOdrState, formDat
       },
     });
   });
+  if (nextNeutral) {
+    const { syncCaseCalendarGuests } = await import("@/lib/odr-runner");
+    await syncCaseCalendarGuests(prisma, found.id);
+  }
   redirect(`/odr/c/${token}`);
 }
 
