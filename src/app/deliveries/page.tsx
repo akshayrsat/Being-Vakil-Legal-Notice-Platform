@@ -25,6 +25,8 @@ import { noticeLinkOpensByNumber } from "@/lib/public-notice";
 import { formatIndiaDateTime } from "@/lib/india-day";
 import { resolveReportBank } from "@/lib/report-bank";
 import { canChooseBank, isBankUser } from "@/lib/roles";
+import { RecordSwitch } from "@/components/record-switch";
+import { OdrReportPanel } from "@/components/odr-report-panel";
 
 export const metadata: Metadata = {
   title: "Find a person",
@@ -50,6 +52,7 @@ export default async function DeliveriesPage({
   const bankUser = isBankUser(user.role);
   const technical = seesVendorDetail(user);
   const bank = await resolveReportBank(user, params.get("bank") ?? "");
+  const view = params.get("view") === "odr" ? "odr" : "notices";
 
   return (
     <div className="flex min-h-full flex-col">
@@ -58,18 +61,27 @@ export default async function DeliveriesPage({
         <div>
           <h1 className="font-serif text-4xl tracking-tight">Find a person</h1>
           <p className="mt-3 text-base leading-7 text-muted-foreground">
-            {bank
-              ? technical
-                ? `Search sends for ${bank.name}. A dry run stays marked Dry run. It is not called delivered.`
-                : `Notices already sent for ${bank.name}, and the delivery status of each one.`
-              : "Choose a bank before searching."}
+            {view === "odr"
+              ? bank
+                ? `ODR cases for ${bank.name}. Download the Excel only after Apply.`
+                : "Choose a bank before searching."
+              : bank
+                ? technical
+                  ? `Search sends for ${bank.name}. A dry run stays marked Dry run. It is not called delivered.`
+                  : `Notices already sent for ${bank.name}, and the delivery status of each one.`
+                : "Choose a bank before searching."}
           </p>
+          <div className="mt-4">
+            <RecordSwitch base="/deliveries" view={view} />
+          </div>
         </div>
 
         {!bank ? (
           <p className="text-sm text-muted-foreground">
             {isAdmin ? "Open Banks and press Use this bank, or pick a bank below once one exists." : "This login is not linked to a bank."}
           </p>
+        ) : view === "odr" ? (
+          <OdrReportPanel bankId={bank.id} bankName={bank.name} params={params} downloadBase="/deliveries" />
         ) : (
           <>
             <DeliveryFiltersForm

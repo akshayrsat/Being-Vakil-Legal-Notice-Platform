@@ -81,13 +81,13 @@ export function roleHeadline(role: string): string {
 
 export function roleSummary(role: string): string {
   if (isOwner(role)) {
-    return "You are the owner. You can send a notice, add a bank, add a login, read the audit log, and turn live send on or off. A spreadsheet, its people, and a send stay on the bank you are working on.";
+    return "You are the owner. You can send a notice, open an ODR case, add a bank, add a login, read the audit log, and turn live send on or off. ODR messages use their own switch and stay off until you turn that on. A spreadsheet, its people, and a send stay on the bank you are working on.";
   }
   if (isCoordinator(role)) {
-    return "You can send a notice for the bank you are working on, and you can add a bank user for one bank. You cannot turn live send on or off, add a bank, or open the audit log.";
+    return "You can send a notice and manage ODR cases for the bank you are working on, and you can add a bank user for one bank. You cannot turn live send on or off, add a bank, or open the audit log.";
   }
   if (isBankUser(role)) {
-    return "You can look at notices already sent for this one bank, including delivery status, and you can download that bank’s report. You cannot upload a spreadsheet, send a notice, change wording, add a login, or see another bank.";
+    return "You can look at notices and ODR cases already on file for this one bank, including delivery status, and you can download that bank’s report. You cannot upload a spreadsheet, send a notice, change an ODR case, add a login, or see another bank.";
   }
   return "Ask the owner to check this account. It should be an owner, a legal coordinator, or a bank user.";
 }

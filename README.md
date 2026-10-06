@@ -2,6 +2,8 @@
 
 Local web app for preparing and reviewing legal notices for client banks. Sending a notice is one screen: the bank’s spreadsheet, the approved wording, a review of who will get it, then send. The owner turns MSG91 live send on or off in Settings. That switch starts on and overrides `MSG91_LIVE_SEND`. Confirming sends for real only when the switch is on and MSG91 is set up. When the switch is off, confirming records a dry run and nothing is sent.
 
+ODR (arbitration and mediation) is a separate tab. It does not use the notice live-send switch. ODR messages stay off until `ODR_LIVE_SEND` is exactly `true` and the owner turns the ODR switch on in Settings. Without Google Meet settings, each hearing gets a practice link.
+
 ## Run locally
 
 Install Node.js 20 or newer, then from this folder:

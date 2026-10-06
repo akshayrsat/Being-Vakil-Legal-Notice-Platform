@@ -142,6 +142,14 @@ export function DashboardHome({ user, liveSendOn }: { user: SignedInUser; liveSe
               ) : null}
               {bank && isAdmin ? (
                 <Link
+                  href="/odr"
+                  className={buttonVariants({ variant: "outline", className: "h-11 w-fit px-4" })}
+                >
+                  ODR
+                </Link>
+              ) : null}
+              {bank && isAdmin ? (
+                <Link
                   href="/templates"
                   className={buttonVariants({ variant: "outline", className: "h-11 w-fit px-4" })}
                 >

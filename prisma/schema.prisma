@@ -48,6 +48,8 @@ model Bank {
   campaigns  Campaign[]
   notices    PublicNotice[]
   consignments SpeedPostConsignment[]
+  odrBatches   OdrBatch[]
+  odrCases     OdrCase[]
   // When true, a live email also attaches a PDF of that notice. Default off.
   // The clickable notice link in the email is unchanged.
   attachNoticePdf Boolean    @default(false)
@@ -398,4 +400,251 @@ model AuditEvent {
   @@index([createdAt])
   @@index([action])
   @@index([bankId])
+}
+
+// Online dispute resolution for one bank's loan or card accounts.
+// Status and matter type are strings so SQLite and Cloud SQL Postgres share one shape.
+// A bank user only reads rows for their bank. Staff work on the bank they have selected.
+
+model OdrNeutral {
+  id            String    @id @default(cuid())
+  name          String
+  qualification String    @default("")
+  enrolmentNo   String    @default("")
+  active        Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  cases         OdrCase[]
+}
+
+model OdrBatch {
+  id              String    @id @default(cuid())
+  bankId          String
+  bank            Bank      @relation(fields: [bankId], references: [id], onDelete: Cascade)
+  fileName        String
+  matterType      String
+  neutralId       String    @default("")
+  neutralName     String    @default("")
+  hearingAt       DateTime
+  durationMinutes Int
+  headers         String    @default("[]")
+  rawRows         String    @default("[]")
+  mappingUsed     String    @default("")
+  saved           Boolean   @default(false)
+  rowCount        Int       @default(0)
+  status          String    @default("DRAFT")
+  createdById     String    @default("")
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  cases           OdrCase[]
+
+  @@index([bankId])
+  @@index([status])
+}
+
+model OdrCase {
+  id                   String         @id @default(cuid())
+  bankId               String
+  bank                 Bank           @relation(fields: [bankId], references: [id], onDelete: Cascade)
+  batchId              String
+  batch                OdrBatch       @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  rowNumber            Int            @default(0)
+  refNo                String         @unique
+  matterType           String
+  customerName         String
+  coParties            String         @default("")
+  accountNumber        String         @default("")
+  branch               String         @default("")
+  mobile               String         @default("")
+  email                String         @default("")
+  address              String         @default("")
+  loanAmount           String         @default("")
+  claimAmount          String         @default("")
+  asOnDate             String         @default("")
+  disputeSummary       String         @default("")
+  neutralId            String?
+  neutral              OdrNeutral?    @relation(fields: [neutralId], references: [id], onDelete: SetNull)
+  neutralName          String         @default("")
+  neutralQualification String         @default("")
+  neutralEnrolment     String         @default("")
+  publicToken          String         @unique
+  status               String         @default("HEARING_SCHEDULED")
+  stage                String         @default("HEARING")
+  exParte              Boolean        @default(false)
+  noShowCount          Int            @default(0)
+  flaggedExParte       Boolean        @default(false)
+  settlementAmount     String         @default("")
+  settlementNote       String         @default("")
+  settlementAt         DateTime?
+  awardAt              DateTime?
+  advocateName         String         @default("")
+  advocateBarNo        String         @default("")
+  bankCounsel          String         @default("")
+  bankContact          String         @default("")
+  paymentInfo          String         @default("")
+  paperJson            String         @default("{}")
+  rescheduleNote       String         @default("")
+  reschedulePreferred  String         @default("")
+  rescheduleAt         DateTime?
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+  hearings             OdrHearing[]
+  messages             OdrMessage[]
+  documents            OdrDocument[]
+  statusEvents         OdrStatusEvent[]
+  accessLogs           OdrAccessLog[]
+  alerts               OdrAlert[]
+
+  @@index([bankId])
+  @@index([batchId])
+  @@index([status])
+  @@index([accountNumber])
+  @@index([customerName])
+}
+
+model OdrHearing {
+  id               String      @id @default(cuid())
+  caseId           String
+  case             OdrCase     @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  bankId           String
+  number           Int
+  scheduledAt      DateTime
+  durationMinutes  Int
+  meetLink         String      @default("")
+  meetFake         Boolean     @default(false)
+  meetError        String      @default("")
+  calendarEventId  String      @default("")
+  meetingCode      String      @default("")
+  attendance       String      @default("PENDING")
+  attendanceSource String      @default("")
+  attendanceNote   String      @default("")
+  remindersSent    String      @default("[]")
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+  messages         OdrMessage[]
+
+  @@unique([caseId, number])
+  @@index([bankId])
+  @@index([scheduledAt])
+  @@index([attendance])
+}
+
+model OdrMessage {
+  id          String      @id @default(cuid())
+  caseId      String
+  case        OdrCase     @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  hearingId   String?
+  hearing     OdrHearing? @relation(fields: [hearingId], references: [id], onDelete: SetNull)
+  bankId      String
+  channel     String
+  kind        String
+  toAddress   String      @default("")
+  status      String
+  detail      String      @default("")
+  messageText String      @default("")
+  providerId  String      @default("")
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@index([caseId])
+  @@index([bankId])
+  @@index([hearingId])
+  @@index([status])
+  @@index([kind])
+}
+
+model OdrDocument {
+  id           String   @id @default(cuid())
+  caseId       String
+  case         OdrCase  @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  bankId       String
+  kind         String
+  fileName     String
+  mimeType     String   @default("application/pdf")
+  content      Bytes
+  uploadedBy   String   @default("")
+  uploaderName String   @default("")
+  note         String   @default("")
+  createdAt    DateTime @default(now())
+
+  @@index([caseId])
+  @@index([bankId])
+}
+
+model OdrStatusEvent {
+  id         String   @id @default(cuid())
+  caseId     String
+  case       OdrCase  @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  bankId     String
+  status     String
+  exParte    Boolean  @default(false)
+  note       String   @default("")
+  documentId String   @default("")
+  actorId    String   @default("")
+  actorName  String   @default("")
+  actorRole  String   @default("")
+  createdAt  DateTime @default(now())
+
+  @@index([caseId])
+  @@index([createdAt])
+}
+
+model OdrAccessLog {
+  id        String   @id @default(cuid())
+  caseId    String
+  case      OdrCase  @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  bankId    String
+  kind      String
+  ip        String   @default("")
+  userAgent String   @default("")
+  detail    String   @default("")
+  createdAt DateTime @default(now())
+
+  @@index([caseId])
+  @@index([createdAt])
+}
+
+model OdrVerifyGrant {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  caseId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([caseId])
+}
+
+model OdrAlert {
+  id        String    @id @default(cuid())
+  caseId    String
+  case      OdrCase   @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  bankId    String
+  kind      String
+  summary   String
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([bankId])
+  @@index([caseId])
+}
+
+// Owner choice for ODR messages only. It does not change notice live send.
+// No row means off. Real ODR sends also need ODR_LIVE_SEND=true.
+model OdrLiveSendSetting {
+  id        String   @id
+  enabled   Boolean
+  updatedAt DateTime @updatedAt
+}
+
+// Owner-only ODR template ids, reminder timing, and the no-show rule.
+model OdrSettings {
+  id                  String   @id
+  templatesJson       String   @default("{}")
+  reminderDaysBefore  Int      @default(1)
+  reminderHoursBefore Int      @default(1)
+  reminderDayOn       Boolean  @default(true)
+  reminderHourOn      Boolean  @default(true)
+  maxNoShow           Int      @default(3)
+  autoRescheduleDays  Int      @default(0)
+  updatedAt           DateTime @updatedAt
 }
