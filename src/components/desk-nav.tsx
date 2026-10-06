@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { isSendNoticePath, SEND_NOTICE_HREF, workspaceNav } from "@/lib/send-notice";
+import { isOdrTemplatesPath, isSendNoticePath, ODR_HREF, SEND_NOTICE_HREF, workspaceNav } from "@/lib/send-notice";
 
 export function DeskNav({ role }: { role: string }) {
   const pathname = usePathname();
@@ -14,7 +14,9 @@ export function DeskNav({ role }: { role: string }) {
         const active =
           link.href === SEND_NOTICE_HREF
             ? isSendNoticePath(pathname)
-            : pathname === link.href || (link.href !== "/dashboard" && pathname.startsWith(`${link.href}/`));
+            : link.href === ODR_HREF
+              ? (pathname === ODR_HREF || pathname.startsWith(`${ODR_HREF}/`)) && !isOdrTemplatesPath(pathname)
+              : pathname === link.href || (link.href !== "/dashboard" && pathname.startsWith(`${link.href}/`));
         return (
           <Link
             key={link.href}

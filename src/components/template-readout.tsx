@@ -11,6 +11,9 @@ export function TemplateReadout({
   status,
   body = "",
   showVendorDetail = false,
+  vendorLabel = "DLT template id",
+  statusText,
+  showStatus,
 }: {
   name: string;
   dltTemplateId?: string;
@@ -18,18 +21,27 @@ export function TemplateReadout({
   status: string;
   body?: string;
   showVendorDetail?: boolean;
+  vendorLabel?: string;
+  statusText?: string;
+  showStatus?: boolean;
 }) {
+  const statusVisible = showStatus ?? showVendorDetail;
+  const statusLine = statusText ?? templateStatusLabel(status);
   return (
     <div className="flex flex-col gap-4 text-sm leading-6">
       <div>
         <p className="text-muted-foreground">Name</p>
         <p className="font-medium">{name}</p>
       </div>
-      <div className={showVendorDetail ? "grid gap-4 sm:grid-cols-3" : undefined}>
-        {showVendorDetail ? (
+      <div
+        className={
+          showVendorDetail ? "grid gap-4 sm:grid-cols-3" : statusVisible ? "grid gap-4 sm:grid-cols-2" : undefined
+        }
+      >
+        {statusVisible ? (
           <div>
             <p className="text-muted-foreground">Status</p>
-            <p className="font-medium">{templateStatusLabel(status)}</p>
+            <p className="font-medium">{statusLine}</p>
           </div>
         ) : null}
         <div>
@@ -38,7 +50,7 @@ export function TemplateReadout({
         </div>
         {showVendorDetail ? (
           <div>
-            <p className="text-muted-foreground">DLT template id</p>
+            <p className="text-muted-foreground">{vendorLabel}</p>
             <p className="font-medium break-all">{dltTemplateId || "Not set"}</p>
           </div>
         ) : null}

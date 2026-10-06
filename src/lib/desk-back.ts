@@ -12,6 +12,10 @@ export function backToTemplates(): BackTarget {
   return { href: "/templates", label: "Back to templates" };
 }
 
+export function backToOdrTemplates(): BackTarget {
+  return { href: "/odr/templates", label: "Back to ODR templates" };
+}
+
 export function backToSendNotice(): BackTarget {
   return { href: "/send", label: "Back to send notice" };
 }

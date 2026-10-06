@@ -56,6 +56,9 @@ export default async function OdrPage() {
         <Link href="/odr/neutrals" className={buttonVariants({ variant: "outline", className: "h-11 px-4" })}>
           Arbitrators
         </Link>
+        <Link href="/odr/templates" className={buttonVariants({ variant: "outline", className: "h-11 px-4" })}>
+          Templates
+        </Link>
         <a href="/odr/sample" className={buttonVariants({ variant: "outline", className: "h-11 px-4" })}>
           Download sample sheet
         </a>

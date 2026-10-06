@@ -7,6 +7,8 @@ export const SEND_NOTICE_HREF = "/send";
 export const SEND_NOTICE_LABEL = "Send notice";
 export const ODR_HREF = "/odr";
 export const ODR_LABEL = "ODR";
+export const ODR_TEMPLATES_HREF = "/odr/templates";
+export const ODR_TEMPLATES_LABEL = "ODR templates";
 export const SETTINGS_HREF = "/settings";
 export const SETTINGS_LABEL = "Settings";
 export const PEOPLE_HREF = "/people";
@@ -59,6 +61,7 @@ export function workspaceNav(role: string): NavLink[] {
     { href: SEND_NOTICE_HREF, label: SEND_NOTICE_LABEL },
     { href: ODR_HREF, label: ODR_LABEL },
     { href: "/templates", label: "Templates" },
+    { href: ODR_TEMPLATES_HREF, label: ODR_TEMPLATES_LABEL },
     { href: LEGAL_NOTICES_HREF, label: LEGAL_NOTICES_LABEL },
     { href: "/deliveries", label: "Tracking" },
     { href: "/speed-post", label: "Speed Post" },
@@ -70,6 +73,10 @@ export function workspaceNav(role: string): NavLink[] {
     links.push({ href: SETTINGS_HREF, label: SETTINGS_LABEL }, { href: "/audit", label: "Audit" });
   }
   return links;
+}
+
+export function isOdrTemplatesPath(pathname: string): boolean {
+  return pathname === ODR_TEMPLATES_HREF || pathname.startsWith(`${ODR_TEMPLATES_HREF}/`);
 }
 
 export function isSendNoticePath(pathname: string): boolean {
