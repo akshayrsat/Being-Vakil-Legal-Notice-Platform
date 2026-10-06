@@ -176,6 +176,7 @@ export type HearingMessageInput = {
 };
 
 export function hearingMessageText(input: HearingMessageInput): string {
+  if (input.matterType === "MEDIATION") return mediationMessageText(input);
   const matter = odrMatterLabel(input.matterType);
   if (input.kind === "first" && input.matterType !== "MEDIATION") {
     return FIRST_HEARING_EMAIL_TEXT.replaceAll("{{customer}}", input.customer)
@@ -204,6 +205,29 @@ export function hearingMessageText(input: HearingMessageInput): string {
     `Your private case page: ${input.caseLink}`,
     "",
     "You are requested to remain present for the hearing.",
+    "",
+    "Regards,",
+    "Being Vakil Associates",
+  ].join("\n");
+}
+
+function mediationMessageText(input: HearingMessageInput): string {
+  const heading = input.kind === "reminder"
+    ? "Reminder: you are invited to a voluntary mediation session"
+    : "Invitation to a voluntary mediation session";
+  return [
+    `Dear ${input.customer},`,
+    "",
+    `Being Vakil Associates is writing for ${input.bank} to invite you to a voluntary mediation session.`,
+    "",
+    `${input.bank} and ${input.customer}`,
+    `Mediation ref.: ${input.number}`,
+    "",
+    `${heading} on ${input.date} at ${input.time}.`,
+    "You may join or decline. A settlement is recorded only if the people who join agree.",
+    "",
+    `Session link: ${input.meetLink}`,
+    `Your private page: ${input.caseLink}`,
     "",
     "Regards,",
     "Being Vakil Associates",

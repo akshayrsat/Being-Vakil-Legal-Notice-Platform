@@ -27,7 +27,19 @@ function ErrorLine({ error }: { error?: string }) {
   );
 }
 
-export function OdrStatusForm({ caseId, status, stage, exParte }: { caseId: string; status: string; stage: string; exParte: boolean }) {
+export function OdrStatusForm({
+  caseId,
+  status,
+  stage,
+  exParte,
+  matterType = "ARBITRATION",
+}: {
+  caseId: string;
+  status: string;
+  stage: string;
+  exParte: boolean;
+  matterType?: string;
+}) {
   const [state, action, pending] = useActionState(updateOdrStatus, null);
   return (
     <form action={action} className="flex flex-col gap-3">
@@ -52,10 +64,14 @@ export function OdrStatusForm({ caseId, status, stage, exParte }: { caseId: stri
           ))}
         </select>
       </label>
-      <label className="flex items-center gap-2 text-sm">
-        <input type="checkbox" name="exParte" value="on" defaultChecked={exParte} className="size-4 accent-primary" />
-        Ex parte
-      </label>
+      {matterType === "MEDIATION" ? (
+        <p className="text-sm text-muted-foreground">Mediation is voluntary. A missed session does not decide the case.</p>
+      ) : (
+        <label className="flex items-center gap-2 text-sm">
+          <input type="checkbox" name="exParte" value="on" defaultChecked={exParte} className="size-4 accent-primary" />
+          Ex parte
+        </label>
+      )}
       <label className="flex flex-col gap-1 text-sm font-medium">
         Note
         <textarea name="note" rows={3} className="rounded-lg border border-input bg-card px-3 py-2 text-sm font-normal" />
