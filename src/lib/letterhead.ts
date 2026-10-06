@@ -1,6 +1,7 @@
 // Firm details taken from the Being Vakil Associates Word letterhead.
-// The page shows public/branding/letterhead-header.png and letterhead-footer.png,
-// which are a render of that Word file.
+// public/branding/letterhead-header.png is that Word header: the BEING | VAKIL
+// boxed mark, the full firm name, and the tagline. letterhead-mark.png is the
+// same boxed mark on its own. Neither file is the social scales logo.
 
 export const FIRM_NAME = "Being Vakil Associates";
 export const FIRM_TAGLINE = "Empowering You, Protecting You, Being Vakil!";
