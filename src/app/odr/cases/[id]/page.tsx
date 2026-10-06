@@ -25,6 +25,7 @@ import { nowMs } from "@/lib/odr-schedule";
 import { bankUserCanSeeDocument } from "@/lib/odr-paper";
 import { odrDocumentLabel, odrMatterLabel, odrNeutralRole, odrStatusLabel } from "@/lib/odr-status";
 import { odrCaseBack } from "@/lib/odr-back";
+import { arbitrationNoticeError, arbitrationNoticeGaps } from "@/lib/odr-notice-gate";
 import { canSendNotices, isBankUser } from "@/lib/roles";
 import { hideVendorWording, seesVendorDetail } from "@/lib/staff-language";
 
@@ -56,6 +57,7 @@ export default async function OdrCasePage({
   });
   if (!item) notFound();
   const canSend = canSendNotices(user.role);
+  const noticeGaps = arbitrationNoticeGaps(item.matterType, item.documents.map((doc) => doc.kind));
   const technical = seesVendorDetail(user);
   const now = nowMs();
   const nextHearing = [...item.hearings].reverse().find((hearing) => hearing.scheduledAt.getTime() > now) ?? item.hearings.at(-1);
@@ -69,7 +71,7 @@ export default async function OdrCasePage({
         <p className="mt-3 text-base leading-7 text-muted-foreground">
           {bank.name} vs {item.customerName}
           {item.coParties ? ` and ${item.coParties}` : ""}. {odrMatterLabel(item.matterType)}. {odrStatusLabel(item.status)}
-          {item.exParte || item.flaggedExParte ? ". Flagged for ex parte." : "."}
+          {item.matterType !== "MEDIATION" && (item.exParte || item.flaggedExParte) ? ". Flagged for ex parte." : "."}
         </p>
         {canSend ? (
           <div className="mt-4">
@@ -229,7 +231,7 @@ export default async function OdrCasePage({
         </ul>
         {canSend ? (
           <div className="mt-4 max-w-xl">
-            <OdrStatusForm caseId={item.id} status={item.status} stage={item.stage} exParte={item.exParte} />
+            <OdrStatusForm caseId={item.id} status={item.status} stage={item.stage} exParte={item.exParte} matterType={item.matterType} />
           </div>
         ) : null}
       </section>
@@ -238,6 +240,11 @@ export default async function OdrCasePage({
         <section className="grid gap-6 lg:grid-cols-2">
           <div>
             <h2 className="font-serif text-2xl">Next hearing</h2>
+            {noticeGaps.length > 0 ? (
+              <p className="mt-3 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive" role="status">
+                {arbitrationNoticeError(noticeGaps)}
+              </p>
+            ) : null}
             <div className="mt-3">
               <OdrScheduleForm caseId={item.id} flagged={item.flaggedExParte} duration={item.hearings.at(-1)?.durationMinutes ?? 60} />
             </div>

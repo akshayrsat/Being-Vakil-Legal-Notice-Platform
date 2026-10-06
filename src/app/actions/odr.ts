@@ -18,7 +18,8 @@ import {
 } from "@/lib/odr-fields";
 import { SheetReadError, parseXlsx } from "@/lib/parse-xlsx";
 import { ODR_NOT_SENT_DETAIL } from "@/lib/odr-live";
-import { applyAttendance, processOdrWork, retryMeetLink, scheduleHearingRecord, refreshCaseAttendance } from "@/lib/odr-runner";
+import { applyAttendance, processOdrWork, releaseArbitrationNotices, retryMeetLink, scheduleHearingRecord, refreshCaseAttendance } from "@/lib/odr-runner";
+import { arbitrationNoticeError, arbitrationNoticeGaps } from "@/lib/odr-notice-gate";
 import { readOdrRules } from "@/lib/odr-store";
 import { durationMinutes, generateRefNo, indiaDateTime, newPublicToken, normalizeRefNo } from "@/lib/odr-ref";
 import { panelJson, parsePanel, type PanelMember } from "@/lib/odr-panel";
@@ -229,6 +230,7 @@ export async function confirmOdrBatch(previousOrForm: OdrFormState | FormData, m
       live: rules.live,
       templates,
       actorName: scope.user.name,
+      sendMessages: batch.matterType !== "ARBITRATION",
     });
   }
 
@@ -291,11 +293,12 @@ export async function updateOdrStatus(_previous: OdrFormState, formData: FormDat
   const stage = String(formData.get("stage") ?? item.stage).trim();
   if (!isOdrStage(stage)) return { error: "Choose a stage." };
   const note = String(formData.get("note") ?? "").trim().slice(0, 500);
-  const exParteFlag = formData.get("exParte") === "on";
+  const mediation = item.matterType === "MEDIATION";
+  const exParteFlag = !mediation && formData.get("exParte") === "on";
   let awardAt = item.awardAt;
   if (status === "AWARD_PASSED" && !awardAt) awardAt = new Date();
   let noShowCount = item.noShowCount;
-  let flaggedExParte = item.flaggedExParte || exParteFlag;
+  let flaggedExParte = mediation ? false : item.flaggedExParte || exParteFlag;
   const latestHearing =
     status === "NO_SHOW" || status === "JOINED"
       ? await prisma.odrHearing.findFirst({
@@ -307,7 +310,7 @@ export async function updateOdrStatus(_previous: OdrFormState, formData: FormDat
   if (status === "NO_SHOW" && item.status !== "NO_SHOW" && !latestHearing) {
     const rules = await readOdrRules();
     noShowCount += 1;
-    if (noShowCount >= rules.maxNoShow) flaggedExParte = true;
+    if (!mediation && noShowCount >= rules.maxNoShow) flaggedExParte = true;
   }
   const file = formData.get("file");
   let documentId = "";
@@ -373,6 +376,7 @@ export async function uploadStaffDocument(_previous: OdrFormState, formData: For
     allowed: STAFF_DOCUMENT_KINDS.map((kind) => kind.id),
   });
   if (!saved.ok) return { error: saved.error };
+  await releaseArbitrationNotices(prisma, item.id);
   await auditCurrentUser({
     action: "odr.document",
     summary: `Added a document to ${item.refNo}.`,
@@ -400,6 +404,13 @@ export async function scheduleOneHearing(_previous: OdrFormState, formData: Form
   const rules = await readOdrRules();
   const number = item.hearings.reduce((max, hearing) => Math.max(max, hearing.number), 0) + 1;
   const send = formData.get("send") === "on" && !item.flaggedExParte;
+  if (send) {
+    const missing = arbitrationNoticeGaps(item.matterType, (await prisma.odrDocument.findMany({
+      where: { caseId: item.id },
+      select: { kind: true },
+    })).map((doc) => doc.kind));
+    if (missing.length > 0) return { error: arbitrationNoticeError(missing) };
+  }
   await scheduleHearingRecord(prisma, {
     caseId: item.id,
     bankId: scope.bank.id,
@@ -492,6 +503,17 @@ export async function scheduleBulkHearings(_previous: OdrFormState, formData: Fo
       if (!seat) return { error: "A hearing time could not be placed." };
       placed.push({ item, start: seat.start });
     }
+  }
+  const blocked: string[] = [];
+  for (const { item } of placed) {
+    const missing = arbitrationNoticeGaps(
+      item.hearing.case.matterType,
+      (await prisma.odrDocument.findMany({ where: { caseId: item.hearing.caseId }, select: { kind: true } })).map((doc) => doc.kind),
+    );
+    if (missing.length > 0) blocked.push(`${item.hearing.case.refNo} (${missing.join(", ")})`);
+  }
+  if (blocked.length > 0) {
+    return { error: `Hearing notices stay held until the papers are on file: ${blocked.join("; ")}.` };
   }
   let count = 0;
   for (const { item, start } of placed) {

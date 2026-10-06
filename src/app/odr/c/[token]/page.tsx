@@ -14,16 +14,15 @@ import { customerGrantMatches } from "@/app/actions/odr-public";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { parsePanel } from "@/lib/odr-panel";
-import { odrCopy } from "@/lib/odr-copy";
+import { odrCopyFor } from "@/lib/odr-copy";
 import { clientIp, clipAgent } from "@/lib/odr-access";
 import { accountLast4, formatHearingDate, formatHearingTime, googleCalendarUrl, hearingTitle } from "@/lib/odr-ref";
 import { nowMs } from "@/lib/odr-schedule";
 import { customerCanSeeDocument } from "@/lib/odr-paper";
+import { showSection12Line } from "@/lib/odr-notice-gate";
 import { odrDocumentLabel, odrMatterLabel, odrNeutralRole, stageTracker } from "@/lib/odr-status";
 
 export const metadata: Metadata = { title: "Your hearing" };
-
-const copy = odrCopy("en");
 
 export default async function CustomerCasePage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
@@ -41,6 +40,7 @@ export default async function CustomerCasePage({ params }: { params: Promise<{ t
       })
     : null;
   if (!item) return <Frame><Missing /></Frame>;
+  const copy = odrCopyFor(item.matterType);
   const staff = await getCurrentUser();
   if (!staff && !(await customerGrantMatches(item.id))) {
     return (
@@ -155,9 +155,11 @@ export default async function CustomerCasePage({ params }: { params: Promise<{ t
             <p className="mt-1 text-sm">{[item.neutralQualification, item.neutralEnrolment].filter(Boolean).join(" · ")}</p>
           </>
         )}
-        <p className="mt-3 text-sm leading-6">
-          {item.matterType === "MEDIATION" ? copy.independenceMediation : copy.independenceArbitration}
-        </p>
+        {item.matterType === "MEDIATION" ? (
+          <p className="mt-3 text-sm leading-6">{copy.independenceMediation}</p>
+        ) : showSection12Line(item.matterType, item.documents.map((doc) => doc.kind)) ? (
+          <p className="mt-3 text-sm leading-6">{copy.independenceArbitration}</p>
+        ) : null}
       </Section>
 
       <Section title={copy.timelineHeading}>

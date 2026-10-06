@@ -31,6 +31,8 @@ export type OdrStageId = (typeof ODR_STAGES)[number]["id"];
 export const STAFF_DOCUMENT_KINDS = [
   { id: "LOAN_AGREEMENT", label: "Loan agreement" },
   { id: "STATEMENT_OF_ACCOUNT", label: "Statement of account" },
+  { id: "SECTION_12_DISCLOSURE", label: "Section 12 disclosure" },
+  { id: "ARBITRATOR_ACCEPTANCE", label: "Arbitrator acceptance" },
   { id: "SECTION_21", label: "Section 21 notice" },
   { id: "STATEMENT_OF_CLAIM", label: "Statement of claim" },
   { id: "APPOINTMENT", label: "Appointment letter" },

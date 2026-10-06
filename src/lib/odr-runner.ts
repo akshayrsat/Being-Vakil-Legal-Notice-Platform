@@ -29,9 +29,9 @@ import {
   hearingHasEnded,
   parseReminderKeys,
 } from "./odr-schedule";
-import { readOdrRules, type OdrRules } from "./odr-store";
+import { readOdrRules, sendWindowFromRules, type OdrRules } from "./odr-store";
 import { hearingMessageText, templatesFor, type OdrTemplateKind } from "./odr-templates";
-import { sendWindowFromRules } from "./odr-store";
+import { arbitrationNoticeError, arbitrationNoticeGaps } from "./odr-notice-gate";
 import { releaseHeldNoticeSends } from "./notice-release";
 import { canQueueReminder, dayHold, istDayBounds, pickReminderChannel, windowHold, type SendWindow } from "./send-window";
 import { terminalOdrStatus } from "./odr-status";
@@ -143,7 +143,7 @@ export async function processOdrWork(
     },
     orderBy: { createdAt: "asc" },
     take: limit * 3,
-    include: { hearing: true, case: { include: { bank: true } } },
+    include: { hearing: true, case: { include: { bank: true, documents: { select: { kind: true } } } } },
   });
 
   let ready = 0;
@@ -166,6 +166,14 @@ export async function processOdrWork(
       await db.odrMessage.update({
         where: { id: message.id },
         data: { status: "QUEUED", notBefore: held.notBefore, detail: held.detail },
+      });
+      continue;
+    }
+    const noticeGaps = arbitrationNoticeGaps(message.case.matterType, message.case.documents.map((doc) => doc.kind));
+    if (noticeGaps.length > 0) {
+      await db.odrMessage.update({
+        where: { id: message.id },
+        data: { status: "QUEUED", detail: arbitrationNoticeError(noticeGaps) },
       });
       continue;
     }
@@ -354,10 +362,15 @@ export async function applyAttendance(
     await db.odrCase.update({ where: { id: current.id }, data: { status: "NO_SHOW" } });
     return true;
   }
-  const next = nextNoShowState({ noShowCount: current.noShowCount, maxNoShow });
+  const next = nextNoShowState({ noShowCount: current.noShowCount, maxNoShow, matterType: current.matterType });
   await db.odrCase.update({
     where: { id: current.id },
-    data: { status: "NO_SHOW", noShowCount: next.noShowCount, flaggedExParte: next.flaggedExParte },
+    data: {
+      status: "NO_SHOW",
+      noShowCount: next.noShowCount,
+      flaggedExParte: current.matterType === "MEDIATION" ? false : next.flaggedExParte,
+      ...(current.matterType === "MEDIATION" ? { exParte: false } : {}),
+    },
   });
   return true;
 }
@@ -512,6 +525,34 @@ async function autoRescheduleNoShows(db: PrismaClient, deps: OdrDeps): Promise<n
     created += 1;
   }
   return created;
+}
+
+export async function releaseArbitrationNotices(db: PrismaClient, caseId: string): Promise<void> {
+  const item = await db.odrCase.findUnique({
+    where: { id: caseId },
+    include: {
+      documents: { select: { kind: true } },
+      hearings: { include: { messages: { select: { kind: true } } } },
+    },
+  });
+  if (!item) return;
+  if (arbitrationNoticeGaps(item.matterType, item.documents.map((doc) => doc.kind)).length > 0) return;
+  const rules = await readOdrRules(db);
+  for (const hearing of item.hearings) {
+    const kind = hearing.number === 1 ? "FIRST" : "NEXT";
+    if (hearing.messages.some((message) => message.kind === "FIRST" || message.kind === "NEXT")) continue;
+    await queueMessages(db, {
+      caseId: item.id,
+      hearingId: hearing.id,
+      bankId: item.bankId,
+      matterType: item.matterType,
+      mobile: item.mobile,
+      email: item.email,
+      kind,
+      live: rules.live,
+      templates: templatesFor(rules.templates, item.matterType, hearing.number === 1 ? "first" : "next"),
+    });
+  }
 }
 
 export async function queueMessages(
