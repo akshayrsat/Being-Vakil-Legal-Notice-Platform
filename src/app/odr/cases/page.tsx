@@ -7,6 +7,7 @@ import { EmptyState } from "@/components/empty-state";
 import { buttonVariants } from "@/components/ui/button";
 import { getCurrentUser } from "@/lib/auth";
 import { workingBank } from "@/lib/bank-context";
+import { redactCell } from "@/lib/data-min";
 import { prisma } from "@/lib/db";
 import { formatHearingDate, formatHearingTime } from "@/lib/odr-ref";
 import { odrCaseWhere, odrFiltersApplied, odrFiltersToSearch, readOdrFilters } from "@/lib/odr-reports";
@@ -163,7 +164,7 @@ async function CaseTable({
                   </Link>
                 </td>
                 <td className="px-3 py-2">{item.customerName}</td>
-                <td className="px-3 py-2">{item.accountNumber}</td>
+                <td className="px-3 py-2">{redactCell(item.accountNumber)}</td>
                 <td className="px-3 py-2">{odrMatterLabel(item.matterType)}</td>
                 <td className="px-3 py-2">{item.neutralName || "—"}</td>
                 <td className="px-3 py-2">

@@ -138,6 +138,17 @@ export function OdrTemplateForm({ rules, showIds }: { rules: OdrRules; showIds: 
           ODR messages, and a legal notice confirmed outside these hours, wait until the next opening. An automatic reminder uses one channel. Nothing extra goes out once the daily cap is reached. ODR sending stays off until you turn it on.
         </p>
         <label className="flex flex-col gap-1 text-sm font-medium">
+          Keep an unused spreadsheet (days)
+          <input name="sheetRetentionDays" type="number" min={1} max={3650} defaultValue={rules.sheetRetentionDays} className={field} />
+        </label>
+        <label className="flex flex-col gap-1 text-sm font-medium">
+          Clear personal data after a case is closed (days, 0 is off)
+          <input name="closedDataRetentionDays" type="number" min={0} max={3650} defaultValue={rules.closedDataRetentionDays} className={field} />
+        </label>
+        <p className="text-sm leading-6 text-muted-foreground sm:col-span-2">
+          Uploads keep only the columns you map. A full card number is stored as the last 4 digits, and a 12-digit Aadhaar number is never stored. The raw spreadsheet is deleted when the cases or notices are created, or after the number of days above if it is still sitting here. Closed-case clearing is off until you set a number of days. That removes the customer’s name, contact, address, and account from the case. It does not delete the case itself.
+        </p>
+        <label className="flex flex-col gap-1 text-sm font-medium">
           Maximum no-shows before ex parte review
           <input name="maxNoShow" type="number" min={1} max={10} defaultValue={rules.maxNoShow} className={field} />
         </label>

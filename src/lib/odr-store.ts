@@ -18,6 +18,8 @@ export type OdrRules = {
   sendWindowEnd: string;
   maxRemindersPerHearing: number;
   maxMessagesPerDay: number;
+  sheetRetentionDays: number;
+  closedDataRetentionDays: number;
   liveStored: boolean;
   live: boolean;
 };
@@ -33,6 +35,8 @@ const DEFAULT_RULES: Omit<OdrRules, "templates" | "live" | "liveStored"> = {
   sendWindowEnd: DEFAULT_SEND_WINDOW_END,
   maxRemindersPerHearing: 1,
   maxMessagesPerDay: 1,
+  sheetRetentionDays: 30,
+  closedDataRetentionDays: 0,
 };
 
 export async function readOdrRules(db: PrismaClient = prisma): Promise<OdrRules> {
@@ -53,6 +57,8 @@ export async function readOdrRules(db: PrismaClient = prisma): Promise<OdrRules>
     sendWindowEnd: clockOr(settings?.sendWindowEnd, DEFAULT_RULES.sendWindowEnd),
     maxRemindersPerHearing: clamp(settings?.maxRemindersPerHearing, 1, 5, DEFAULT_RULES.maxRemindersPerHearing),
     maxMessagesPerDay: clamp(settings?.maxMessagesPerDay, 1, 5, DEFAULT_RULES.maxMessagesPerDay),
+    sheetRetentionDays: clamp(settings?.sheetRetentionDays, 1, 3650, DEFAULT_RULES.sheetRetentionDays),
+    closedDataRetentionDays: clamp(settings?.closedDataRetentionDays, 0, 3650, DEFAULT_RULES.closedDataRetentionDays),
     liveStored,
     live: effectiveOdrLiveSend(liveRow?.enabled ?? null),
   };

@@ -24,6 +24,7 @@ import { isOwnerAdmin } from "@/lib/owner-admin";
 import { canSendNotices } from "@/lib/roles";
 import { readOdrRules, sendWindowFromRules } from "@/lib/odr-store";
 import { windowHold } from "@/lib/send-window";
+import { EMPTY_SHEET } from "@/lib/data-min";
 import { grievanceFooter, grievanceFromBank, grievanceSelect } from "@/lib/grievance";
 import {
   isApprovedTemplateStatus,
@@ -145,6 +146,7 @@ export async function createCampaign(
         channels,
         legalNotice: { format: legalNotice.format, body: legalNotice.body },
       });
+      await tx.uploadBatch.update({ where: { id: batch.id }, data: EMPTY_SHEET });
       return created;
     },
     { timeout: 30000 },

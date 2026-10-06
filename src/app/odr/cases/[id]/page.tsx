@@ -29,6 +29,7 @@ import { bankUserCanSeeDocument } from "@/lib/odr-paper";
 import { odrDocumentLabel, odrMatterLabel, odrNeutralRole, odrStatusLabel } from "@/lib/odr-status";
 import { odrCaseBack } from "@/lib/odr-back";
 import { arbitrationNoticeError, arbitrationNoticeGaps } from "@/lib/odr-notice-gate";
+import { redactCell } from "@/lib/data-min";
 import { partyAttendanceLabel, partyAttendanceMap } from "@/lib/odr-parties";
 import { canSendNotices, isBankUser } from "@/lib/roles";
 import { hideVendorWording, seesVendorDetail } from "@/lib/staff-language";
@@ -125,7 +126,7 @@ export default async function OdrCasePage({
           <dl className="mt-3 grid gap-2 text-sm">
             <div><dt className="text-muted-foreground">Customer</dt><dd>{item.customerName}</dd></div>
             <div><dt className="text-muted-foreground">Sheet note</dt><dd>{item.coParties || "—"}</dd></div>
-            <div><dt className="text-muted-foreground">Account</dt><dd>{item.accountNumber}</dd></div>
+            <div><dt className="text-muted-foreground">Account</dt><dd>{redactCell(item.accountNumber) || "—"}</dd></div>
             <div><dt className="text-muted-foreground">Branch</dt><dd>{item.branch || "—"}</dd></div>
             <div><dt className="text-muted-foreground">Mobile</dt><dd>{item.mobile || "—"}</dd></div>
             <div><dt className="text-muted-foreground">Email</dt><dd>{item.email || "—"}</dd></div>

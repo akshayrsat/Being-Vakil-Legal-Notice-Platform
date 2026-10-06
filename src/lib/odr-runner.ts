@@ -35,6 +35,7 @@ import { hearingMessageText, templatesFor, type OdrTemplateKind } from "./odr-te
 import { arbitrationNoticeError, arbitrationNoticeGaps } from "./odr-notice-gate";
 import { releaseHeldNoticeSends } from "./notice-release";
 import { canQueueReminder, dayHold, istDayBounds, pickReminderChannel, windowHold, type SendWindow } from "./send-window";
+import { CLOSED_CASE_BLANK, EMPTY_SHEET, closedCaseExpired, sheetExpired } from "./data-min";
 import { grievanceFooter, grievanceFromBank, withGrievanceFooter } from "./grievance";
 import { noticeRecipients } from "./odr-parties";
 import { terminalOdrStatus } from "./odr-status";
@@ -407,6 +408,47 @@ export async function applyAttendance(
   return true;
 }
 
+async function purgeExpiredPersonalData(
+  db: PrismaClient,
+  now: Date,
+  rules: { sheetRetentionDays: number; closedDataRetentionDays: number },
+): Promise<void> {
+  const sheets = [
+    ...(await db.odrBatch.findMany({
+      where: { NOT: { rawRows: "[]" } },
+      select: { id: true, createdAt: true },
+      take: 40,
+    })),
+  ];
+  for (const sheet of sheets) {
+    if (!sheetExpired(sheet.createdAt, now, rules.sheetRetentionDays)) continue;
+    await db.odrBatch.update({ where: { id: sheet.id }, data: EMPTY_SHEET });
+  }
+  const uploads = await db.uploadBatch.findMany({
+    where: { NOT: { rawRows: "[]" } },
+    select: { id: true, createdAt: true },
+    take: 40,
+  });
+  for (const sheet of uploads) {
+    if (!sheetExpired(sheet.createdAt, now, rules.sheetRetentionDays)) continue;
+    await db.uploadBatch.update({ where: { id: sheet.id }, data: EMPTY_SHEET });
+  }
+  if (rules.closedDataRetentionDays < 1) return;
+  const closed = await db.odrCase.findMany({
+    where: {
+      status: { in: ["CLOSED", "SETTLED", "AWARD_PASSED"] },
+      NOT: { customerName: "" },
+    },
+    select: { id: true, updatedAt: true },
+    take: 40,
+  });
+  for (const item of closed) {
+    if (!closedCaseExpired(item.updatedAt, now, rules.closedDataRetentionDays)) continue;
+    await db.odrCase.update({ where: { id: item.id }, data: CLOSED_CASE_BLANK });
+    await db.odrRespondent.deleteMany({ where: { caseId: item.id } });
+  }
+}
+
 export async function runOdrMaintenance(
   db: PrismaClient = prisma,
   deps?: OdrDeps,
@@ -416,6 +458,7 @@ export async function runOdrMaintenance(
   const reminders = await sendDueReminders(db, liveDeps);
   const rescheduled = await autoRescheduleNoShows(db, liveDeps);
   await releaseHeldNoticeSends(liveDeps.now);
+  await purgeExpiredPersonalData(db, liveDeps.now, liveDeps.rules);
   await processOdrWork(db, { limit: 6, deps: liveDeps });
   return { reminders, rescheduled, attendance };
 }

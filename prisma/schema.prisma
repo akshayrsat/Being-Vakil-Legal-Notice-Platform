@@ -701,5 +701,7 @@ model OdrSettings {
   sendWindowEnd       String   @default("18:30")
   maxRemindersPerHearing Int   @default(1)
   maxMessagesPerDay   Int      @default(1)
+  sheetRetentionDays  Int      @default(30)
+  closedDataRetentionDays Int  @default(0)
   updatedAt           DateTime @updatedAt
 }

@@ -32,6 +32,7 @@ import { ODR_SETTINGS_ID, odrTemplateSlots, parseTemplateMap } from "@/lib/odr-t
 import { templatesFor } from "@/lib/odr-templates";
 import { canFlipLiveSend } from "@/lib/live-send-switch";
 import { canSendNotices } from "@/lib/roles";
+import { EMPTY_SHEET, keepMappedColumns, redactSheet } from "@/lib/data-min";
 import { validSendWindow } from "@/lib/send-window";
 import { STAFF_DOCUMENT_KINDS } from "@/lib/odr-status";
 
@@ -86,6 +87,7 @@ export async function uploadOdrExcel(_previous: OdrFormState, formData: FormData
     throw error;
   }
 
+  const stored = redactSheet(parsed.headers, parsed.rows);
   const batch = await prisma.odrBatch.create({
     data: {
       bankId: scope.bank.id,
@@ -104,8 +106,8 @@ export async function uploadOdrExcel(_previous: OdrFormState, formData: FormData
       breakEnd: schedule.schedule.breakEnd,
       arbitratorMode: choice.mode,
       neutralIds: JSON.stringify(choice.ids),
-      headers: JSON.stringify(parsed.headers),
-      rawRows: JSON.stringify(parsed.rows),
+      headers: JSON.stringify(stored.headers),
+      rawRows: JSON.stringify(stored.rows),
       createdById: scope.user.id,
     },
   });
@@ -135,9 +137,16 @@ export async function saveOdrMapping(_previous: OdrFormState, formData: FormData
   const mapping = odrMappingFromForm(formData);
   const problem = validateOdrMapping(mapping, headers);
   if (problem) return { error: problem };
+  let rawRows: string[][] = [];
+  try {
+    rawRows = JSON.parse(batch.rawRows) as string[][];
+  } catch {
+    return { error: "This saved spreadsheet could not be read. Upload it again." };
+  }
+  const kept = keepMappedColumns(headers, rawRows, Object.values(mapping));
   await prisma.odrBatch.update({
     where: { id: batch.id },
-    data: { mappingUsed: JSON.stringify(mapping), saved: true },
+    data: { mappingUsed: JSON.stringify(mapping), saved: true, headers: JSON.stringify(kept.headers), rawRows: JSON.stringify(kept.rows) },
   });
   await auditCurrentUser({
     action: "odr.mapping",
@@ -257,6 +266,7 @@ export async function confirmOdrBatch(previousOrForm: OdrFormState | FormData, m
     });
   }
 
+  await prisma.odrBatch.update({ where: { id: batch.id }, data: EMPTY_SHEET });
   await auditCurrentUser({
     action: "odr.send",
     summary: rules.live
@@ -760,7 +770,22 @@ export async function saveOdrSettings(_previous: OdrFormState, formData: FormDat
   if (!Number.isInteger(maxMessagesPerDay) || maxMessagesPerDay < 1 || maxMessagesPerDay > 5) {
     return { error: "Messages per customer per day must be from 1 to 5." };
   }
-  const windowFields = { sendWindowStart, sendWindowEnd, maxRemindersPerHearing, maxMessagesPerDay };
+  const sheetRetentionDays = Number(formData.get("sheetRetentionDays"));
+  const closedDataRetentionDays = Number(formData.get("closedDataRetentionDays"));
+  if (!Number.isInteger(sheetRetentionDays) || sheetRetentionDays < 1 || sheetRetentionDays > 3650) {
+    return { error: "Spreadsheet retention must be from 1 to 3650 days." };
+  }
+  if (!Number.isInteger(closedDataRetentionDays) || closedDataRetentionDays < 0 || closedDataRetentionDays > 3650) {
+    return { error: "Closed-case retention must be 0 (off) or from 1 to 3650 days." };
+  }
+  const windowFields = {
+    sendWindowStart,
+    sendWindowEnd,
+    maxRemindersPerHearing,
+    maxMessagesPerDay,
+    sheetRetentionDays,
+    closedDataRetentionDays,
+  };
   await prisma.odrSettings.upsert({
     where: { id: ODR_SETTINGS_ID },
     create: {

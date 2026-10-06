@@ -1,5 +1,6 @@
 // Spreadsheet columns for an ODR upload. Customer name and the account number are required.
 
+import { redactCell } from "./data-min";
 import { normalizeHeader } from "./sheet-fields";
 
 export const ODR_FIELD_GROUPS = ["Case", "Customer", "Amounts"] as const;
@@ -262,7 +263,7 @@ export type OdrMappedRow = {
 function cell(headers: string[], row: string[], header: string): string {
   const index = headers.indexOf(header);
   if (index < 0) return "";
-  return (row[index] ?? "").trim().slice(0, 2000);
+  return redactCell((row[index] ?? "").trim().slice(0, 2000));
 }
 
 export function mapOdrRows(headers: string[], rows: string[][], mapping: OdrFieldMapping): OdrMappedRow[] {

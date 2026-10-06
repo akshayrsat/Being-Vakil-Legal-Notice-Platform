@@ -1,6 +1,7 @@
 // Turns a spreadsheet into people, using the column match chosen for one bank.
 // A saved match is reused when the next file has the same column names.
 
+import { redactCell } from "./data-min";
 import {
   emptyMapping,
   normalizeHeader,
@@ -117,7 +118,7 @@ export function mapSheetRows(
     if (!header) return "";
     const index = indexByHeader.get(header);
     if (index === undefined) return "";
-    return row[index] ?? "";
+    return redactCell(row[index] ?? "");
   };
 
   let skipped = 0;
