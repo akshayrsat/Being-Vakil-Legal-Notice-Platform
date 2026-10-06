@@ -122,6 +122,7 @@ export function OdrPaperForm({
           {fields.filter((field) => field.group === group).map((field) => (
             <label key={field.key} className="flex flex-col gap-1 text-sm font-medium">
               {field.label}
+              {field.required ? <span className="font-normal text-muted-foreground">Required. No default is filled in.</span> : null}
               <FieldInput field={field} value={values[field.key] ?? ""} />
               {field.hint ? <span className="font-normal text-muted-foreground">{field.hint}</span> : null}
             </label>

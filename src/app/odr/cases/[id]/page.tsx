@@ -90,9 +90,11 @@ export default async function OdrCasePage({
                 Generate award
               </Link>
             ) : null}
-            <Link href={`/odr/cases/${item.id}/paper?kind=settlement`} className="inline-flex h-11 items-center rounded-lg border border-border px-4 text-sm">
-              Generate settlement agreement
-            </Link>
+            {item.matterType === "MEDIATION" ? (
+              <Link href={`/odr/cases/${item.id}/paper?kind=settlement`} className="inline-flex h-11 items-center rounded-lg border border-border px-4 text-sm">
+                Generate settlement agreement
+              </Link>
+            ) : null}
           </div>
         </section>
       ) : null}
@@ -194,7 +196,7 @@ export default async function OdrCasePage({
           <div className="mt-4 flex flex-col gap-6">
             <OdrDocumentForm caseId={item.id} />
             {item.matterType === "ARBITRATION" ? <OdrSignedUpload caseId={item.id} which="award" /> : null}
-            <OdrSignedUpload caseId={item.id} which="settlement" />
+            {item.matterType === "MEDIATION" ? <OdrSignedUpload caseId={item.id} which="settlement" /> : null}
           </div>
         ) : null}
       </section>

@@ -7,7 +7,10 @@ import {
   canReadOdrDocument,
   composeModel,
   exParteSwitch,
+  missingAwardRates,
   parsePaper,
+  seatFromBatch,
+  seatFromSheet,
   type PaperCase,
 } from "./odr-paper";
 
@@ -109,4 +112,19 @@ test("a generated document stays on its own bank, and a bank user cannot read a 
   assert.equal(settlement.flags.mediation_act_applicable, false);
   assert.equal(settlement.flags.arbitration_pending, false);
   assert.equal(settlement.values.seat_city, "");
+});
+
+test("the seat comes from the agreement sheet when a column is present, and interest has no default", () => {
+  assert.equal(seatFromSheet(["Customer name", "Seat of arbitration"], ["Ravi Shah", "Pune"]), "Pune");
+  assert.equal(seatFromSheet(["Customer name", "Branch"], ["Ravi Shah", "Pune"]), "");
+  assert.equal(
+    seatFromBatch(JSON.stringify(["Customer name", "Seat"]), JSON.stringify([["Ravi Shah", "Delhi"]]), 2),
+    "Delhi",
+  );
+  const seated = composeModel(sampleCase({ agreementSeat: "Pune" }), parsePaper("{}"), "award");
+  assert.equal(seated.values.seat_city, "Pune");
+  assert.equal(seated.values.pendente_lite_rate, "");
+  assert.equal(seated.values.post_award_rate, "");
+  assert.match(missingAwardRates({ pendente_lite_rate: "", post_award_rate: "" }), /no default/i);
+  assert.equal(missingAwardRates({ pendente_lite_rate: "8", post_award_rate: "9" }), "");
 });

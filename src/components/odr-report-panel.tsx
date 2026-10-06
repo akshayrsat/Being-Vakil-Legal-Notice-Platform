@@ -3,10 +3,10 @@ import { buttonVariants } from "@/components/ui/button";
 import { EmptyState } from "@/components/empty-state";
 import { prisma } from "@/lib/db";
 import { formatIndiaDateTime } from "@/lib/india-day";
-import { agreedSettlementAmount } from "@/lib/odr-paper";
+import { agreedSettlementAmount, isPaperSigned } from "@/lib/odr-paper";
 import { formatHearingDate } from "@/lib/odr-ref";
 import { odrCaseWhere, odrFiltersApplied, odrFiltersToSearch, readOdrFilters, type OdrFilters } from "@/lib/odr-reports";
-import { ODR_MATTERS, ODR_STATUSES, odrMatterLabel, odrStatusLabel } from "@/lib/odr-status";
+import { ODR_MATTERS, ODR_STATUSES, odrDocumentLabel, odrMatterLabel, odrStatusLabel } from "@/lib/odr-status";
 
 export async function OdrReportPanel({
   bankId,
@@ -100,7 +100,14 @@ export async function OdrReportPanel({
 async function OdrRows({ bankId, bankName, filters }: { bankId: string; bankName: string; filters: OdrFilters }) {
   const cases = await prisma.odrCase.findMany({
     where: odrCaseWhere(bankId, filters),
-    include: { hearings: { orderBy: { number: "desc" }, take: 1 } },
+    include: {
+      hearings: { orderBy: { number: "desc" }, take: 1 },
+      documents: {
+        where: { kind: { in: ["AWARD_SIGNED", "SETTLEMENT_SIGNED"] } },
+        select: { id: true, kind: true },
+        orderBy: { createdAt: "desc" },
+      },
+    },
     orderBy: { createdAt: "desc" },
     take: 200,
   });
@@ -119,6 +126,7 @@ async function OdrRows({ bankId, bankName, filters }: { bankId: string; bankName
             <th className="px-3 py-2 font-medium">Status</th>
             <th className="px-3 py-2 font-medium">Settlement amount</th>
             <th className="px-3 py-2 font-medium">Award date</th>
+            <th className="px-3 py-2 font-medium">Signed final</th>
           </tr>
         </thead>
         <tbody>
@@ -135,6 +143,17 @@ async function OdrRows({ bankId, bankName, filters }: { bankId: string; bankName
               <td className="px-3 py-2">{odrStatusLabel(item.status)}</td>
               <td className="px-3 py-2">{agreedSettlementAmount(item.paperJson) || "—"}</td>
               <td className="px-3 py-2">{item.awardAt ? formatIndiaDateTime(item.awardAt) : "—"}</td>
+              <td className="px-3 py-2">
+                {item.documents.filter((doc) => isPaperSigned(doc.kind)).length ? (
+                  item.documents.filter((doc) => isPaperSigned(doc.kind)).map((doc) => (
+                    <a key={doc.id} href={`/odr/cases/${item.id}/documents/${doc.id}`} className="block underline">
+                      {odrDocumentLabel(doc.kind)}
+                    </a>
+                  ))
+                ) : (
+                  "—"
+                )}
+              </td>
             </tr>
           ))}
         </tbody>

@@ -15,7 +15,9 @@ import {
   composeModel,
   fieldsFor,
   flagsFor,
+  missingAwardRates,
   parsePaper,
+  seatFromBatch,
   type PaperCase,
   type PaperKind,
   type PaperRow,
@@ -95,6 +97,7 @@ async function loadCase(caseId: string, bankId: string) {
 function toPaperCase(
   item: NonNullable<Awaited<ReturnType<typeof loadCase>>>,
   speedPosts: PaperCase["speedPosts"],
+  agreementSeat = "",
 ): PaperCase {
   return {
     matterType: item.matterType,
@@ -123,6 +126,7 @@ function toPaperCase(
     messages: item.messages,
     documents: item.documents,
     speedPosts,
+    agreementSeat,
   };
 }
 
@@ -135,9 +139,14 @@ export async function saveOdrPaper(_previous: PaperFormState, formData: FormData
   const item = await loadCase(caseId, scope.bank.id);
   if (!item) return { error: "That case was not found for the bank you are working on." };
   if (kind === "award" && item.matterType !== "ARBITRATION") return { error: "An award is prepared for an arbitration case." };
+  if (kind === "settlement" && item.matterType !== "MEDIATION") return { error: "A settlement agreement is prepared for a mediation case." };
   const store = readStore(formData, kind);
   await prisma.odrCase.update({ where: { id: item.id }, data: { paperJson: JSON.stringify(store) } });
   const generate = formData.get("intent") === "generate";
+  if (generate && kind === "award") {
+    const missing = missingAwardRates(store.fields);
+    if (missing) return { error: missing };
+  }
   if (!generate) {
     await auditCurrentUser({
       action: "odr.paper",
@@ -155,6 +164,10 @@ export async function saveOdrPaper(_previous: PaperFormState, formData: FormData
         take: 30,
       })
     : [];
+  const batch = await prisma.odrBatch.findFirst({
+    where: { id: item.batchId, bankId: scope.bank.id },
+    select: { headers: true, rawRows: true },
+  });
   const model = composeModel(
     toPaperCase(
       item,
@@ -164,6 +177,7 @@ export async function saveOdrPaper(_previous: PaperFormState, formData: FormData
         createdAt: post.createdAt,
         customerName: post.customerName,
       })),
+      batch ? seatFromBatch(batch.headers, batch.rawRows, item.rowNumber) : "",
     ),
     store,
     kind,
@@ -179,17 +193,17 @@ export async function saveOdrPaper(_previous: PaperFormState, formData: FormData
       caseId: item.id,
       bankId: scope.bank.id,
       kind: draftKind,
-      fileName: `${label} Draft ${version}.docx`,
+      fileName: `${label} v${version}.docx`,
       mimeType: DOCX,
       content: Uint8Array.from(bytes),
       uploadedBy: scope.user.id,
       uploaderName: scope.user.name,
-      note: `Draft ${version}`,
+      note: `v${version}`,
     },
   });
   await auditCurrentUser({
     action: "odr.paper",
-    summary: `Prepared ${label} Draft ${version} for ${item.refNo}. It was not sent.`,
+    summary: `Prepared ${label} v${version} for ${item.refNo}. It was not sent.`,
     bankId: scope.bank.id,
     bankName: scope.bank.name,
     targetId: item.id,
@@ -211,6 +225,7 @@ export async function uploadSignedPaper(_previous: PaperFormState, formData: For
   const signedKind = which === "award" ? "AWARD_SIGNED" : which === "settlement" ? "SETTLEMENT_SIGNED" : "";
   if (!signedKind) return { error: "Choose the signed award or the signed settlement." };
   if (signedKind === "AWARD_SIGNED" && item.matterType !== "ARBITRATION") return { error: "A signed award belongs on an arbitration case." };
+  if (signedKind === "SETTLEMENT_SIGNED" && item.matterType !== "MEDIATION") return { error: "A signed settlement belongs on a mediation case." };
   const file = formData.get("file");
   if (!(file instanceof File) || file.size === 0) return { error: "Choose the signed file." };
   if (file.size > MAX_BYTES) return { error: "That file is larger than 5 MB." };

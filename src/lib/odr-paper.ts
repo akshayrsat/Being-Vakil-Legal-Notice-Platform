@@ -5,6 +5,7 @@ import { formatIndiaDateTime } from "./india-day";
 import type { DocxModel } from "./odr-docx";
 import { addAmounts, amountInWords, formatIndianAmount, parseAmount, subtractAmounts } from "./odr-money";
 import { odrDocumentLabel } from "./odr-status";
+import { normalizeHeader } from "./sheet-fields";
 
 export const APPOINTMENT_WARNING =
   "Unilateral appointment by the bank can be set aside (Perkins Eastman and CORE, 2024). Name the mode in the agreement, a Section 11 order, or the parties’ consent.";
@@ -20,6 +21,7 @@ export type PaperField = {
   group: string;
   input?: "text" | "textarea" | "date";
   hint?: string;
+  required?: boolean;
 };
 
 export type PaperFlag = {
@@ -88,6 +90,7 @@ export type PaperCase = {
   messages: PaperMessage[];
   documents: PaperDocument[];
   speedPosts: PaperPost[];
+  agreementSeat?: string;
 };
 
 const MONTHS = [
@@ -151,6 +154,34 @@ export function maskCardNumber(account: string): string {
   const digits = account.replace(/\D/g, "");
   const last4 = digits.slice(-4);
   return last4 ? `XXXX XXXX XXXX ${last4}` : "";
+}
+
+const SEAT_HEADERS = new Set(["seat", "seat of arbitration", "arbitration seat", "seat city", "place of arbitration"]);
+
+export function seatFromSheet(headers: string[], row: string[]): string {
+  const index = headers.findIndex((header) => SEAT_HEADERS.has(normalizeHeader(header)));
+  if (index < 0) return "";
+  return (row[index] ?? "").trim().slice(0, 80);
+}
+
+export function seatFromBatch(headersJson: string, rowsJson: string, rowNumber: number): string {
+  try {
+    const headers = JSON.parse(headersJson) as unknown;
+    const rows = JSON.parse(rowsJson) as unknown;
+    if (!Array.isArray(headers) || !Array.isArray(rows)) return "";
+    const row = rows[rowNumber - 2];
+    if (!Array.isArray(row)) return "";
+    return seatFromSheet(headers.map((header) => String(header)), row.map((cell) => String(cell ?? "")));
+  } catch {
+    return "";
+  }
+}
+
+export function missingAwardRates(fields: Record<string, string>): string {
+  if (!fields.pendente_lite_rate?.trim() || !fields.post_award_rate?.trim()) {
+    return "Enter the pendente lite interest rate and the future interest rate. There is no default.";
+  }
+  return "";
 }
 
 export function splitParties(raw: string): string[] {
@@ -375,7 +406,7 @@ export function prefillFields(item: PaperCase, paper: PaperStore, kind: PaperKin
     mediator_registration_no: item.neutralEnrolment,
     claimant_counsel_name: item.bankCounsel,
     payee_account_no: item.paymentInfo,
-    seat_city: "",
+    seat_city: item.agreementSeat?.trim() ?? "",
     pendente_lite_rate: "",
     post_award_rate: "",
     ex_parte: exParte ? "true" : "false",
@@ -394,7 +425,7 @@ export function prefillFields(item: PaperCase, paper: PaperStore, kind: PaperKin
   if (!paper.saved) {
     merged.ex_parte = exParte ? "true" : "false";
     merged.mediation_act_applicable = "false";
-    merged.seat_city = "";
+    merged.seat_city = item.agreementSeat?.trim() ?? "";
     merged.pendente_lite_rate = "";
     merged.post_award_rate = "";
   }
@@ -571,8 +602,8 @@ const MONEY_KEYS = [
   "stamp_duty_amount",
 ];
 
-function field(key: string, label: string, group: string, input?: PaperField["input"], hint?: string): PaperField {
-  return { key, label, group, input, hint };
+function field(key: string, label: string, group: string, input?: PaperField["input"], hint?: string, required?: boolean): PaperField {
+  return { key, label, group, input, hint, required };
 }
 
 export const AWARD_FIELDS: PaperField[] = [
@@ -651,8 +682,8 @@ export const AWARD_FIELDS: PaperField[] = [
   field("tribunal_reasons_on_defence", "Arbitrator’s reasons", "Defence", "textarea"),
   field("disallowed_items_note", "Anything reduced or disallowed", "Defence", "textarea"),
   field("co_respondent_liability_note", "Note on a guarantor’s limit", "Defence", "textarea"),
-  field("pendente_lite_rate", "Pendente lite interest % per year", "Before you generate", "text", "Leave blank until the arbitrator enters it. There is no default."),
-  field("post_award_rate", "Future interest % per year", "Before you generate", "text", "Leave blank until the arbitrator enters it. There is no default."),
+  field("pendente_lite_rate", "Pendente lite interest % per year", "Before you generate", "text", "Required. Leave this empty until you type the rate the arbitrator has fixed. There is no default.", true),
+  field("post_award_rate", "Future interest % per year", "Before you generate", "text", "Required. Leave this empty until you type the rate the arbitrator has fixed. There is no default.", true),
   field("interest_base_amount", "Principal for pendente lite interest", "Interest and costs"),
   field("pendente_lite_from_date", "Interest from", "Interest and costs", "date"),
   field("interest_reasons_note", "Extra reasons on interest", "Interest and costs", "textarea"),

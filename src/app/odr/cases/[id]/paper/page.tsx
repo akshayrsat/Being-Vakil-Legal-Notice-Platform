@@ -12,6 +12,7 @@ import {
   defaultObligors,
   parsePaper,
   prefillFields,
+  seatFromBatch,
   type PaperCase,
   type PaperKind,
 } from "@/lib/odr-paper";
@@ -46,6 +47,11 @@ export default async function OdrPaperPage({
   });
   if (!item) notFound();
   if (kind === "award" && item.matterType !== "ARBITRATION") redirect(`/odr/cases/${item.id}`);
+  if (kind === "settlement" && item.matterType !== "MEDIATION") redirect(`/odr/cases/${item.id}`);
+  const batch = await prisma.odrBatch.findFirst({
+    where: { id: item.batchId, bankId: bank.id },
+    select: { headers: true, rawRows: true },
+  });
   const paper = parsePaper(item.paperJson);
   const paperCase: PaperCase = {
     matterType: item.matterType,
@@ -74,6 +80,7 @@ export default async function OdrPaperPage({
     messages: item.messages,
     documents: item.documents,
     speedPosts: [],
+    agreementSeat: batch ? seatFromBatch(batch.headers, batch.rawRows, item.rowNumber) : "",
   };
   const values = prefillFields(paperCase, paper, kind);
   const preview = composeModel(paperCase, paper, kind);
@@ -90,7 +97,7 @@ export default async function OdrPaperPage({
           {kind === "award" ? "Generate award" : "Generate settlement agreement"}
         </h1>
         <p className="mt-3 max-w-2xl text-base leading-7 text-muted-foreground">
-          {bank.name} vs {item.customerName}. Fields already known from the case are filled in. Interest rates stay empty until the arbitrator enters them. The Word draft is saved on the case and is not sent.
+          {bank.name} vs {item.customerName}. Fields already known from the case are filled in. Interest rates stay empty, and both are required before a draft can be made. The Word file is saved on the case as v1, v2, and so on. It is not sent.
         </p>
         {query.saved === "1" ? <p className="mt-3 text-sm">Answers saved. You can generate the draft when you are ready.</p> : null}
       </div>
