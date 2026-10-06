@@ -584,6 +584,10 @@ export async function saveCasePartyInfo(_previous: OdrFormState, formData: FormD
       bankCounsel: String(formData.get("bankCounsel") ?? "").trim().slice(0, 160),
       bankContact: String(formData.get("bankContact") ?? "").trim().slice(0, 300),
       paymentInfo: String(formData.get("paymentInfo") ?? "").trim().slice(0, 500),
+      claimReference: String(formData.get("claimReference") ?? "").trim().slice(0, 160),
+      defenceDeadline: /^\d{4}-\d{2}-\d{2}$/.test(String(formData.get("defenceDeadline") ?? ""))
+        ? String(formData.get("defenceDeadline"))
+        : "",
     },
   });
   redirect(`/odr/cases/${item.id}`);

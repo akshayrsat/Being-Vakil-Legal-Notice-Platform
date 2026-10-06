@@ -173,11 +173,17 @@ export function OdrPartyForm({
   bankCounsel,
   bankContact,
   paymentInfo,
+  claimReference = "",
+  defenceDeadline = "",
+  matterType = "ARBITRATION",
 }: {
   caseId: string;
   bankCounsel: string;
   bankContact: string;
   paymentInfo: string;
+  claimReference?: string;
+  defenceDeadline?: string;
+  matterType?: string;
 }) {
   const [state, action, pending] = useActionState(saveCasePartyInfo, null);
   return (
@@ -191,6 +197,18 @@ export function OdrPartyForm({
         Contact shown to the customer
         <textarea name="bankContact" defaultValue={bankContact} rows={2} className="rounded-lg border border-input bg-card px-3 py-2 text-sm" />
       </label>
+      {matterType === "ARBITRATION" ? (
+        <>
+          <label className="flex flex-col gap-1 text-sm font-medium">
+            Statement of claim reference
+            <input name="claimReference" defaultValue={claimReference} className={field} />
+          </label>
+          <label className="flex flex-col gap-1 text-sm font-medium">
+            Defence or reply by
+            <input name="defenceDeadline" type="date" defaultValue={defenceDeadline} className={field} />
+          </label>
+        </>
+      ) : null}
       <label className="flex flex-col gap-1 text-sm font-medium">
         Payment details shown to the customer
         <textarea name="paymentInfo" defaultValue={paymentInfo} rows={2} className="rounded-lg border border-input bg-card px-3 py-2 text-sm" />

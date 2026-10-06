@@ -270,9 +270,32 @@ test("first-hearing wording keeps the approved variables, and later templates st
     kind: "first",
   });
   assert.match(text, /Test Bank vs\. Ravi Shah/);
+  assert.match(text, /By order of the Sole Arbitrator/);
+  assert.match(text, /Section 13/);
+  assert.match(text, /statement of claim/i);
   assert.match(text, /abc-defg-hij/);
   assert.match(text, /\/odr\/c\/token/);
   assert.match(text, /remain present/);
+  const panel = hearingMessageText({
+    customer: "Ravi Shah",
+    bank: "Test Bank",
+    number: "ARB-2026-AAAAAA",
+    date: "20 October 2026",
+    time: "11:00 am",
+    meetLink: "https://meet.google.com/abc-defg-hij",
+    caseLink: "https://www.notice.beingvakil.in/odr/c/token",
+    ordinal: "first",
+    matterType: "ARBITRATION",
+    kind: "first",
+    panelCount: 3,
+    arbitratorName: "A, B and C",
+    claimReference: "SOC-1",
+    defenceDeadline: "4 November 2026",
+  });
+  assert.match(panel, /By order of the Arbitral Tribunal/);
+  assert.match(panel, /A, B and C/);
+  assert.match(panel, /SOC-1/);
+  assert.match(panel, /4 November 2026/);
   const mediation = hearingMessageText({
     customer: "Ravi Shah",
     bank: "Test Bank",

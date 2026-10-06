@@ -252,7 +252,15 @@ export default async function OdrCasePage({
           <div>
             <h2 className="font-serif text-2xl">Shown to the customer</h2>
             <div className="mt-3">
-              <OdrPartyForm caseId={item.id} bankCounsel={item.bankCounsel} bankContact={item.bankContact} paymentInfo={item.paymentInfo} />
+              <OdrPartyForm
+                caseId={item.id}
+                bankCounsel={item.bankCounsel}
+                bankContact={item.bankContact}
+                paymentInfo={item.paymentInfo}
+                claimReference={item.claimReference}
+                defenceDeadline={item.defenceDeadline}
+                matterType={item.matterType}
+              />
             </div>
           </div>
         </section>

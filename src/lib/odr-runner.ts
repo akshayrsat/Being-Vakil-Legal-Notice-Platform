@@ -30,6 +30,7 @@ import {
   parseReminderKeys,
 } from "./odr-schedule";
 import { readOdrRules, sendWindowFromRules, type OdrRules } from "./odr-store";
+import { parsePanel } from "./odr-panel";
 import { hearingMessageText, templatesFor, type OdrTemplateKind } from "./odr-templates";
 import { arbitrationNoticeError, arbitrationNoticeGaps } from "./odr-notice-gate";
 import { releaseHeldNoticeSends } from "./notice-release";
@@ -178,6 +179,7 @@ export async function processOdrWork(
       continue;
     }
     const kind = message.kind === "NEXT" || message.kind === "REMINDER" ? message.kind.toLowerCase() as OdrTemplateKind : "first";
+    const panel = parsePanel(message.case.panelJson);
     const text = hearingMessageText({
       customer: message.case.customerName,
       bank: message.case.bank.name,
@@ -189,6 +191,10 @@ export async function processOdrWork(
       ordinal: message.kind === "FIRST" ? "first" : hearingOrdinal(message.hearing.number),
       matterType: message.case.matterType,
       kind,
+      panelCount: panel.length,
+      arbitratorName: panel.length > 0 ? panel.map((member) => member.name).join(", ") : message.case.neutralName,
+      claimReference: message.case.claimReference,
+      defenceDeadline: message.case.defenceDeadline,
     });
     const templates = templatesFor(deps.rules.templates, message.case.matterType, kind);
     const templateId =
