@@ -24,6 +24,7 @@ import { isOwnerAdmin } from "@/lib/owner-admin";
 import { canSendNotices } from "@/lib/roles";
 import { readOdrRules, sendWindowFromRules } from "@/lib/odr-store";
 import { windowHold } from "@/lib/send-window";
+import { grievanceFooter, grievanceFromBank, grievanceSelect } from "@/lib/grievance";
 import {
   isApprovedTemplateStatus,
   sendScope,
@@ -364,7 +365,7 @@ async function finishLiveSend(
 
   const bank = await prisma.bank.findFirst({
     where: { id: bankId },
-    select: { name: true, attachNoticePdf: true },
+    select: { name: true, attachNoticePdf: true, ...grievanceSelect },
   });
   const bankName = bank?.name ?? "";
   const attachPdf = bank?.attachNoticePdf === true;
@@ -434,6 +435,7 @@ async function finishLiveSend(
                   customerName: row.customerName,
                   loanAccount: row.loanNumber,
                   noticeNumber: row.noticeNumber,
+                  grievanceFooter: bank ? grievanceFooter(grievanceFromBank(bank)) : "",
                 })
               : undefined,
           whatsapp:
@@ -496,6 +498,7 @@ async function emailPdfAttachment(
     return { ok: false, error: "Notice PDF is on for this bank, but the notice record is missing. Nothing was sent." };
   }
   try {
+    const bank = await prisma.bank.findFirst({ where: { id: bankId }, select: grievanceSelect });
     const pdf = await renderNoticePdf({
       customerName: notice.customerName,
       address: notice.address,
@@ -511,6 +514,7 @@ async function emailPdfAttachment(
       dated: notice.createdAt,
       documentFormat: notice.documentFormat,
       filledBody: notice.body,
+      grievance: bank ? grievanceFromBank(bank) : undefined,
     });
     return {
       ok: true,

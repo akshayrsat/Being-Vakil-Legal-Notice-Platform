@@ -73,12 +73,14 @@ export type EmailNoticeVars = {
   notice_link: string;
   // Bare notice code for a future template that shows the code as link text.
   notice_code: string;
+  grievance_footer: string;
 };
 
 export function emailNoticeVars(input: {
   customerName: string;
   loanAccount: string;
   noticeNumber: string;
+  grievanceFooter?: string;
 }): EmailNoticeVars {
   const notice_code = input.noticeNumber.trim();
   const notice_link = noticePublicUrl(notice_code);
@@ -88,6 +90,7 @@ export function emailNoticeVars(input: {
     notice_id: notice_link,
     notice_link,
     notice_code,
+    grievance_footer: input.grievanceFooter?.trim() ?? "",
   };
 }
 

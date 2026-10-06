@@ -35,6 +35,7 @@ import { hearingMessageText, templatesFor, type OdrTemplateKind } from "./odr-te
 import { arbitrationNoticeError, arbitrationNoticeGaps } from "./odr-notice-gate";
 import { releaseHeldNoticeSends } from "./notice-release";
 import { canQueueReminder, dayHold, istDayBounds, pickReminderChannel, windowHold, type SendWindow } from "./send-window";
+import { grievanceFooter, grievanceFromBank, withGrievanceFooter } from "./grievance";
 import { noticeRecipients } from "./odr-parties";
 import { terminalOdrStatus } from "./odr-status";
 
@@ -219,7 +220,7 @@ export async function processOdrWork(
           defenceDeadline: message.case.defenceDeadline,
         })
       : text;
-    const noticeText = party ? partyText : text;
+    const noticeText = withGrievanceFooter(party ? partyText : text, grievanceFromBank(message.case.bank));
     const templates = templatesFor(deps.rules.templates, message.case.matterType, kind);
     const templateId =
       message.channel === "SMS"
@@ -241,7 +242,8 @@ export async function processOdrWork(
           date: formatHearingDate(message.hearing.scheduledAt),
           time: formatHearingTime(message.hearing.scheduledAt),
           link: message.hearing.meetLink,
-          caseLink: casePageUrl(message.case.publicToken),
+          caseLink: party ? casePageUrl(party.publicToken) : casePageUrl(message.case.publicToken),
+          grievance: grievanceFooter(grievanceFromBank(message.case.bank)),
         },
       });
     } catch {

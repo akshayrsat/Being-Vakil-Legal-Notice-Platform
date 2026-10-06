@@ -22,6 +22,7 @@ import { customerCanSeeDocument } from "@/lib/odr-paper";
 import { showSection12Line } from "@/lib/odr-notice-gate";
 import { partyAttendanceLabel, partyAttendanceMap } from "@/lib/odr-parties";
 import { resolvePublicCase } from "@/lib/odr-public-case";
+import { grievanceFooter, grievanceFromBank } from "@/lib/grievance";
 import { odrDocumentLabel, odrMatterLabel, odrNeutralRole, stageTracker } from "@/lib/odr-status";
 
 export const metadata: Metadata = { title: "Your hearing" };
@@ -226,6 +227,10 @@ export default async function CustomerCasePage({ params }: { params: Promise<{ t
         ) : (
           <OdrSettleForm token={token} />
         )}
+      </Section>
+
+      <Section title="Grievance redressal">
+        <p className="whitespace-pre-wrap text-sm leading-6">{grievanceFooter(grievanceFromBank(item.bank))}</p>
       </Section>
 
       {item.bankContact || item.paymentInfo ? (

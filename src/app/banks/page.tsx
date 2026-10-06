@@ -72,7 +72,15 @@ export default async function BanksPage({
         <section className="flex flex-col gap-3">
           <h2 className="font-serif text-2xl">Banks on file</h2>
           <BankList
-            banks={banks.map((bank) => ({ ...toBankSnapshot(bank)!, attachNoticePdf: bank.attachNoticePdf }))}
+            banks={banks.map((bank) => ({
+              ...toBankSnapshot(bank)!,
+              attachNoticePdf: bank.attachNoticePdf,
+              officerName: bank.grievanceOfficerName,
+              officerPhone: bank.grievanceOfficerPhone,
+              officerEmail: bank.grievanceOfficerEmail,
+              ombudsman: bank.grievanceOmbudsman,
+              wordingApprovedOn: bank.wordingApprovedOn,
+            }))}
             currentBankId={workingBank(user)?.id ?? null}
             canManage={owner}
           />

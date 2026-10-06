@@ -23,6 +23,7 @@ export type OdrDeliveryInput = {
     time: string;
     link: string;
     caseLink: string;
+    grievance?: string;
   };
 };
 
@@ -76,6 +77,7 @@ async function deliverSms(
           time: input.vars.time,
           link: input.vars.link,
           case_link: input.vars.caseLink,
+          grievance: input.vars.grievance ?? "",
         },
       ],
     },
@@ -111,6 +113,7 @@ async function deliverEmail(
             time: input.vars.time,
             link: input.vars.link,
             case: input.vars.caseLink,
+            grievance: input.vars.grievance ?? "",
           },
         },
       ],

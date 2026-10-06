@@ -7,6 +7,7 @@ import { isLiveSendEnabled, deliverNotice, type EmailAttachment } from "./msg91"
 import { emailNoticeVars, smsNoticeVars, whatsappNoticeVars } from "./notice-link";
 import { noticePdfDataUri, noticePdfFileName, renderNoticePdf } from "./notice-pdf";
 import { SEND_WINDOW_WAIT, windowHold } from "./send-window";
+import { grievanceFooter, grievanceFromBank, grievanceSelect } from "./grievance";
 import type { SendChannel } from "./campaign-plan";
 
 export async function releaseHeldNoticeSends(now = new Date()): Promise<number> {
@@ -27,7 +28,7 @@ export async function releaseHeldNoticeSends(now = new Date()): Promise<number> 
   for (const row of held) {
     const bank = await prisma.bank.findFirst({
       where: { id: row.bankId },
-      select: { name: true, attachNoticePdf: true },
+      select: { name: true, attachNoticePdf: true, ...grievanceSelect },
     });
     const channel = row.channel as SendChannel;
     let attachments: EmailAttachment[] | undefined;
@@ -52,7 +53,12 @@ export async function releaseHeldNoticeSends(now = new Date()): Promise<number> 
         ? smsNoticeVars({ customerName: row.customerName, bankName: bank?.name ?? "", noticeNumber: row.noticeNumber })
         : undefined,
       email: channel === "EMAIL" && row.noticeNumber
-        ? emailNoticeVars({ customerName: row.customerName, loanAccount: row.loanNumber, noticeNumber: row.noticeNumber })
+        ? emailNoticeVars({
+            customerName: row.customerName,
+            loanAccount: row.loanNumber,
+            noticeNumber: row.noticeNumber,
+            grievanceFooter: bank ? grievanceFooter(grievanceFromBank(bank)) : "",
+          })
         : undefined,
       whatsapp: channel === "WHATSAPP" && row.noticeNumber
         ? whatsappNoticeVars({ customerName: row.customerName, bankName: bank?.name ?? "", noticeNumber: row.noticeNumber })
@@ -79,7 +85,10 @@ async function emailPdf(
   bankId: string,
 ): Promise<{ ok: true; attachment: EmailAttachment } | { ok: false; error: string }> {
   if (!noticeNumber) return { ok: false, error: "This row has no notice number. Nothing was sent." };
-  const notice = await prisma.publicNotice.findFirst({ where: { noticeNumber, bankId } });
+  const [notice, bank] = await Promise.all([
+    prisma.publicNotice.findFirst({ where: { noticeNumber, bankId } }),
+    prisma.bank.findFirst({ where: { id: bankId }, select: grievanceSelect }),
+  ]);
   if (!notice) return { ok: false, error: "The notice record is missing. Nothing was sent." };
   try {
     const pdf = await renderNoticePdf({
@@ -97,6 +106,7 @@ async function emailPdf(
       dated: notice.createdAt,
       documentFormat: notice.documentFormat,
       filledBody: notice.body,
+      grievance: bank ? grievanceFromBank(bank) : undefined,
     });
     return { ok: true, attachment: { fileName: noticePdfFileName(notice.noticeNumber), file: noticePdfDataUri(pdf) } };
   } catch {

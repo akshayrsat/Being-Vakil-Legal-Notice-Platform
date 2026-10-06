@@ -26,6 +26,11 @@ export type PublicNoticeView = {
   collectionManagerMobile: string;
   bankWebsite: string;
   bankName: string;
+  grievanceOfficerName: string;
+  grievanceOfficerPhone: string;
+  grievanceOfficerEmail: string;
+  grievanceOmbudsman: string;
+  wordingApprovedOn: string;
   body: string;
   documentFormat: string;
   createdAt: Date;
@@ -234,7 +239,7 @@ export async function noticeLinkOpensByNumber(
 export async function findPublicNotice(raw: string | undefined | null): Promise<PublicNoticeView | null> {
   const noticeNumber = normalizeNoticeNumber(raw);
   if (!noticeNumber) return null;
-  return prisma.publicNotice.findUnique({
+  const row = await prisma.publicNotice.findUnique({
     where: { noticeNumber },
     select: {
       noticeNumber: true,
@@ -251,8 +256,27 @@ export async function findPublicNotice(raw: string | undefined | null): Promise<
       bankWebsite: true,
       bankName: true,
       body: true,
+      bank: {
+        select: {
+          grievanceOfficerName: true,
+          grievanceOfficerPhone: true,
+          grievanceOfficerEmail: true,
+          grievanceOmbudsman: true,
+          wordingApprovedOn: true,
+        },
+      },
       documentFormat: true,
       createdAt: true,
     },
   });
+  if (!row) return null;
+  const { bank, ...notice } = row;
+  return {
+    ...notice,
+    grievanceOfficerName: bank.grievanceOfficerName,
+    grievanceOfficerPhone: bank.grievanceOfficerPhone,
+    grievanceOfficerEmail: bank.grievanceOfficerEmail,
+    grievanceOmbudsman: bank.grievanceOmbudsman,
+    wordingApprovedOn: bank.wordingApprovedOn,
+  };
 }

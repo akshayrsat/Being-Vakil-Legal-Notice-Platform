@@ -4,6 +4,7 @@ import { headers } from "next/headers";
 import { NoticeLetterfoot, NoticeLetterhead, NoticeSignature } from "@/components/notice-letter";
 import { PrintLetterButton } from "@/components/print-letter-button";
 import { buildDemandNotice } from "@/lib/demand-notice";
+import { grievanceFooter } from "@/lib/grievance";
 import { legalNoticeParagraphs, usesStructuredDemand } from "@/lib/legal-notice-templates";
 import {
   findPublicNotice,
@@ -112,6 +113,7 @@ function PublicNoticeDocument({ notice }: { notice: PublicNoticeView }) {
             ))}
           </div>
           <NoticeSignature bankName={notice.bankName} />
+          <GrievanceNote notice={notice} />
           <NoticeLetterfoot />
         </article>
       </div>
@@ -138,9 +140,24 @@ function FilledLegalNotice({ notice }: { notice: PublicNoticeView }) {
             ))}
           </div>
           <NoticeSignature bankName={notice.bankName} />
+          <GrievanceNote notice={notice} />
           <NoticeLetterfoot />
         </article>
       </div>
     </main>
+  );
+}
+
+function GrievanceNote({ notice }: { notice: PublicNoticeView }) {
+  return (
+    <p className="notice-copy whitespace-pre-wrap text-sm leading-6">
+      {grievanceFooter({
+        officerName: notice.grievanceOfficerName,
+        officerPhone: notice.grievanceOfficerPhone,
+        officerEmail: notice.grievanceOfficerEmail,
+        ombudsman: notice.grievanceOmbudsman,
+        wordingApprovedOn: notice.wordingApprovedOn,
+      })}
+    </p>
   );
 }

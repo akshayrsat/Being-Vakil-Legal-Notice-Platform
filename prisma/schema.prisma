@@ -53,6 +53,11 @@ model Bank {
   // When true, a live email also attaches a PDF of that notice. Default off.
   // The clickable notice link in the email is unchanged.
   attachNoticePdf Boolean    @default(false)
+  grievanceOfficerName  String @default("")
+  grievanceOfficerPhone String @default("")
+  grievanceOfficerEmail String @default("")
+  grievanceOmbudsman    String @default("")
+  wordingApprovedOn     String @default("")
   createdAt  DateTime       @default(now())
 }
 
