@@ -26,9 +26,12 @@ export function LiveSendSwitchForm({
             className="mt-1 size-4 accent-primary"
           />
           <span>
-            {technical
-              ? "Off. Confirming records a dry run. Nothing is sent."
-              : "Off. Confirming records the notice. Nothing is sent."}
+            <span className="block font-bold">Off</span>
+            <span className="block text-xs leading-5 text-muted-foreground">
+              {technical
+                ? "Confirming records a dry run. Nothing is sent."
+                : "Confirming records the notice. Nothing is sent."}
+            </span>
           </span>
         </label>
         <label className="flex items-start gap-2 text-sm leading-6">
@@ -40,9 +43,12 @@ export function LiveSendSwitchForm({
             className="mt-1 size-4 accent-primary"
           />
           <span>
-            {technical
-              ? "On. Confirming sends the notice through MSG91."
-              : "On. Confirming sends the notice by SMS, email, or WhatsApp."}
+            <span className="block font-bold">On</span>
+            <span className="block text-xs leading-5 text-muted-foreground">
+              {technical
+                ? "Confirming sends the notice through MSG91."
+                : "Confirming sends the notice by SMS, email, or WhatsApp."}
+            </span>
           </span>
         </label>
       </fieldset>
