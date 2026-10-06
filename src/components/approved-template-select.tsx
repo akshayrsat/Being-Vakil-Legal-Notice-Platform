@@ -6,8 +6,10 @@ import { useRouter } from "next/navigation";
 
 export function ApprovedTemplateSelect({
   templates,
+  basePath = "/templates",
 }: {
   templates: Array<{ id: string; label: string }>;
+  basePath?: string;
 }) {
   const router = useRouter();
   const empty = templates.length === 0;
@@ -21,7 +23,7 @@ export function ApprovedTemplateSelect({
         disabled={empty}
         onChange={(event) => {
           const next = event.target.value;
-          if (next) router.push(`/templates/${next}`);
+          if (next) router.push(`${basePath}/${next}`);
         }}
         className="h-11 w-full rounded-lg border border-input bg-card px-3 text-sm font-normal disabled:opacity-60"
       >
