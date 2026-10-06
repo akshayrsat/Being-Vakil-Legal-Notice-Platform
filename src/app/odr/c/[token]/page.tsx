@@ -20,17 +20,21 @@ import { accountLast4, formatHearingDate, formatHearingTime, googleCalendarUrl, 
 import { nowMs } from "@/lib/odr-schedule";
 import { customerCanSeeDocument } from "@/lib/odr-paper";
 import { showSection12Line } from "@/lib/odr-notice-gate";
+import { partyAttendanceLabel, partyAttendanceMap } from "@/lib/odr-parties";
+import { resolvePublicCase } from "@/lib/odr-public-case";
 import { odrDocumentLabel, odrMatterLabel, odrNeutralRole, stageTracker } from "@/lib/odr-status";
 
 export const metadata: Metadata = { title: "Your hearing" };
 
 export default async function CustomerCasePage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
-  const item = /^[A-Za-z0-9_-]{20,}$/.test(token)
+  const found = await resolvePublicCase(token);
+  const item = found
     ? await prisma.odrCase.findFirst({
-        where: { publicToken: token },
+        where: { id: found.item.id },
         include: {
           bank: true,
+          respondents: { orderBy: { sortOrder: "asc" } },
           hearings: { orderBy: { number: "asc" } },
           documents: {
             orderBy: { createdAt: "desc" },
@@ -39,6 +43,7 @@ export default async function CustomerCasePage({ params }: { params: Promise<{ t
         },
       })
     : null;
+  const viewer = found?.viewer ?? null;
   if (!item) return <Frame><Missing /></Frame>;
   const copy = odrCopyFor(item.matterType);
   const staff = await getCurrentUser();
@@ -88,6 +93,9 @@ export default async function CustomerCasePage({ params }: { params: Promise<{ t
     <Frame>
       <p className="text-xs font-medium tracking-[0.16em] text-primary uppercase">{copy.firmLine}</p>
       <h1 className="mt-3 font-serif text-4xl tracking-tight">{copy.pageTitle}</h1>
+      {viewer ? (
+        <p className="mt-3 text-sm">This page is for {viewer.name}, {viewer.role}.</p>
+      ) : null}
       <p className="mt-3 text-sm text-muted-foreground">{copy.confidential}</p>
 
       <Section title={copy.caseHeading}>
@@ -95,7 +103,7 @@ export default async function CustomerCasePage({ params }: { params: Promise<{ t
         <p className="mt-2">{odrMatterLabel(item.matterType)} · {item.bank.name} vs {item.customerName}{item.coParties ? " and ors" : ""}</p>
         <dl className="mt-4 grid gap-2 text-sm">
           <Row label="Customer" value={item.customerName} />
-          <Row label="Co-borrowers / guarantors" value={item.coParties || "—"} />
+          <Row label="Co-borrowers / guarantors" value={respondentLine(item.respondents, item.coParties)} />
           <Row label="Account" value={maskedAccount(item.accountNumber)} />
           <Row label="Branch" value={item.branch || "—"} />
           <Row label="Address" value={item.address || "—"} />
@@ -124,7 +132,13 @@ export default async function CustomerCasePage({ params }: { params: Promise<{ t
           <li>{role}: {panelLabel || "To be confirmed"}</li>
           <li>Bank counsel / officer: {item.bankCounsel || `A representative of ${item.bank.name}`}</li>
           <li>Customer: {item.customerName}</li>
-          {item.coParties ? <li>Co-borrowers / guarantors: {item.coParties}</li> : null}
+          {item.respondents.length > 0 ? (
+            item.respondents.map((party) => (
+              <li key={party.id}>{party.role}: {party.name}</li>
+            ))
+          ) : item.coParties ? (
+            <li>Co-borrowers / guarantors: {item.coParties}</li>
+          ) : null}
           <li>Your advocate: {item.advocateName ? `${item.advocateName}${item.advocateBarNo ? `, ${item.advocateBarNo}` : ""}` : "You may add one below."}</li>
         </ul>
         <h3 className="mt-4 font-medium">{copy.advocateHeading}</h3>
@@ -178,6 +192,9 @@ export default async function CustomerCasePage({ params }: { params: Promise<{ t
             <p className="text-sm text-muted-foreground">{copy.nextHearing}</p>
             <p className="mt-1 font-serif text-2xl">{formatHearingDate(hearing.scheduledAt)}</p>
             <p className="text-sm">{formatHearingTime(hearing.scheduledAt)} · {hearing.durationMinutes} minutes · Hearing {hearing.number}</p>
+            {viewer ? (
+              <p className="mt-2 text-sm">Your attendance: {partyAttendanceLabel(partyAttendanceMap(hearing.partyAttendance)[viewer.id] ?? "")}</p>
+            ) : null}
             {hearing.meetFake ? <p className="mt-2 text-sm text-muted-foreground">{copy.practiceMeet}</p> : null}
             <div className="mt-4 flex flex-wrap gap-2">
               <form action={joinOdrHearing}>
@@ -265,6 +282,14 @@ function Missing() {
       <p className="mt-3 text-base leading-7 text-muted-foreground">Open the link from your message. If it still fails, call Being Vakil Associates.</p>
     </>
   );
+}
+
+function respondentLine(
+  parties: Array<{ name: string; role: string }>,
+  coParties: string,
+): string {
+  if (parties.length > 0) return parties.map((party) => `${party.name} (${party.role})`).join(", ");
+  return coParties || "—";
 }
 
 function maskedAccount(account: string): string {

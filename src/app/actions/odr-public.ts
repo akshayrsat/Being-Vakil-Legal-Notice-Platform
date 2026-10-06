@@ -18,6 +18,8 @@ import {
 } from "@/lib/odr-access";
 import { accountLast4, last4Matches, newGrantToken } from "@/lib/odr-ref";
 import { CUSTOMER_DOCUMENT_KINDS } from "@/lib/odr-status";
+import { withPartyAttendance } from "@/lib/odr-parties";
+import { resolvePublicCase } from "@/lib/odr-public-case";
 import { tooManyAttempts } from "@/lib/rate-limit";
 
 export type PublicOdrState = { error: string } | null;
@@ -33,9 +35,9 @@ async function requestMeta() {
 }
 
 async function caseByToken(token: string) {
-  const key = token.trim();
-  if (!/^[A-Za-z0-9_-]{20,}$/.test(key)) return null;
-  return prisma.odrCase.findFirst({ where: { publicToken: key } });
+  const found = await resolvePublicCase(token);
+  if (!found) return null;
+  return { ...found.item, viewer: found.viewer };
 }
 
 async function granted(caseId: string): Promise<boolean> {
@@ -102,9 +104,15 @@ export async function joinOdrHearing(formData: FormData): Promise<void> {
       kind: "JOIN",
       ip: meta.ip,
       userAgent: meta.userAgent,
-      detail: `Hearing ${hearing.number}`,
+      detail: item.viewer ? `Hearing ${hearing.number} · ${item.viewer.name}` : `Hearing ${hearing.number}`,
     },
   });
+  if (item.viewer) {
+    await prisma.odrHearing.update({
+      where: { id: hearing.id },
+      data: { partyAttendance: withPartyAttendance(hearing.partyAttendance, item.viewer.id, "JOINED") },
+    });
+  }
   redirect(hearing.meetLink);
 }
 

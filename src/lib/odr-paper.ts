@@ -69,6 +69,7 @@ export type PaperCase = {
   refNo: string;
   customerName: string;
   coParties: string;
+  respondents?: Array<{ name: string; role: string; mobile: string; email: string; address: string }>;
   accountNumber: string;
   branch: string;
   mobile: string;
@@ -342,28 +343,39 @@ function exhibitRows(item: PaperCase): PaperRow[] {
     }));
 }
 
+function respondentSource(item: PaperCase): Array<{ name: string; role: string; mobile: string; email: string; address: string }> {
+  if (item.respondents && item.respondents.length > 0) return item.respondents;
+  return splitParties(item.coParties).map((name) => ({
+    name,
+    role: "Co-borrower",
+    mobile: "",
+    email: "",
+    address: "",
+  }));
+}
+
 export function defaultCoRespondents(item: PaperCase): PaperRow[] {
-  return splitParties(item.coParties).map((name, index) => ({
+  return respondentSource(item).map((party, index) => ({
     co_respondent_no: String(index + 2),
-    co_respondent_name: name,
-    co_respondent_capacity: "Co-borrower",
-    co_respondent_address: "",
+    co_respondent_name: party.name,
+    co_respondent_capacity: party.role,
+    co_respondent_address: party.address,
     co_respondent_pan: "",
-    co_respondent_mobile: "",
-    co_respondent_email: "",
+    co_respondent_mobile: party.mobile,
+    co_respondent_email: party.email,
   }));
 }
 
 export function defaultObligors(item: PaperCase): PaperRow[] {
-  return splitParties(item.coParties).map((name) => ({
-    obligor_name: name,
-    obligor_capacity: "Co-Borrower",
+  return respondentSource(item).map((party) => ({
+    obligor_name: party.name,
+    obligor_capacity: party.role,
     obligor_age: "",
-    obligor_address: "",
+    obligor_address: party.address,
     obligor_pan: "",
     obligor_aadhaar_last4: "",
-    obligor_mobile: "",
-    obligor_email: "",
+    obligor_mobile: party.mobile,
+    obligor_email: party.email,
     obligor_sign_date: "",
     obligor_sign_mode: "",
   }));

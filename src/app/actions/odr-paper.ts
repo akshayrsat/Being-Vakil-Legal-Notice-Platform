@@ -88,6 +88,7 @@ async function loadCase(caseId: string, bankId: string) {
     include: {
       bank: true,
       hearings: { orderBy: { number: "asc" } },
+      respondents: { orderBy: { sortOrder: "asc" }, select: { name: true, role: true, mobile: true, email: true, address: true } },
       messages: { orderBy: { createdAt: "asc" } },
       documents: { orderBy: { createdAt: "asc" }, select: { kind: true, fileName: true, createdAt: true } },
       accessLogs: { where: { kind: "OPEN" }, select: { id: true } },
@@ -105,6 +106,7 @@ function toPaperCase(
     refNo: item.refNo,
     customerName: item.customerName,
     coParties: item.coParties,
+    respondents: item.respondents,
     accountNumber: item.accountNumber,
     branch: item.branch,
     mobile: item.mobile,

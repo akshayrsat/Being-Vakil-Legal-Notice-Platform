@@ -4,7 +4,10 @@ import { notFound, redirect } from "next/navigation";
 import {
   OdrAttendanceButton,
   OdrDocumentForm,
+  OdrPartyAttendanceButtons,
   OdrPartyForm,
+  OdrRemoveRespondent,
+  OdrRespondentEditor,
   OdrRetryMeetButton,
   OdrScheduleForm,
   OdrStatusForm,
@@ -26,6 +29,7 @@ import { bankUserCanSeeDocument } from "@/lib/odr-paper";
 import { odrDocumentLabel, odrMatterLabel, odrNeutralRole, odrStatusLabel } from "@/lib/odr-status";
 import { odrCaseBack } from "@/lib/odr-back";
 import { arbitrationNoticeError, arbitrationNoticeGaps } from "@/lib/odr-notice-gate";
+import { partyAttendanceLabel, partyAttendanceMap } from "@/lib/odr-parties";
 import { canSendNotices, isBankUser } from "@/lib/roles";
 import { hideVendorWording, seesVendorDetail } from "@/lib/staff-language";
 
@@ -48,6 +52,7 @@ export default async function OdrCasePage({
     where: { id, bankId: bank.id },
     include: {
       hearings: { orderBy: { number: "asc" } },
+      respondents: { orderBy: { sortOrder: "asc" } },
       messages: { orderBy: { createdAt: "asc" } },
       documents: { orderBy: { createdAt: "desc" }, select: { id: true, kind: true, fileName: true, uploaderName: true, createdAt: true, note: true } },
       statusEvents: { orderBy: { createdAt: "desc" } },
@@ -119,7 +124,7 @@ export default async function OdrCasePage({
           <h2 className="font-serif text-2xl">Parties</h2>
           <dl className="mt-3 grid gap-2 text-sm">
             <div><dt className="text-muted-foreground">Customer</dt><dd>{item.customerName}</dd></div>
-            <div><dt className="text-muted-foreground">Co-borrowers / guarantors</dt><dd>{item.coParties || "—"}</dd></div>
+            <div><dt className="text-muted-foreground">Sheet note</dt><dd>{item.coParties || "—"}</dd></div>
             <div><dt className="text-muted-foreground">Account</dt><dd>{item.accountNumber}</dd></div>
             <div><dt className="text-muted-foreground">Branch</dt><dd>{item.branch || "—"}</dd></div>
             <div><dt className="text-muted-foreground">Mobile</dt><dd>{item.mobile || "—"}</dd></div>
@@ -129,6 +134,31 @@ export default async function OdrCasePage({
             <div><dt className="text-muted-foreground">Claim</dt><dd>{item.claimAmount || "—"} {item.asOnDate ? `as on ${item.asOnDate}` : ""}</dd></div>
             <div><dt className="text-muted-foreground">Customer’s advocate</dt><dd>{item.advocateName || "—"} {item.advocateBarNo}</dd></div>
           </dl>
+          {item.respondents.length > 0 ? (
+            <ul className="mt-4 flex flex-col gap-4 border-t border-border pt-4 text-sm">
+              {item.respondents.map((party) => (
+                <li key={party.id} className="flex flex-col gap-2">
+                  <p className="font-medium">{party.name} · {party.role}</p>
+                  <p className="text-muted-foreground">{[party.mobile, party.email, party.address].filter(Boolean).join(" · ") || "No contact on file"}</p>
+                  {canSend ? (
+                    <>
+                      <CustomerPageLinks href={casePageUrl(party.publicToken)} />
+                      <OdrRespondentEditor caseId={item.id} party={party} />
+                      <OdrRemoveRespondent caseId={item.id} respondentId={party.id} />
+                    </>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          {canSend ? (
+            <div className="mt-4 border-t border-border pt-4">
+              <h3 className="font-medium">Add a co-borrower or guarantor</h3>
+              <div className="mt-3">
+                <OdrRespondentEditor caseId={item.id} />
+              </div>
+            </div>
+          ) : null}
         </article>
         <article className="rounded-xl bg-card px-4 py-4 ring-1 ring-foreground/10">
           <h2 className="font-serif text-2xl">{odrNeutralRole(item.matterType)}</h2>
@@ -172,6 +202,21 @@ export default async function OdrCasePage({
                 {hearing.meetFake ? " · Practice link, not a real Google Meet" : ""}
                 {hearing.meetError && hearing.meetError !== "CREATING" ? ` · ${hearing.meetError}` : ""}
               </p>
+              {item.respondents.length > 0 ? (
+                <ul className="mt-3 flex flex-col gap-2">
+                  {item.respondents.map((party) => {
+                    const mark = partyAttendanceMap(hearing.partyAttendance)[party.id] ?? "";
+                    return (
+                      <li key={party.id} className="flex flex-col gap-2">
+                        <p>{party.name} · {party.role} · {partyAttendanceLabel(mark)}</p>
+                        {canSend ? (
+                          <OdrPartyAttendanceButtons caseId={item.id} hearingId={hearing.id} respondentId={party.id} />
+                        ) : null}
+                      </li>
+                    );
+                  })}
+                </ul>
+              ) : null}
               {canSend && !hearing.meetLink ? <OdrRetryMeetButton caseId={item.id} hearingId={hearing.id} /> : null}
             </li>
           ))}
@@ -189,7 +234,7 @@ export default async function OdrCasePage({
           {item.messages.map((message) => (
             <li key={message.id} className="rounded-lg border border-border px-3 py-2">
               <p>
-                {message.kind} · {message.channel} · {deliveryStatusLabel(message.status, technical)}
+                {message.kind} · {message.channel} · {message.toAddress || "—"} · {deliveryStatusLabel(message.status, technical)}
               </p>
               <p className="text-muted-foreground">{hideVendorWording(message.detail, technical) || "—"}</p>
             </li>

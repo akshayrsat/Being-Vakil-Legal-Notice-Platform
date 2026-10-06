@@ -42,6 +42,7 @@ export default async function OdrPaperPage({
     where: { id, bankId: bank.id },
     include: {
       hearings: { orderBy: { number: "asc" } },
+      respondents: { orderBy: { sortOrder: "asc" }, select: { name: true, role: true, mobile: true, email: true, address: true } },
       messages: { orderBy: { createdAt: "asc" } },
       documents: { select: { kind: true, fileName: true, createdAt: true } },
       accessLogs: { where: { kind: "OPEN" }, select: { id: true } },
@@ -60,6 +61,7 @@ export default async function OdrPaperPage({
     refNo: item.refNo,
     customerName: item.customerName,
     coParties: item.coParties,
+    respondents: item.respondents,
     accountNumber: item.accountNumber,
     branch: item.branch,
     mobile: item.mobile,

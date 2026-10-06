@@ -5,7 +5,10 @@ import {
   confirmOdrBatch,
   refreshAttendance,
   retryHearingMeet,
+  removeRespondent,
   saveCasePartyInfo,
+  saveRespondent,
+  setPartyAttendance,
   saveNeutral,
   scheduleBulkHearings,
   scheduleOneHearing,
@@ -218,6 +221,97 @@ export function OdrPartyForm({
         {pending ? "Saving…" : "Save contact details"}
       </Button>
     </form>
+  );
+}
+
+const partyField = "h-11 rounded-lg border border-input bg-card px-3 text-sm";
+
+export function OdrRespondentEditor({
+  caseId,
+  party,
+}: {
+  caseId: string;
+  party?: { id: string; name: string; role: string; mobile: string; email: string; address: string };
+}) {
+  const [state, action, pending] = useActionState(saveRespondent, null);
+  return (
+    <form action={action} className="grid gap-2 sm:grid-cols-2">
+      <input type="hidden" name="caseId" value={caseId} />
+      {party ? <input type="hidden" name="respondentId" value={party.id} /> : null}
+      <label className="flex flex-col gap-1 text-sm font-medium sm:col-span-2">
+        Name
+        <input name="name" required defaultValue={party?.name ?? ""} className={partyField} />
+      </label>
+      <label className="flex flex-col gap-1 text-sm font-medium">
+        Role
+        <select name="role" defaultValue={party?.role === "Guarantor" ? "Guarantor" : "Co-borrower"} className={partyField}>
+          <option>Co-borrower</option>
+          <option>Guarantor</option>
+        </select>
+      </label>
+      <label className="flex flex-col gap-1 text-sm font-medium">
+        Mobile
+        <input name="mobile" defaultValue={party?.mobile ?? ""} className={partyField} />
+      </label>
+      <label className="flex flex-col gap-1 text-sm font-medium">
+        Email
+        <input name="email" type="email" defaultValue={party?.email ?? ""} className={partyField} />
+      </label>
+      <label className="flex flex-col gap-1 text-sm font-medium sm:col-span-2">
+        Address
+        <textarea name="address" defaultValue={party?.address ?? ""} rows={2} className="rounded-lg border border-input bg-card px-3 py-2 text-sm" />
+      </label>
+      <div className="sm:col-span-2">
+        <ErrorLine error={state?.error} />
+        <Button type="submit" variant="outline" className="h-11 w-fit px-4" disabled={pending}>
+          {pending ? "Saving…" : party ? "Save co-party" : "Add co-party"}
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+export function OdrRemoveRespondent({ caseId, respondentId }: { caseId: string; respondentId: string }) {
+  const [state, action, pending] = useActionState(removeRespondent, null);
+  return (
+    <form action={action}>
+      <input type="hidden" name="caseId" value={caseId} />
+      <input type="hidden" name="respondentId" value={respondentId} />
+      <ErrorLine error={state?.error} />
+      <Button type="submit" variant="outline" className="h-9 px-3" disabled={pending}>
+        {pending ? "Removing…" : "Remove"}
+      </Button>
+    </form>
+  );
+}
+
+export function OdrPartyAttendanceButtons({
+  caseId,
+  hearingId,
+  respondentId,
+}: {
+  caseId: string;
+  hearingId: string;
+  respondentId: string;
+}) {
+  const [state, action, pending] = useActionState(setPartyAttendance, null);
+  return (
+    <div className="flex flex-col gap-2">
+      <ErrorLine error={state?.error} />
+      <div className="flex flex-wrap gap-2">
+        {(["JOINED", "NO_SHOW"] as const).map((attendance) => (
+          <form key={attendance} action={action}>
+            <input type="hidden" name="caseId" value={caseId} />
+            <input type="hidden" name="hearingId" value={hearingId} />
+            <input type="hidden" name="respondentId" value={respondentId} />
+            <input type="hidden" name="attendance" value={attendance} />
+            <Button type="submit" variant="outline" className="h-9 px-3" disabled={pending}>
+              {attendance === "JOINED" ? "Joined" : "No-show"}
+            </Button>
+          </form>
+        ))}
+      </div>
+    </div>
   );
 }
 

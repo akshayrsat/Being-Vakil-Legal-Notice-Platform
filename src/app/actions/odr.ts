@@ -18,8 +18,9 @@ import {
 } from "@/lib/odr-fields";
 import { SheetReadError, parseXlsx } from "@/lib/parse-xlsx";
 import { ODR_NOT_SENT_DETAIL } from "@/lib/odr-live";
-import { applyAttendance, processOdrWork, releaseArbitrationNotices, retryMeetLink, scheduleHearingRecord, refreshCaseAttendance } from "@/lib/odr-runner";
+import { applyAttendance, processOdrWork, queueRespondentNotices, releaseArbitrationNotices, retryMeetLink, scheduleHearingRecord, refreshCaseAttendance } from "@/lib/odr-runner";
 import { arbitrationNoticeError, arbitrationNoticeGaps } from "@/lib/odr-notice-gate";
+import { partiesFromColumns, partyRole, withPartyAttendance } from "@/lib/odr-parties";
 import { readOdrRules } from "@/lib/odr-store";
 import { durationMinutes, generateRefNo, indiaDateTime, newPublicToken, normalizeRefNo } from "@/lib/odr-ref";
 import { panelJson, parsePanel, type PanelMember } from "@/lib/odr-panel";
@@ -217,6 +218,28 @@ export async function confirmOdrBatch(previousOrForm: OdrFormState | FormData, m
         status: "NOTICE_SENT",
       },
     });
+    const parties = partiesFromColumns({
+      coParties: row.coParties,
+      slots: [
+        { name: row.co1Name, role: row.co1Role, mobile: row.co1Mobile, email: row.co1Email, address: row.co1Address },
+        { name: row.co2Name, role: row.co2Role, mobile: row.co2Mobile, email: row.co2Email, address: row.co2Address },
+      ],
+    });
+    if (parties.length > 0) {
+      await prisma.odrRespondent.createMany({
+        data: parties.map((party, index) => ({
+          caseId: created.id,
+          bankId: scope.bank.id,
+          name: party.name,
+          role: party.role,
+          mobile: party.mobile,
+          email: party.email,
+          address: party.address,
+          publicToken: newPublicToken(),
+          sortOrder: index,
+        })),
+      });
+    }
     await scheduleHearingRecord(prisma, {
       caseId: created.id,
       bankId: scope.bank.id,
@@ -591,6 +614,90 @@ export async function saveCasePartyInfo(_previous: OdrFormState, formData: FormD
     },
   });
   redirect(`/odr/cases/${item.id}`);
+}
+
+function partyInput(formData: FormData) {
+  const name = String(formData.get("name") ?? "").trim().slice(0, 160);
+  const role = partyRole(String(formData.get("role") ?? ""));
+  const mobile = String(formData.get("mobile") ?? "").trim().slice(0, 20);
+  const email = String(formData.get("email") ?? "").trim().slice(0, 160);
+  const address = String(formData.get("address") ?? "").trim().slice(0, 400);
+  return { name, role, mobile, email, address };
+}
+
+export async function saveRespondent(_previous: OdrFormState, formData: FormData): Promise<OdrFormState> {
+  const scope = await staffBank();
+  if (!scope.ok) return { error: scope.error };
+  const caseId = String(formData.get("caseId") ?? "");
+  const item = await prisma.odrCase.findFirst({ where: { id: caseId, bankId: scope.bank.id }, select: { id: true, refNo: true } });
+  if (!item) return { error: "That case was not found for the bank you are working on." };
+  const party = partyInput(formData);
+  if (party.name.length < 2) return { error: "Enter the co-borrower or guarantor’s name." };
+  const respondentId = String(formData.get("respondentId") ?? "");
+  if (respondentId) {
+    const existing = await prisma.odrRespondent.findFirst({ where: { id: respondentId, caseId: item.id, bankId: scope.bank.id } });
+    if (!existing) return { error: "That co-party was not found on this case." };
+    await prisma.odrRespondent.update({ where: { id: existing.id }, data: party });
+  } else {
+    const count = await prisma.odrRespondent.count({ where: { caseId: item.id } });
+    const created = await prisma.odrRespondent.create({
+      data: {
+        caseId: item.id,
+        bankId: scope.bank.id,
+        ...party,
+        publicToken: newPublicToken(),
+        sortOrder: count,
+      },
+    });
+    await queueRespondentNotices(prisma, created.id);
+  }
+  await auditCurrentUser({
+    action: "odr.respondent",
+    summary: `${respondentId ? "Updated" : "Added"} ${party.name} (${party.role}) on ${item.refNo}.`,
+    bankId: scope.bank.id,
+    bankName: scope.bank.name,
+    targetId: item.id,
+  });
+  redirect(`/odr/cases/${item.id}`);
+}
+
+export async function removeRespondent(_previous: OdrFormState, formData: FormData): Promise<OdrFormState> {
+  const scope = await staffBank();
+  if (!scope.ok) return { error: scope.error };
+  const caseId = String(formData.get("caseId") ?? "");
+  const respondentId = String(formData.get("respondentId") ?? "");
+  const existing = await prisma.odrRespondent.findFirst({
+    where: { id: respondentId, caseId, bankId: scope.bank.id },
+    select: { id: true, name: true, case: { select: { refNo: true } } },
+  });
+  if (!existing) return { error: "That co-party was not found on this case." };
+  await prisma.odrRespondent.delete({ where: { id: existing.id } });
+  await auditCurrentUser({
+    action: "odr.respondent",
+    summary: `Removed ${existing.name} from ${existing.case.refNo}.`,
+    bankId: scope.bank.id,
+    bankName: scope.bank.name,
+    targetId: caseId,
+  });
+  redirect(`/odr/cases/${caseId}`);
+}
+
+export async function setPartyAttendance(_previous: OdrFormState, formData: FormData): Promise<OdrFormState> {
+  const scope = await staffBank();
+  if (!scope.ok) return { error: scope.error };
+  const caseId = String(formData.get("caseId") ?? "");
+  const hearingId = String(formData.get("hearingId") ?? "");
+  const respondentId = String(formData.get("respondentId") ?? "");
+  const attendance = String(formData.get("attendance") ?? "");
+  if (attendance !== "JOINED" && attendance !== "NO_SHOW") return { error: "Choose joined or no-show." };
+  const hearing = await prisma.odrHearing.findFirst({ where: { id: hearingId, caseId, bankId: scope.bank.id } });
+  const party = await prisma.odrRespondent.findFirst({ where: { id: respondentId, caseId, bankId: scope.bank.id } });
+  if (!hearing || !party) return { error: "That hearing or co-party was not found." };
+  await prisma.odrHearing.update({
+    where: { id: hearing.id },
+    data: { partyAttendance: withPartyAttendance(hearing.partyAttendance, party.id, attendance) },
+  });
+  redirect(`/odr/cases/${caseId}`);
 }
 
 export async function setOdrLiveSwitch(_previous: OdrFormState, formData: FormData): Promise<OdrFormState> {

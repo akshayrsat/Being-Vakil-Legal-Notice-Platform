@@ -35,6 +35,7 @@ import { hearingMessageText, templatesFor, type OdrTemplateKind } from "./odr-te
 import { arbitrationNoticeError, arbitrationNoticeGaps } from "./odr-notice-gate";
 import { releaseHeldNoticeSends } from "./notice-release";
 import { canQueueReminder, dayHold, istDayBounds, pickReminderChannel, windowHold, type SendWindow } from "./send-window";
+import { noticeRecipients } from "./odr-parties";
 import { terminalOdrStatus } from "./odr-status";
 
 const CLAIM = "CREATING";
@@ -162,6 +163,7 @@ export async function processOdrWork(
       caseId: message.caseId,
       messageId: message.id,
       maxPerDay: deps.rules.maxMessagesPerDay,
+      toAddress: message.toAddress,
     });
     if (held) {
       await db.odrMessage.update({
@@ -196,6 +198,28 @@ export async function processOdrWork(
       claimReference: message.case.claimReference,
       defenceDeadline: message.case.defenceDeadline,
     });
+    const party = message.respondentId
+      ? await db.odrRespondent.findFirst({ where: { id: message.respondentId, caseId: message.caseId } })
+      : null;
+    const partyText = party
+      ? hearingMessageText({
+          customer: party.name,
+          bank: message.case.bank.name,
+          number: message.case.refNo,
+          date: formatHearingDate(message.hearing.scheduledAt),
+          time: formatHearingTime(message.hearing.scheduledAt),
+          meetLink: message.hearing.meetLink,
+          caseLink: casePageUrl(party.publicToken),
+          ordinal: message.kind === "FIRST" ? "first" : hearingOrdinal(message.hearing.number),
+          matterType: message.case.matterType,
+          kind,
+          panelCount: panel.length,
+          arbitratorName: panel.length > 0 ? panel.map((member) => member.name).join(", ") : message.case.neutralName,
+          claimReference: message.case.claimReference,
+          defenceDeadline: message.case.defenceDeadline,
+        })
+      : text;
+    const noticeText = party ? partyText : text;
     const templates = templatesFor(deps.rules.templates, message.case.matterType, kind);
     const templateId =
       message.channel === "SMS"
@@ -227,19 +251,19 @@ export async function processOdrWork(
       ready += 1;
       await db.odrMessage.update({
         where: { id: message.id },
-        data: { status: "SENT", detail: result.detail, providerId: result.providerId, messageText: text },
+        data: { status: "SENT", detail: result.detail, providerId: result.providerId, messageText: noticeText },
       });
     } else if (result.skipped) {
       skipped += 1;
       await db.odrMessage.update({
         where: { id: message.id },
-        data: { status: "SKIPPED", detail: result.detail, messageText: text },
+        data: { status: "SKIPPED", detail: result.detail, messageText: noticeText },
       });
     } else {
       failed += 1;
       await db.odrMessage.update({
         where: { id: message.id },
-        data: { status: "FAILED", detail: result.detail, messageText: text },
+        data: { status: "FAILED", detail: result.detail, messageText: noticeText },
       });
     }
   }
@@ -458,36 +482,51 @@ async function sendDueReminders(db: PrismaClient, deps: OdrDeps): Promise<number
       await db.odrHearing.update({ where: { id: hearing.id }, data: { remindersSent: JSON.stringify(sentKeys) } });
       continue;
     }
-    const plans = planOdrChannels({
-      live: deps.live,
-      mobile: hearing.case.mobile,
-      email: hearing.case.email,
-      templates: templatesFor(deps.rules.templates, hearing.case.matterType, "reminder"),
+    const parties = await db.odrRespondent.findMany({
+      where: { caseId: hearing.caseId },
+      orderBy: { sortOrder: "asc" },
     });
-    const chosen = pickReminderChannel(plans);
-    if (!chosen) continue;
-    const usedToday = await messagesUsedToday(db, hearing.caseId, deps.now, "");
+    const templates = templatesFor(deps.rules.templates, hearing.case.matterType, "reminder");
     const window = sendWindowFromRules(deps.rules);
-    const held = windowHold(deps.now, window).hold
-      ? windowHold(deps.now, window)
-      : dayHold(deps.now, window, usedToday, deps.rules.maxMessagesPerDay);
-    await queueMessages(db, {
-      caseId: hearing.caseId,
-      hearingId: hearing.id,
-      bankId: hearing.bankId,
-      matterType: hearing.case.matterType,
+    let queued = 0;
+    for (const person of noticeRecipients({
       mobile: hearing.case.mobile,
       email: hearing.case.email,
-      kind: "REMINDER",
-      live: deps.live,
-      templates: templatesFor(deps.rules.templates, hearing.case.matterType, "reminder"),
-      plans: [chosen],
-      notBefore: held.hold ? held.notBefore : null,
-      detail: held.hold ? held.detail : "",
-    });
+      parties,
+    })) {
+      const plans = planOdrChannels({
+        live: deps.live,
+        mobile: person.mobile,
+        email: person.email,
+        templates,
+      });
+      const chosen = pickReminderChannel(plans);
+      if (!chosen) continue;
+      const usedToday = await messagesUsedToday(db, hearing.caseId, deps.now, "", chosen.to);
+      const held = windowHold(deps.now, window).hold
+        ? windowHold(deps.now, window)
+        : dayHold(deps.now, window, usedToday, deps.rules.maxMessagesPerDay);
+      await queueMessages(db, {
+        caseId: hearing.caseId,
+        hearingId: hearing.id,
+        bankId: hearing.bankId,
+        matterType: hearing.case.matterType,
+        mobile: person.mobile,
+        email: person.email,
+        kind: "REMINDER",
+        live: deps.live,
+        templates,
+        plans: [chosen],
+        notBefore: held.hold ? held.notBefore : null,
+        detail: held.hold ? held.detail : "",
+        respondentId: person.respondentId,
+      });
+      queued += 1;
+    }
+    if (queued === 0) continue;
     const sent = [...parseReminderKeys(hearing.remindersSent), ...keys];
     await db.odrHearing.update({ where: { id: hearing.id }, data: { remindersSent: JSON.stringify(sent) } });
-    created += 1;
+    created += queued;
   }
   return created;
 }
@@ -544,19 +583,59 @@ export async function releaseArbitrationNotices(db: PrismaClient, caseId: string
   if (!item) return;
   if (arbitrationNoticeGaps(item.matterType, item.documents.map((doc) => doc.kind)).length > 0) return;
   const rules = await readOdrRules(db);
+  const parties = await db.odrRespondent.findMany({ where: { caseId: item.id }, orderBy: { sortOrder: "asc" } });
   for (const hearing of item.hearings) {
     const kind = hearing.number === 1 ? "FIRST" : "NEXT";
     if (hearing.messages.some((message) => message.kind === "FIRST" || message.kind === "NEXT")) continue;
+    const templates = templatesFor(rules.templates, item.matterType, hearing.number === 1 ? "first" : "next");
+    for (const person of noticeRecipients({ mobile: item.mobile, email: item.email, parties })) {
+      await queueMessages(db, {
+        caseId: item.id,
+        hearingId: hearing.id,
+        bankId: item.bankId,
+        matterType: item.matterType,
+        mobile: person.mobile,
+        email: person.email,
+        kind,
+        live: rules.live,
+        templates,
+        respondentId: person.respondentId,
+      });
+    }
+  }
+}
+
+export async function queueRespondentNotices(db: PrismaClient, respondentId: string): Promise<void> {
+  const party = await db.odrRespondent.findUnique({ where: { id: respondentId } });
+  if (!party) return;
+  const item = await db.odrCase.findUnique({
+    where: { id: party.caseId },
+    include: {
+      documents: { select: { kind: true } },
+      hearings: { include: { messages: { select: { kind: true, respondentId: true } } } },
+    },
+  });
+  if (!item) return;
+  if (arbitrationNoticeGaps(item.matterType, item.documents.map((doc) => doc.kind)).length > 0) return;
+  const rules = await readOdrRules(db);
+  for (const hearing of item.hearings) {
+    const kind = hearing.number === 1 ? "FIRST" : "NEXT";
+    const sent = hearing.messages.some((message) => message.kind === "FIRST" || message.kind === "NEXT");
+    if (!sent) continue;
+    if (hearing.messages.some((message) => message.respondentId === party.id && (message.kind === "FIRST" || message.kind === "NEXT"))) {
+      continue;
+    }
     await queueMessages(db, {
       caseId: item.id,
       hearingId: hearing.id,
       bankId: item.bankId,
       matterType: item.matterType,
-      mobile: item.mobile,
-      email: item.email,
+      mobile: party.mobile,
+      email: party.email,
       kind,
       live: rules.live,
       templates: templatesFor(rules.templates, item.matterType, hearing.number === 1 ? "first" : "next"),
+      respondentId: party.id,
     });
   }
 }
@@ -576,6 +655,7 @@ export async function queueMessages(
     plans?: ChannelPlan[];
     notBefore?: Date | null;
     detail?: string;
+    respondentId?: string;
   },
 ): Promise<void> {
   const plans = input.plans ?? planOdrChannels({
@@ -592,6 +672,7 @@ export async function queueMessages(
       channel: plan.channel,
       kind: input.kind,
       toAddress: plan.to,
+      respondentId: input.respondentId ?? "",
       status: plan.status,
       notBefore: plan.status === "QUEUED" ? input.notBefore ?? null : null,
       detail: plan.status === "QUEUED" && input.detail
@@ -603,21 +684,22 @@ export async function queueMessages(
 
 async function messageHold(
   db: PrismaClient,
-  input: { now: Date; window: SendWindow; caseId: string; messageId: string; maxPerDay: number },
+  input: { now: Date; window: SendWindow; caseId: string; messageId: string; maxPerDay: number; toAddress: string },
 ): Promise<{ notBefore: Date; detail: string } | null> {
   const outside = windowHold(input.now, input.window);
   if (outside.hold) return { notBefore: outside.notBefore, detail: outside.detail };
-  const used = await messagesUsedToday(db, input.caseId, input.now, input.messageId);
+  const used = await messagesUsedToday(db, input.caseId, input.now, input.messageId, input.toAddress);
   const capped = dayHold(input.now, input.window, used, input.maxPerDay);
   if (capped.hold) return { notBefore: capped.notBefore, detail: capped.detail };
   return null;
 }
 
-async function messagesUsedToday(db: PrismaClient, caseId: string, now: Date, excludeId: string): Promise<number> {
+async function messagesUsedToday(db: PrismaClient, caseId: string, now: Date, excludeId: string, toAddress = ""): Promise<number> {
   const { start, end } = istDayBounds(now);
   return db.odrMessage.count({
     where: {
       caseId,
+      ...(toAddress ? { toAddress } : {}),
       ...(excludeId ? { id: { not: excludeId } } : {}),
       OR: [
         { status: "SENT", updatedAt: { gte: start, lt: end } },
@@ -657,7 +739,17 @@ export async function scheduleHearingRecord(
   });
   const send = input.sendMessages !== false;
   if (send) {
-    await queueMessages(db, { ...input, hearingId: hearing.id, kind: input.kind });
+    const parties = await db.odrRespondent.findMany({ where: { caseId: input.caseId }, orderBy: { sortOrder: "asc" } });
+    for (const person of noticeRecipients({ mobile: input.mobile, email: input.email, parties })) {
+      await queueMessages(db, {
+        ...input,
+        hearingId: hearing.id,
+        kind: input.kind,
+        mobile: person.mobile,
+        email: person.email,
+        respondentId: person.respondentId,
+      });
+    }
   }
   await db.odrCase.update({
     where: { id: input.caseId },

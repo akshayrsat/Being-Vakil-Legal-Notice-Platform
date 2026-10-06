@@ -505,6 +505,7 @@ model OdrCase {
   hearings             OdrHearing[]
   messages             OdrMessage[]
   documents            OdrDocument[]
+  respondents          OdrRespondent[]
   statusEvents         OdrStatusEvent[]
   accessLogs           OdrAccessLog[]
   alerts               OdrAlert[]
@@ -533,6 +534,7 @@ model OdrHearing {
   attendanceSource String      @default("")
   attendanceNote   String      @default("")
   remindersSent    String      @default("[]")
+  partyAttendance  String      @default("{}")
   createdAt        DateTime    @default(now())
   updatedAt        DateTime    @updatedAt
   messages         OdrMessage[]
@@ -556,8 +558,9 @@ model OdrMessage {
   status      String
   detail      String      @default("")
   messageText String      @default("")
-  providerId  String      @default("")
-  notBefore   DateTime?
+  providerId   String      @default("")
+  respondentId String      @default("")
+  notBefore    DateTime?
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
 
@@ -566,6 +569,24 @@ model OdrMessage {
   @@index([hearingId])
   @@index([status])
   @@index([kind])
+}
+
+model OdrRespondent {
+  id          String   @id @default(cuid())
+  caseId      String
+  case        OdrCase  @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  bankId      String
+  name        String
+  role        String   @default("Co-borrower")
+  mobile      String   @default("")
+  email       String   @default("")
+  address     String   @default("")
+  publicToken String   @unique
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  @@index([caseId])
+  @@index([bankId])
 }
 
 model OdrDocument {
