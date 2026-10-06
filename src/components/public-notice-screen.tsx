@@ -6,7 +6,8 @@ import { NoticeLetterfoot, NoticeLetterhead, NoticeSignature } from "@/component
 import { NoticeVerifyForm } from "@/components/notice-verify-form";
 import { PrintLetterButton } from "@/components/print-letter-button";
 import { getCurrentUser } from "@/lib/auth";
-import { accountLast4 } from "@/lib/odr-ref";
+import { last4Challenge, MOBILE_LAST4_PROMPT } from "@/lib/odr-ref";
+import { noticeCustomerMobile } from "@/lib/public-notice";
 import { buildDemandNotice } from "@/lib/demand-notice";
 import { grievanceFooter } from "@/lib/grievance";
 import { legalNoticeParagraphs, usesStructuredDemand } from "@/lib/legal-notice-templates";
@@ -20,14 +21,14 @@ import {
 
 export async function PublicNoticeScreen({ noticeNumber }: { noticeNumber: string }) {
   const loaded = await loadNotice(noticeNumber);
-  if (loaded.kind === "locked") return <NoticeLocked noticeNumber={loaded.noticeNumber} canVerify={loaded.canVerify} />;
+  if (loaded.kind === "locked") return <NoticeLocked noticeNumber={loaded.noticeNumber} source={loaded.source} />;
   if (loaded.kind !== "ready") return <NoticeMissing kind={loaded.kind} />;
   return <PublicNoticeDocument notice={loaded.notice} />;
 }
 
 async function loadNotice(noticeNumber: string): Promise<
   | { kind: "empty" | "missing" | "error" }
-  | { kind: "locked"; noticeNumber: string; canVerify: boolean }
+  | { kind: "locked"; noticeNumber: string; source: "account" | "mobile" | "none" }
   | { kind: "ready"; notice: PublicNoticeView }
 > {
   try {
@@ -37,7 +38,11 @@ async function loadNotice(noticeNumber: string): Promise<
     if (!notice) return { kind: "missing" };
     const staff = await getCurrentUser();
     const granted = staff ? true : await noticeGrantMatches(normalized);
-    if (!granted) return { kind: "locked", noticeNumber: normalized, canVerify: Boolean(accountLast4(notice.loanNumber)) };
+    if (!granted) {
+      const mobile = await noticeCustomerMobile(normalized);
+      const challenge = last4Challenge(notice.loanNumber, mobile);
+      return { kind: "locked", noticeNumber: normalized, source: challenge?.source ?? "none" };
+    }
     if (!staff && shouldRecordNoticeView(await headers())) {
       await recordPublicNoticeOpen(normalized);
     }
@@ -48,7 +53,7 @@ async function loadNotice(noticeNumber: string): Promise<
   }
 }
 
-function NoticeLocked({ noticeNumber, canVerify }: { noticeNumber: string; canVerify: boolean }) {
+function NoticeLocked({ noticeNumber, source }: { noticeNumber: string; source: "account" | "mobile" | "none" }) {
   return (
     <main className="notice-screen">
       <div className="notice-stage">
@@ -56,10 +61,14 @@ function NoticeLocked({ noticeNumber, canVerify }: { noticeNumber: string; canVe
           <NoticeLetterhead />
           <h1 className="mt-8 font-serif text-3xl tracking-tight">Open your legal notice</h1>
           <p className="mt-3 text-base leading-7">
-            Enter the last 4 digits of the loan or card account number in the message you received. The name, address, and loan details stay hidden until that matches.
+            {source === "mobile"
+              ? MOBILE_LAST4_PROMPT
+              : "Enter the last 4 digits of the loan or card account number in the message you received. The name, address, and loan details stay hidden until that matches."}
           </p>
-          {canVerify ? <NoticeVerifyForm noticeNumber={noticeNumber} /> : (
+          {source === "none" ? (
             <p className="mt-4 text-sm">This notice cannot be opened online. Please call Being Vakil Associates.</p>
+          ) : (
+            <NoticeVerifyForm noticeNumber={noticeNumber} source={source} />
           )}
           <NoticeLetterfoot />
         </article>

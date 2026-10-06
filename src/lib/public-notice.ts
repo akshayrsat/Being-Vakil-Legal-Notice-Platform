@@ -6,6 +6,7 @@ import { logDesk } from "./desk-log";
 import { prisma } from "./db";
 import { tooManyAttempts } from "./rate-limit";
 import { demandNoticePlainText } from "./demand-notice";
+import { customerMobileFromDeliveries } from "./odr-ref";
 import { fillLegalNoticeDocument, isTextLegalNotice } from "./legal-notice-templates";
 import type { NoticeRecipient } from "./merge-notice";
 
@@ -234,6 +235,14 @@ export async function noticeLinkOpensByNumber(
       },
     ]),
   );
+}
+
+export async function noticeCustomerMobile(noticeNumber: string): Promise<string> {
+  const rows = await prisma.campaignDelivery.findMany({
+    where: { noticeNumber },
+    select: { channel: true, mobile: true },
+  });
+  return customerMobileFromDeliveries(rows);
 }
 
 export async function findPublicNotice(raw: string | undefined | null): Promise<PublicNoticeView | null> {
