@@ -150,9 +150,7 @@ function PublicNoticeDocument({ notice }: { notice: PublicNoticeView }) {
               <p key={paragraph}>{paragraph}</p>
             ))}
           </div>
-          <NoticeSignature bankName={notice.bankName} />
-          <GrievanceNote notice={notice} />
-          <NoticeLetterfoot />
+          <NoticeClosing notice={notice} />
         </article>
       </div>
     </main>
@@ -177,18 +175,26 @@ function FilledLegalNotice({ notice }: { notice: PublicNoticeView }) {
               </p>
             ))}
           </div>
-          <NoticeSignature bankName={notice.bankName} />
-          <GrievanceNote notice={notice} />
-          <NoticeLetterfoot />
+          <NoticeClosing notice={notice} />
         </article>
       </div>
     </main>
   );
 }
 
+function NoticeClosing({ notice }: { notice: PublicNoticeView }) {
+  return (
+    <div className="notice-closing">
+      <NoticeSignature bankName={notice.bankName} />
+      <GrievanceNote notice={notice} />
+      <NoticeLetterfoot />
+    </div>
+  );
+}
+
 function GrievanceNote({ notice }: { notice: PublicNoticeView }) {
   return (
-    <p className="notice-copy whitespace-pre-wrap text-sm leading-6">
+    <p className="notice-grievance whitespace-pre-wrap">
       {grievanceFooter({
         officerName: notice.grievanceOfficerName,
         officerPhone: notice.grievanceOfficerPhone,

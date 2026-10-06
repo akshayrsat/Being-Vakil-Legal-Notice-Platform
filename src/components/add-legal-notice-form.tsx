@@ -50,7 +50,7 @@ export function AddLegalNoticeForm() {
       </div>
       <p className="text-sm leading-6 text-muted-foreground">
         This notice is for every bank. Write {"{{bank_name}}"} where the bank should appear. The
-        letterhead and the advocate stamp stay on the page. Keep it short enough for one A4 page.
+        letterhead and the advocate stamp stay on the page. A longer notice continues on the next page.
       </p>
       <ul className="grid gap-1 text-sm text-muted-foreground sm:grid-cols-2">
         {FILL_INS.map(([label, token]) => (
