@@ -4,6 +4,8 @@ import type { PrismaClient } from "@prisma/client";
 import { prisma } from "./db";
 import { ODR_LIVE_SEND_SETTING_ID, effectiveOdrLiveSend } from "./odr-live";
 import { ODR_SETTINGS_ID, parseTemplateMap, type OdrTemplateMap } from "./odr-templates";
+import { CONSENT_DAYS_DEFAULT } from "./odr-consent";
+import { DEFAULT_SEND_WINDOW_END, DEFAULT_SEND_WINDOW_START, parseSendClock, validSendWindow } from "./send-window";
 
 export type OdrRules = {
   templates: OdrTemplateMap;
@@ -13,6 +15,13 @@ export type OdrRules = {
   reminderHourOn: boolean;
   maxNoShow: number;
   autoRescheduleDays: number;
+  sendWindowStart: string;
+  sendWindowEnd: string;
+  maxRemindersPerHearing: number;
+  maxMessagesPerDay: number;
+  sheetRetentionDays: number;
+  closedDataRetentionDays: number;
+  consentDays: number;
   liveStored: boolean;
   live: boolean;
 };
@@ -24,6 +33,13 @@ const DEFAULT_RULES: Omit<OdrRules, "templates" | "live" | "liveStored"> = {
   reminderHourOn: true,
   maxNoShow: 3,
   autoRescheduleDays: 0,
+  sendWindowStart: DEFAULT_SEND_WINDOW_START,
+  sendWindowEnd: DEFAULT_SEND_WINDOW_END,
+  maxRemindersPerHearing: 1,
+  maxMessagesPerDay: 1,
+  sheetRetentionDays: 30,
+  closedDataRetentionDays: 0,
+  consentDays: CONSENT_DAYS_DEFAULT,
 };
 
 export async function readOdrRules(db: PrismaClient = prisma): Promise<OdrRules> {
@@ -40,9 +56,29 @@ export async function readOdrRules(db: PrismaClient = prisma): Promise<OdrRules>
     reminderHourOn: settings?.reminderHourOn ?? DEFAULT_RULES.reminderHourOn,
     maxNoShow: clamp(settings?.maxNoShow, 1, 10, DEFAULT_RULES.maxNoShow),
     autoRescheduleDays: clamp(settings?.autoRescheduleDays, 0, 60, DEFAULT_RULES.autoRescheduleDays),
+    sendWindowStart: clockOr(settings?.sendWindowStart, DEFAULT_RULES.sendWindowStart),
+    sendWindowEnd: clockOr(settings?.sendWindowEnd, DEFAULT_RULES.sendWindowEnd),
+    maxRemindersPerHearing: clamp(settings?.maxRemindersPerHearing, 1, 5, DEFAULT_RULES.maxRemindersPerHearing),
+    maxMessagesPerDay: clamp(settings?.maxMessagesPerDay, 1, 5, DEFAULT_RULES.maxMessagesPerDay),
+    sheetRetentionDays: clamp(settings?.sheetRetentionDays, 1, 3650, DEFAULT_RULES.sheetRetentionDays),
+    closedDataRetentionDays: clamp(settings?.closedDataRetentionDays, 0, 3650, DEFAULT_RULES.closedDataRetentionDays),
+    consentDays: clamp(settings?.consentDays, 1, 90, DEFAULT_RULES.consentDays),
     liveStored,
     live: effectiveOdrLiveSend(liveRow?.enabled ?? null),
   };
+}
+
+function clockOr(value: string | null | undefined, fallback: string): string {
+  const clock = parseSendClock(value ?? "", fallback);
+  if (!clock) return fallback;
+  return clock;
+}
+
+export function sendWindowFromRules(rules: Pick<OdrRules, "sendWindowStart" | "sendWindowEnd">): { start: string; end: string } {
+  const start = clockOr(rules.sendWindowStart, DEFAULT_RULES.sendWindowStart);
+  const end = clockOr(rules.sendWindowEnd, DEFAULT_RULES.sendWindowEnd);
+  if (!validSendWindow(start, end)) return { start: DEFAULT_RULES.sendWindowStart, end: DEFAULT_RULES.sendWindowEnd };
+  return { start, end };
 }
 
 function clamp(value: number | null | undefined, min: number, max: number, fallback: number): number {

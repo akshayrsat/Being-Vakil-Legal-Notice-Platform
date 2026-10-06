@@ -53,8 +53,13 @@ export function autoSendAllowed(input: { flaggedExParte: boolean; noShowCount: n
 export function nextNoShowState(input: {
   noShowCount: number;
   maxNoShow: number;
-}): { noShowCount: number; flaggedExParte: boolean } {
+  matterType?: string;
+}): { noShowCount: number; flaggedExParte: boolean; considerFinalOpportunity: boolean } {
   const noShowCount = input.noShowCount + 1;
   const cap = input.maxNoShow > 0 ? input.maxNoShow : 3;
-  return { noShowCount, flaggedExParte: noShowCount >= cap };
+  return {
+    noShowCount,
+    flaggedExParte: false,
+    considerFinalOpportunity: input.matterType !== "MEDIATION" && noShowCount >= cap,
+  };
 }

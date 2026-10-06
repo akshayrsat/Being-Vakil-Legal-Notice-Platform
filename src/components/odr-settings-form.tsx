@@ -119,7 +119,44 @@ export function OdrTemplateForm({ rules, showIds }: { rules: OdrRules; showIds: 
           Send the hour-before reminder
         </label>
         <label className="flex flex-col gap-1 text-sm font-medium">
-          Maximum no-shows before ex parte review
+          Send from (IST)
+          <input name="sendWindowStart" type="time" required defaultValue={rules.sendWindowStart} className={field} />
+        </label>
+        <label className="flex flex-col gap-1 text-sm font-medium">
+          Send until (IST)
+          <input name="sendWindowEnd" type="time" required defaultValue={rules.sendWindowEnd} className={field} />
+        </label>
+        <label className="flex flex-col gap-1 text-sm font-medium">
+          Automatic reminders per hearing
+          <input name="maxRemindersPerHearing" type="number" min={1} max={5} defaultValue={rules.maxRemindersPerHearing} className={field} />
+        </label>
+        <label className="flex flex-col gap-1 text-sm font-medium">
+          Messages per customer per day
+          <input name="maxMessagesPerDay" type="number" min={1} max={5} defaultValue={rules.maxMessagesPerDay} className={field} />
+        </label>
+        <p className="text-sm leading-6 text-muted-foreground sm:col-span-2">
+          ODR messages, and a legal notice confirmed outside these hours, wait until the next opening. An automatic reminder uses one channel. Nothing extra goes out once the daily cap is reached. ODR sending stays off until you turn it on.
+        </p>
+        <label className="flex flex-col gap-1 text-sm font-medium">
+          Keep an unused spreadsheet (days)
+          <input name="sheetRetentionDays" type="number" min={1} max={3650} defaultValue={rules.sheetRetentionDays} className={field} />
+        </label>
+        <label className="flex flex-col gap-1 text-sm font-medium">
+          Clear personal data after a case is closed (days, 0 is off)
+          <input name="closedDataRetentionDays" type="number" min={0} max={3650} defaultValue={rules.closedDataRetentionDays} className={field} />
+        </label>
+        <p className="text-sm leading-6 text-muted-foreground sm:col-span-2">
+          Uploads keep only the columns you map. A full card number is stored as the last 4 digits, and a 12-digit Aadhaar number is never stored. The raw spreadsheet is deleted when the cases or notices are created, or after the number of days above if it is still sitting here. Closed-case clearing is off until you set a number of days. That removes the customer’s name, contact, address, and account from the case. It does not delete the case itself.
+        </p>
+        <label className="flex flex-col gap-1 text-sm font-medium">
+          Days to accept or choose an arbitrator
+          <input name="consentDays" type="number" min={1} max={90} defaultValue={rules.consentDays} className={field} />
+        </label>
+        <p className="text-sm leading-6 text-muted-foreground sm:col-span-2">
+          The days run from the first notice. If the customer has not accepted the named arbitrator or chosen one from the panel by then, or if they object, the case warns that there is no valid appointment consent. ODR sending stays off until you turn it on.
+        </p>
+        <label className="flex flex-col gap-1 text-sm font-medium">
+          Maximum no-shows before a final-opportunity alert
           <input name="maxNoShow" type="number" min={1} max={10} defaultValue={rules.maxNoShow} className={field} />
         </label>
         <label className="flex flex-col gap-1 text-sm font-medium">

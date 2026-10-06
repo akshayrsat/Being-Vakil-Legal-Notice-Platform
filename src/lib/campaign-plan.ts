@@ -2,6 +2,7 @@
 
 import { fillNotice, noticePlainText, valuesForRecipient, type NoticeRecipient } from "./merge-notice";
 import { emailNoticeText } from "./email-notice";
+import { withGrievanceFooter, type GrievanceInfo } from "./grievance";
 import { noticePublicUrl, smsNoticeText, withNoticeLink } from "./notice-link";
 
 export const SEND_CHANNELS = ["SMS", "EMAIL", "WHATSAPP"] as const;
@@ -34,6 +35,7 @@ export function planDeliveries(
   bankName: string,
   templateBody: string,
   noticeNumbers?: ReadonlyMap<string, string>,
+  grievance?: GrievanceInfo,
 ): PlannedDelivery[] {
   const planned: PlannedDelivery[] = [];
 
@@ -67,7 +69,7 @@ export function planDeliveries(
           : "",
         messageText: missing
           ? ""
-          : messageForChannel(channel, filled, row, bankName, noticeNumber),
+          : messageForChannel(channel, filled, row, bankName, noticeNumber, grievance),
         noticeNumber,
       });
     }
@@ -82,19 +84,19 @@ function messageForChannel(
   row: PlanRow,
   bankName: string,
   noticeNumber: string,
+  grievance?: GrievanceInfo,
 ): string {
-  if (channel === "SMS" && noticeNumber) {
-    return smsNoticeText({ customerName: row.customerName, bankName, noticeNumber });
-  }
-  if (channel === "EMAIL" && noticeNumber) {
-    return emailNoticeText({
-      customerName: row.customerName,
-      bankName,
-      noticeNumber,
-      dated: new Date(),
-    });
-  }
-  return withNoticeLink(filled, noticeNumber);
+  const text = channel === "SMS" && noticeNumber
+    ? smsNoticeText({ customerName: row.customerName, bankName, noticeNumber })
+    : channel === "EMAIL" && noticeNumber
+      ? emailNoticeText({
+          customerName: row.customerName,
+          bankName,
+          noticeNumber,
+          dated: new Date(),
+        })
+      : withNoticeLink(filled, noticeNumber);
+  return grievance ? withGrievanceFooter(text, grievance) : text;
 }
 
 export function isSendChannel(value: string): value is SendChannel {

@@ -69,6 +69,7 @@ export type PaperCase = {
   refNo: string;
   customerName: string;
   coParties: string;
+  respondents?: Array<{ name: string; role: string; mobile: string; email: string; address: string }>;
   accountNumber: string;
   branch: string;
   mobile: string;
@@ -93,6 +94,8 @@ export type PaperCase = {
   documents: PaperDocument[];
   speedPosts: PaperPost[];
   agreementSeat?: string;
+  appointmentParagraph?: string;
+  appointmentDate?: string;
 };
 
 const MONTHS = [
@@ -195,12 +198,18 @@ export function splitParties(raw: string): string[] {
 
 export function exParteSwitch(input: {
   exParte: boolean;
-  flaggedExParte: boolean;
-  hearings: Array<{ attendance: string }>;
+  flaggedExParte?: boolean;
+  hearings?: Array<{ attendance: string }>;
 }): boolean {
-  if (input.exParte || input.flaggedExParte) return true;
-  const held = input.hearings.filter((hearing) => hearing.attendance === "JOINED" || hearing.attendance === "NO_SHOW");
-  return held.length > 0 && held.every((hearing) => hearing.attendance !== "JOINED");
+  return input.exParte;
+}
+
+export function exParteAwardError(input: { exParte: boolean; documents: string[] }): string {
+  if (!input.exParte) return "";
+  const hasNotice = input.documents.includes("FINAL_OPPORTUNITY");
+  const hasOrder = input.documents.includes("EX_PARTE_ORDER");
+  if (hasNotice && hasOrder) return "";
+  return "An ex parte award needs the final-opportunity notice and the arbitrator’s ex parte order on the case.";
 }
 
 export function isPaperDraft(kind: string): boolean {
@@ -342,28 +351,39 @@ function exhibitRows(item: PaperCase): PaperRow[] {
     }));
 }
 
+function respondentSource(item: PaperCase): Array<{ name: string; role: string; mobile: string; email: string; address: string }> {
+  if (item.respondents && item.respondents.length > 0) return item.respondents;
+  return splitParties(item.coParties).map((name) => ({
+    name,
+    role: "Co-borrower",
+    mobile: "",
+    email: "",
+    address: "",
+  }));
+}
+
 export function defaultCoRespondents(item: PaperCase): PaperRow[] {
-  return splitParties(item.coParties).map((name, index) => ({
+  return respondentSource(item).map((party, index) => ({
     co_respondent_no: String(index + 2),
-    co_respondent_name: name,
-    co_respondent_capacity: "Co-borrower",
-    co_respondent_address: "",
+    co_respondent_name: party.name,
+    co_respondent_capacity: party.role,
+    co_respondent_address: party.address,
     co_respondent_pan: "",
-    co_respondent_mobile: "",
-    co_respondent_email: "",
+    co_respondent_mobile: party.mobile,
+    co_respondent_email: party.email,
   }));
 }
 
 export function defaultObligors(item: PaperCase): PaperRow[] {
-  return splitParties(item.coParties).map((name) => ({
-    obligor_name: name,
-    obligor_capacity: "Co-Borrower",
+  return respondentSource(item).map((party) => ({
+    obligor_name: party.name,
+    obligor_capacity: party.role,
     obligor_age: "",
-    obligor_address: "",
+    obligor_address: party.address,
     obligor_pan: "",
     obligor_aadhaar_last4: "",
-    obligor_mobile: "",
-    obligor_email: "",
+    obligor_mobile: party.mobile,
+    obligor_email: party.email,
     obligor_sign_date: "",
     obligor_sign_mode: "",
   }));
@@ -409,6 +429,9 @@ export function prefillFields(item: PaperCase, paper: PaperStore, kind: PaperKin
     claimant_counsel_name: item.bankCounsel,
     payee_account_no: item.paymentInfo,
     seat_city: item.agreementSeat?.trim() ?? "",
+    appointment_mode: item.appointmentParagraph?.trim() ?? "",
+    appointment_date: item.appointmentDate?.trim() ?? "",
+    consent_date: item.appointmentDate?.trim() ?? "",
     pendente_lite_rate: "",
     post_award_rate: "",
     ex_parte: exParte ? "true" : "false",
@@ -430,6 +453,11 @@ export function prefillFields(item: PaperCase, paper: PaperStore, kind: PaperKin
     merged.seat_city = item.agreementSeat?.trim() ?? "";
     merged.pendente_lite_rate = "";
     merged.post_award_rate = "";
+  }
+  if (item.appointmentParagraph?.trim()) merged.appointment_mode = item.appointmentParagraph.trim();
+  if (item.appointmentDate?.trim()) {
+    merged.appointment_date = item.appointmentDate.trim();
+    merged.consent_date = item.appointmentDate.trim();
   }
   return merged;
 }
@@ -685,7 +713,7 @@ export const AWARD_FIELDS: PaperField[] = [
   field("cc_other_allowed", "Other card fees allowed", "Credit card figures"),
   field("cc_credits_claimed", "Card credits claimed", "Credit card figures"),
   field("cc_credits_allowed", "Card credits allowed", "Credit card figures"),
-  field("award_amount", "Amount found due", "Claim"),
+  field("award_amount", "Amount found due", "Arbitrator’s input", "text", "The arbitrator’s figure. Staff may type it. Saving records who entered it."),
   field("respondent_pan", "Customer PAN", "Defence"),
   field("respondent_address", "Customer address", "Defence"),
   field("sod_due_date", "Defence deadline", "Defence", "date"),
@@ -699,7 +727,10 @@ export const AWARD_FIELDS: PaperField[] = [
   field("claimant_rejoinder_summary", "Rejoinder summary", "Defence", "textarea"),
   field("respondent_evidence_summary", "Evidence led", "Defence", "textarea"),
   field("final_arguments_date", "Final arguments date", "Defence", "date"),
-  field("tribunal_reasons_on_defence", "Arbitrator’s reasons", "Defence", "textarea"),
+  field("tribunal_reasons_on_defence", "Arbitrator’s reasons", "Arbitrator’s input", "textarea", "The arbitrator’s reasons. Staff may type them. Saving records who entered them."),
+  field("arbitrator_approved_by", "Approved by arbitrator", "Arbitrator’s input", "text", "The arbitrator’s name. This is the approval record."),
+  field("arbitrator_approved_on", "Arbitrator approved on", "Arbitrator’s input", "date"),
+  field("arbitrator_entered_by", "Entered by", "Arbitrator’s input", "text", "Filled with the staff member who saved these figures."),
   field("disallowed_items_note", "Anything reduced or disallowed", "Defence", "textarea"),
   field("co_respondent_liability_note", "Note on a guarantor’s limit", "Defence", "textarea"),
   field("pendente_lite_rate", "Pendente lite interest % per year", "Before you generate", "text", "Required. Leave this empty until you type the rate the arbitrator has fixed. There is no default.", true),
@@ -804,7 +835,7 @@ export const SETTLEMENT_FIELDS: PaperField[] = [
 ];
 
 export const AWARD_FLAGS: PaperFlag[] = [
-  { key: "ex_parte", label: "Proceed ex parte", group: "Defence", hint: "On when the case is flagged, or the customer never joined a hearing. You can change it." },
+  { key: "ex_parte", label: "Proceed ex parte", group: "Defence", hint: "Only after the arbitrator’s ex parte order and a final-opportunity notice are on the case. A no-show does not turn this on." },
   { key: "time_extended", label: "Section 29A time was extended", group: "Signing" },
 ];
 

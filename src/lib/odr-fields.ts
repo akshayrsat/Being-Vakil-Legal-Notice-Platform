@@ -1,5 +1,6 @@
 // Spreadsheet columns for an ODR upload. Customer name and the account number are required.
 
+import { redactCell } from "./data-min";
 import { normalizeHeader } from "./sheet-fields";
 
 export const ODR_FIELD_GROUPS = ["Case", "Customer", "Amounts"] as const;
@@ -8,6 +9,16 @@ export type OdrFieldKey =
   | "refNo"
   | "customerName"
   | "coParties"
+  | "co1Name"
+  | "co1Role"
+  | "co1Mobile"
+  | "co1Email"
+  | "co1Address"
+  | "co2Name"
+  | "co2Role"
+  | "co2Mobile"
+  | "co2Email"
+  | "co2Address"
   | "accountNumber"
   | "branch"
   | "mobile"
@@ -25,6 +36,10 @@ export type OdrSheetField = {
   required: boolean;
   aliases: string[];
 };
+
+function partyField(key: OdrFieldKey, label: string, aliases: string[]): OdrSheetField {
+  return { key, label, group: "Customer", required: false, aliases };
+}
 
 export const ODR_SHEET_FIELDS: OdrSheetField[] = [
   {
@@ -51,10 +66,18 @@ export const ODR_SHEET_FIELDS: OdrSheetField[] = [
       "co-borrowers/guarantors",
       "co borrowers",
       "guarantors",
-      "co borrower name",
-      "guarantor name",
     ],
   },
+  partyField("co1Name", "Co-party 1 name", ["co party 1 name", "co borrower 1 name", "co-borrower name", "co borrower name"]),
+  partyField("co1Role", "Co-party 1 role", ["co party 1 role", "co borrower role", "capacity"]),
+  partyField("co1Mobile", "Co-party 1 mobile", ["co party 1 mobile", "co borrower mobile", "co-borrower mobile"]),
+  partyField("co1Email", "Co-party 1 email", ["co party 1 email", "co borrower email", "co-borrower email"]),
+  partyField("co1Address", "Co-party 1 address", ["co party 1 address", "co borrower address", "co-borrower address"]),
+  partyField("co2Name", "Co-party 2 name", ["co party 2 name", "guarantor name", "guarantor 1 name"]),
+  partyField("co2Role", "Co-party 2 role", ["co party 2 role", "guarantor role"]),
+  partyField("co2Mobile", "Co-party 2 mobile", ["co party 2 mobile", "guarantor mobile"]),
+  partyField("co2Email", "Co-party 2 email", ["co party 2 email", "guarantor email"]),
+  partyField("co2Address", "Co-party 2 address", ["co party 2 address", "guarantor address"]),
   {
     key: "accountNumber",
     label: "Loan/card account no",
@@ -215,6 +238,16 @@ export type OdrMappedRow = {
   refNo: string;
   customerName: string;
   coParties: string;
+  co1Name: string;
+  co1Role: string;
+  co1Mobile: string;
+  co1Email: string;
+  co1Address: string;
+  co2Name: string;
+  co2Role: string;
+  co2Mobile: string;
+  co2Email: string;
+  co2Address: string;
   accountNumber: string;
   branch: string;
   mobile: string;
@@ -230,7 +263,7 @@ export type OdrMappedRow = {
 function cell(headers: string[], row: string[], header: string): string {
   const index = headers.indexOf(header);
   if (index < 0) return "";
-  return (row[index] ?? "").trim().slice(0, 2000);
+  return redactCell((row[index] ?? "").trim().slice(0, 2000));
 }
 
 export function mapOdrRows(headers: string[], rows: string[][], mapping: OdrFieldMapping): OdrMappedRow[] {
@@ -241,6 +274,16 @@ export function mapOdrRows(headers: string[], rows: string[][], mapping: OdrFiel
       refNo: read("refNo"),
       customerName: read("customerName"),
       coParties: read("coParties"),
+      co1Name: read("co1Name"),
+      co1Role: read("co1Role"),
+      co1Mobile: read("co1Mobile"),
+      co1Email: read("co1Email"),
+      co1Address: read("co1Address"),
+      co2Name: read("co2Name"),
+      co2Role: read("co2Role"),
+      co2Mobile: read("co2Mobile"),
+      co2Email: read("co2Email"),
+      co2Address: read("co2Address"),
       accountNumber: read("accountNumber"),
       branch: read("branch"),
       mobile: read("mobile"),

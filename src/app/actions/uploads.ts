@@ -13,6 +13,7 @@ import {
 import { uploadBatchWhere } from "@/lib/bank-data";
 import { workingBank } from "@/lib/bank-context";
 import { prisma } from "@/lib/db";
+import { keepMappedColumns, redactSheet } from "@/lib/data-min";
 import { parseXlsx, SheetReadError } from "@/lib/parse-xlsx";
 import { canSendNotices } from "@/lib/roles";
 
@@ -69,12 +70,13 @@ export async function uploadExcel(
     throw error;
   }
 
+  const stored = redactSheet(parsed.headers, parsed.rows);
   const batch = await prisma.uploadBatch.create({
     data: {
       bankId: scope.bank.id,
       fileName,
-      headers: JSON.stringify(parsed.headers),
-      rawRows: JSON.stringify(parsed.rows),
+      headers: JSON.stringify(stored.headers),
+      rawRows: JSON.stringify(stored.rows),
     },
   });
 
@@ -162,12 +164,15 @@ export async function saveMapping(
       for (let index = 0; index < rows.length; index += 200) {
         await tx.recipientRow.createMany({ data: rows.slice(index, index + 200) });
       }
+      const kept = keepMappedColumns(headers, rawRows, Object.values(mapping));
       await tx.uploadBatch.update({
         where: { id: batch.id },
         data: {
           saved: true,
           rowCount: recipients.length,
           mappingUsed: storedMapping,
+          headers: JSON.stringify(kept.headers),
+          rawRows: JSON.stringify(kept.rows),
         },
       });
       await tx.bankColumnMap.upsert({

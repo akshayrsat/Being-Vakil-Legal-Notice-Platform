@@ -1,15 +1,22 @@
 // The list of client banks. Only Admin should be shown this list.
 
 import { selectBank, setAttachNoticePdf, setBankActive } from "@/app/actions/banks";
+import { BankGrievanceForm } from "@/components/bank-grievance-form";
+import { BankRepresentativesForm } from "@/components/bank-representatives-form";
 import { Button } from "@/components/ui/button";
 import { bankStatusLabel, type BankSnapshot } from "@/lib/banks";
+import { grievanceFooter, type GrievanceInfo } from "@/lib/grievance";
 
 export function BankList({
   banks,
   currentBankId,
   canManage = false,
 }: {
-  banks: Array<BankSnapshot & { attachNoticePdf: boolean }>;
+  banks: Array<
+    BankSnapshot & { attachNoticePdf: boolean } & GrievanceInfo & {
+      representatives: Array<{ id: string; name: string; email: string; mobile: string }>;
+    }
+  >;
   currentBankId: string | null;
   canManage?: boolean;
 }) {
@@ -81,6 +88,18 @@ export function BankList({
                   : "Live emails do not attach a PDF. This is the default."}
               </p>
             ) : null}
+            <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-muted-foreground">{grievanceFooter(bank)}</p>
+            {canManage ? (
+              <BankGrievanceForm
+                bankId={bank.id}
+                officerName={bank.officerName}
+                officerPhone={bank.officerPhone}
+                officerEmail={bank.officerEmail}
+                ombudsman={bank.ombudsman}
+                wordingApprovedOn={bank.wordingApprovedOn}
+              />
+            ) : null}
+            <BankRepresentativesForm bankId={bank.id} people={bank.representatives} />
           </li>
         );
       })}

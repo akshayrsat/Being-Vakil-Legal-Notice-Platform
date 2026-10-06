@@ -6,11 +6,12 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import PDFDocument from "pdfkit";
 import { buildDemandNotice, type DemandNoticeInput } from "./demand-notice";
+import { grievanceFooter, type GrievanceInfo } from "./grievance";
 import { isTextLegalNotice, legalNoticeParagraphs } from "./legal-notice-templates";
 import { FIRM_ADDRESS, FIRM_NAME, FIRM_TAGLINE } from "./letterhead";
 
 export async function renderNoticePdf(
-  input: DemandNoticeInput & { documentFormat?: string; filledBody?: string },
+  input: DemandNoticeInput & { documentFormat?: string; filledBody?: string; grievance?: GrievanceInfo },
 ): Promise<Buffer> {
   const notice = isTextLegalNotice(input.documentFormat ?? "") ? null : buildDemandNotice(input);
   const header = await readOptional("letterhead-header.png");
@@ -73,6 +74,10 @@ export async function renderNoticePdf(
     if (stamp) {
       doc.moveDown(0.2);
       doc.image(stamp, { fit: [160, 90] });
+    }
+    if (input.grievance) {
+      doc.moveDown(0.4);
+      doc.font("Times-Roman").fontSize(10).text(grievanceFooter(input.grievance));
     }
     doc.moveDown(0.3);
     doc.text("Adv Shweta Sudhir");

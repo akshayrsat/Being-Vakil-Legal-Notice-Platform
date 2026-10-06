@@ -1,6 +1,7 @@
 // ODR lists and the one-row-per-person Excel. A missing bank id matches nothing.
 
 import { requiredBankId } from "./bank-data";
+import { redactCell } from "./data-min";
 import { formatIndiaDateTime, indiaDayRange } from "./india-day";
 import { isOdrMatter, isOdrStatus, odrMatterLabel, odrStatusLabel } from "./odr-status";
 
@@ -177,7 +178,7 @@ export function buildOdrExportRows(rows: OdrExportSource[], bankId: string): { c
       row.refNo,
       row.bankName,
       row.customerName,
-      row.accountNumber,
+      redactCell(row.accountNumber),
       odrMatterLabel(row.matterType),
       row.neutralName,
       String(ordered.length),

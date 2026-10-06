@@ -7,6 +7,7 @@ import { EmptyState } from "@/components/empty-state";
 import { buttonVariants } from "@/components/ui/button";
 import { getCurrentUser } from "@/lib/auth";
 import { workingBank } from "@/lib/bank-context";
+import { redactCell } from "@/lib/data-min";
 import { prisma } from "@/lib/db";
 import { formatHearingDate, formatHearingTime } from "@/lib/odr-ref";
 import { odrCaseWhere, odrFiltersApplied, odrFiltersToSearch, readOdrFilters } from "@/lib/odr-reports";
@@ -46,6 +47,9 @@ export default async function OdrCasesPage({
               ? `Cases for ${bank.name}. You can open a case, schedule a hearing, and update the status.`
               : `Cases for ${bank.name}. You can look. You cannot change a case or see another bank.`
             : "Choose a bank first."}
+        </p>
+        <p className="mt-3">
+          <Link href="/odr/today" className="text-sm underline">Today’s hearings</Link>
         </p>
       </div>
       {!bank ? (
@@ -163,7 +167,7 @@ async function CaseTable({
                   </Link>
                 </td>
                 <td className="px-3 py-2">{item.customerName}</td>
-                <td className="px-3 py-2">{item.accountNumber}</td>
+                <td className="px-3 py-2">{redactCell(item.accountNumber)}</td>
                 <td className="px-3 py-2">{odrMatterLabel(item.matterType)}</td>
                 <td className="px-3 py-2">{item.neutralName || "—"}</td>
                 <td className="px-3 py-2">
@@ -178,7 +182,7 @@ async function CaseTable({
                 ) : null}
                 <td className="px-3 py-2">
                   {odrStatusLabel(item.status)}
-                  {item.exParte || item.flaggedExParte ? " · Ex parte" : ""}
+                  {item.matterType !== "MEDIATION" && item.exParte ? " · Ex parte" : ""}
                 </td>
               </tr>
             );

@@ -53,6 +53,13 @@ model Bank {
   // When true, a live email also attaches a PDF of that notice. Default off.
   // The clickable notice link in the email is unchanged.
   attachNoticePdf Boolean    @default(false)
+  grievanceOfficerName  String @default("")
+  grievanceOfficerPhone String @default("")
+  grievanceOfficerEmail String @default("")
+  grievanceOmbudsman    String @default("")
+  wordingApprovedOn     String @default("")
+  odrPanel        OdrBankPanel[]
+  representatives BankRepresentative[]
   createdAt  DateTime       @default(now())
 }
 
@@ -274,6 +281,8 @@ model CampaignDelivery {
   noticeNumber   String         @default("")
   // First MSG91 email open (or WhatsApp read). Null until the webhook reports it.
   openedAt       DateTime?
+  // Set when a live confirm happened outside 09:00–18:30 IST. The cron sends it later.
+  notBefore      DateTime?
 
   @@index([campaignId])
   @@index([providerId])
@@ -409,12 +418,59 @@ model AuditEvent {
 model OdrNeutral {
   id            String    @id @default(cuid())
   name          String
+  email         String    @default("")
+  mobile        String    @default("")
   qualification String    @default("")
   enrolmentNo   String    @default("")
   active        Boolean   @default(true)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   cases         OdrCase[]
+  panelSeats    OdrBankPanel[]
+  edits         OdrNeutralEdit[]
+}
+
+// Who changed an arbitrator or mediator, and when. The contact used for invites
+// and notices is always the current row, not a copy from an old edit.
+model OdrNeutralEdit {
+  id        String     @id @default(cuid())
+  neutralId String
+  neutral   OdrNeutral @relation(fields: [neutralId], references: [id], onDelete: Cascade)
+  actorId   String     @default("")
+  actorName String
+  actorRole String     @default("")
+  summary   String
+  createdAt DateTime   @default(now())
+
+  @@index([neutralId])
+}
+
+// People from the bank who are invited to the hearing. The customer is not in this list.
+model BankRepresentative {
+  id        String   @id @default(cuid())
+  bankId    String
+  bank      Bank     @relation(fields: [bankId], references: [id], onDelete: Cascade)
+  name      String
+  email     String
+  mobile    String   @default("")
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([bankId])
+}
+
+// Names the customer may choose after the dispute, for one bank. At least three.
+model OdrBankPanel {
+  id        String     @id @default(cuid())
+  bankId    String
+  bank      Bank       @relation(fields: [bankId], references: [id], onDelete: Cascade)
+  neutralId String
+  neutral   OdrNeutral @relation(fields: [neutralId], references: [id], onDelete: Cascade)
+  sortOrder Int        @default(0)
+  createdAt DateTime   @default(now())
+
+  @@unique([bankId, neutralId])
+  @@index([bankId])
 }
 
 model OdrBatch {
@@ -492,6 +548,12 @@ model OdrCase {
   bankCounsel          String         @default("")
   bankContact          String         @default("")
   paymentInfo          String         @default("")
+  claimReference       String         @default("")
+  defenceDeadline      String         @default("")
+  appointmentMode      String         @default("")
+  nominatedNeutralId   String         @default("")
+  nominatedNeutralName String         @default("")
+  firstNoticeAt        DateTime?
   paperJson            String         @default("{}")
   rescheduleNote       String         @default("")
   reschedulePreferred  String         @default("")
@@ -501,9 +563,11 @@ model OdrCase {
   hearings             OdrHearing[]
   messages             OdrMessage[]
   documents            OdrDocument[]
+  respondents          OdrRespondent[]
   statusEvents         OdrStatusEvent[]
   accessLogs           OdrAccessLog[]
   alerts               OdrAlert[]
+  consents             OdrConsent[]
 
   @@index([bankId])
   @@index([batchId])
@@ -529,6 +593,11 @@ model OdrHearing {
   attendanceSource String      @default("")
   attendanceNote   String      @default("")
   remindersSent    String      @default("[]")
+  partyAttendance  String      @default("{}")
+  guestInviteNote  String      @default("")
+  spaceName        String      @default("")
+  invitedGuests    String      @default("[]")
+  guestAttendance  String      @default("[]")
   createdAt        DateTime    @default(now())
   updatedAt        DateTime    @updatedAt
   messages         OdrMessage[]
@@ -552,7 +621,9 @@ model OdrMessage {
   status      String
   detail      String      @default("")
   messageText String      @default("")
-  providerId  String      @default("")
+  providerId   String      @default("")
+  respondentId String      @default("")
+  notBefore    DateTime?
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
 
@@ -561,6 +632,24 @@ model OdrMessage {
   @@index([hearingId])
   @@index([status])
   @@index([kind])
+}
+
+model OdrRespondent {
+  id          String   @id @default(cuid())
+  caseId      String
+  case        OdrCase  @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  bankId      String
+  name        String
+  role        String   @default("Co-borrower")
+  mobile      String   @default("")
+  email       String   @default("")
+  address     String   @default("")
+  publicToken String   @unique
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  @@index([caseId])
+  @@index([bankId])
 }
 
 model OdrDocument {
@@ -576,6 +665,29 @@ model OdrDocument {
   uploaderName String   @default("")
   note         String   @default("")
   createdAt    DateTime @default(now())
+
+  @@index([caseId])
+  @@index([bankId])
+}
+
+// One row, written once. Later choices do not change it.
+model OdrConsent {
+  id                String   @id @default(cuid())
+  caseId            String
+  case              OdrCase  @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  bankId            String
+  choice            String
+  typedName         String   @default("")
+  chosenNeutralId   String   @default("")
+  chosenNeutralName String   @default("")
+  objection         String   @default("")
+  shownText         String
+  recordedAt        DateTime
+  recordedAtIst     String   @default("")
+  ip                String   @default("")
+  userAgent         String   @default("")
+  documentId        String   @default("")
+  createdAt         DateTime @default(now())
 
   @@index([caseId])
   @@index([bankId])
@@ -612,6 +724,16 @@ model OdrAccessLog {
 
   @@index([caseId])
   @@index([createdAt])
+}
+
+model NoticeVerifyGrant {
+  id           String   @id @default(cuid())
+  token        String   @unique
+  noticeNumber String
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+
+  @@index([noticeNumber])
 }
 
 model OdrVerifyGrant {
@@ -656,5 +778,12 @@ model OdrSettings {
   reminderHourOn      Boolean  @default(true)
   maxNoShow           Int      @default(3)
   autoRescheduleDays  Int      @default(0)
+  sendWindowStart     String   @default("09:00")
+  sendWindowEnd       String   @default("18:30")
+  maxRemindersPerHearing Int   @default(1)
+  maxMessagesPerDay   Int      @default(1)
+  sheetRetentionDays  Int      @default(30)
+  closedDataRetentionDays Int  @default(0)
+  consentDays         Int      @default(15)
   updatedAt           DateTime @updatedAt
 }

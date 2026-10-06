@@ -2,6 +2,7 @@
 
 import type { Prisma } from "@prisma/client";
 import { planDeliveries, type SendChannel } from "./campaign-plan";
+import { grievanceFromBank, grievanceSelect } from "./grievance";
 import type { NoticeRecipient } from "./merge-notice";
 import { assignNoticeNumbers, buildNoticeDraft } from "./public-notice";
 
@@ -57,12 +58,17 @@ export async function writePreparedDeliveries(
   }
 
   const noticeNumbers = new Map(drafts.map((draft) => [draft.recipientRowId, draft.noticeNumber]));
+  const bank = await db.bank.findUnique({
+    where: { id: input.bankId },
+    select: grievanceSelect,
+  });
   const planned = planDeliveries(
     rows,
     input.channels,
     input.bankName,
     input.templateBody,
     noticeNumbers,
+    bank ? grievanceFromBank(bank) : undefined,
   ).filter((row) => !input.include || input.include.has(`${row.recipientRowId}:${row.channel}`));
   const deliveries = planned.map((row) => ({
     campaignId: input.campaignId,

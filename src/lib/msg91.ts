@@ -311,6 +311,7 @@ async function deliverEmail(authKey: string, request: DeliveryRequest): Promise<
           notice_id: noticeLink,
           notice_link: noticeLink,
           notice_code: noticeCode || noticeLink,
+          grievance_footer: request.email?.grievance_footer?.trim() ?? "",
         },
       },
     ],

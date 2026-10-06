@@ -22,6 +22,10 @@ import { tooManyAttempts } from "@/lib/rate-limit";
 import { ensureStarterLegalNotice } from "@/lib/legal-notice-templates";
 import { isOwnerAdmin } from "@/lib/owner-admin";
 import { canSendNotices } from "@/lib/roles";
+import { readOdrRules, sendWindowFromRules } from "@/lib/odr-store";
+import { windowHold } from "@/lib/send-window";
+import { EMPTY_SHEET } from "@/lib/data-min";
+import { grievanceFooter, grievanceFromBank, grievanceSelect } from "@/lib/grievance";
 import {
   isApprovedTemplateStatus,
   sendScope,
@@ -142,6 +146,7 @@ export async function createCampaign(
         channels,
         legalNotice: { format: legalNotice.format, body: legalNotice.body },
       });
+      await tx.uploadBatch.update({ where: { id: batch.id }, data: EMPTY_SHEET });
       return created;
     },
     { timeout: 30000 },
@@ -362,7 +367,7 @@ async function finishLiveSend(
 
   const bank = await prisma.bank.findFirst({
     where: { id: bankId },
-    select: { name: true, attachNoticePdf: true },
+    select: { name: true, attachNoticePdf: true, ...grievanceSelect },
   });
   const bankName = bank?.name ?? "";
   const attachPdf = bank?.attachNoticePdf === true;
@@ -377,6 +382,7 @@ async function finishLiveSend(
     if (busy > 0) return false;
   }
 
+  const sendWindow = sendWindowFromRules(await readOdrRules());
   let attempted = 0;
   let failed = 0;
   for (const row of pending) {
@@ -387,6 +393,14 @@ async function finishLiveSend(
     if (claim.count !== 1) continue;
     attempted += 1;
     logDesk("send.claim", { campaignId, deliveryId: row.id, channel: row.channel });
+    const held = windowHold(new Date(), sendWindow);
+    if (held.hold) {
+      await prisma.campaignDelivery.updateMany({
+        where: { id: row.id, campaignId, bankId, status: "QUEUED" },
+        data: { status: "QUEUED", notBefore: held.notBefore, detail: held.detail },
+      });
+      continue;
+    }
 
     const channel = row.channel as SendChannel;
     const to = channel === "EMAIL" ? row.email : row.mobile;
@@ -423,6 +437,7 @@ async function finishLiveSend(
                   customerName: row.customerName,
                   loanAccount: row.loanNumber,
                   noticeNumber: row.noticeNumber,
+                  grievanceFooter: bank ? grievanceFooter(grievanceFromBank(bank)) : "",
                 })
               : undefined,
           whatsapp:
@@ -485,6 +500,7 @@ async function emailPdfAttachment(
     return { ok: false, error: "Notice PDF is on for this bank, but the notice record is missing. Nothing was sent." };
   }
   try {
+    const bank = await prisma.bank.findFirst({ where: { id: bankId }, select: grievanceSelect });
     const pdf = await renderNoticePdf({
       customerName: notice.customerName,
       address: notice.address,
@@ -500,6 +516,7 @@ async function emailPdfAttachment(
       dated: notice.createdAt,
       documentFormat: notice.documentFormat,
       filledBody: notice.body,
+      grievance: bank ? grievanceFromBank(bank) : undefined,
     });
     return {
       ok: true,

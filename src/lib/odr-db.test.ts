@@ -84,6 +84,13 @@ test("an ODR case stays on its bank, and a switched-off send does not call the m
           reminderHourOn: true,
           maxNoShow: 3,
           autoRescheduleDays: 0,
+          sendWindowStart: "09:00",
+          sendWindowEnd: "18:30",
+          maxRemindersPerHearing: 1,
+          maxMessagesPerDay: 1,
+          sheetRetentionDays: 30,
+          closedDataRetentionDays: 0,
+          consentDays: 15,
           liveStored: false,
           live: false,
         },
@@ -93,6 +100,8 @@ test("an ODR case stays on its bank, and a switched-off send does not call the m
           link: fakeMeetLink(input.requestId),
           eventId: "",
           meetingCode: "",
+          inviteNote: "",
+          spaceName: "",
         }),
         deliver: async () => {
           delivered += 1;
@@ -105,6 +114,8 @@ test("an ODR case stays on its bank, and a switched-off send does not call the m
     const hearing = await db.odrHearing.findFirst({ where: { caseId: item.id, bankId: bank.id } });
     assert.match(hearing?.meetLink ?? "", /practice-odr-link/);
     assert.equal(hearing?.meetFake, true);
+    assert.equal(hearing?.guestInviteNote, "invites not sent (ODR sending off)");
+    assert.equal(hearing?.invitedGuests, "[]");
     const messages = await db.odrMessage.findMany({ where: { caseId: item.id, bankId: bank.id } });
     assert.equal(messages.length, 3);
     const email = messages.find((row) => row.channel === "EMAIL");

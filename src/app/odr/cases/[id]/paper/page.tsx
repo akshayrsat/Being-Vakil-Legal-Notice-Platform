@@ -17,6 +17,8 @@ import {
   type PaperKind,
 } from "@/lib/odr-paper";
 import { parsePanel } from "@/lib/odr-panel";
+import { appointmentParagraph, istDayKey } from "@/lib/odr-consent";
+import { loadAppointmentConsent, storedConsent } from "@/lib/odr-consent-store";
 import { backToCase } from "@/lib/odr-back";
 import { canSendNotices } from "@/lib/roles";
 
@@ -42,8 +44,10 @@ export default async function OdrPaperPage({
     where: { id, bankId: bank.id },
     include: {
       hearings: { orderBy: { number: "asc" } },
+      respondents: { orderBy: { sortOrder: "asc" }, select: { name: true, role: true, mobile: true, email: true, address: true } },
       messages: { orderBy: { createdAt: "asc" } },
       documents: { select: { kind: true, fileName: true, createdAt: true } },
+      consents: { orderBy: { createdAt: "asc" }, take: 1 },
       accessLogs: { where: { kind: "OPEN" }, select: { id: true } },
     },
   });
@@ -55,11 +59,20 @@ export default async function OdrPaperPage({
     select: { headers: true, rawRows: true },
   });
   const paper = parsePaper(item.paperJson);
+  const consent = storedConsent(item.consents[0] ?? null);
+  const appointmentText = appointmentParagraph({
+    consent,
+    documentKinds: item.documents.map((doc) => doc.kind),
+    arbitratorName: item.neutralName,
+    nominatedName: item.nominatedNeutralName,
+  });
+  const appointmentGate = kind === "award" ? await loadAppointmentConsent(item) : null;
   const paperCase: PaperCase = {
     matterType: item.matterType,
     refNo: item.refNo,
     customerName: item.customerName,
     coParties: item.coParties,
+    respondents: item.respondents,
     accountNumber: item.accountNumber,
     branch: item.branch,
     mobile: item.mobile,
@@ -84,6 +97,8 @@ export default async function OdrPaperPage({
     documents: item.documents,
     speedPosts: [],
     agreementSeat: batch ? seatFromBatch(batch.headers, batch.rawRows, item.rowNumber) : "",
+    appointmentParagraph: appointmentText,
+    appointmentDate: consent && (consent.choice === "ACCEPT" || consent.choice === "PANEL") ? istDayKey(consent.recordedAt) : "",
   };
   const values = prefillFields(paperCase, paper, kind);
   const preview = composeModel(paperCase, paper, kind);
@@ -95,6 +110,11 @@ export default async function OdrPaperPage({
         <h1 className="font-serif text-4xl tracking-tight">
           {kind === "award" ? "Generate award" : "Generate settlement agreement"}
         </h1>
+        {appointmentGate?.awardBlocked ? (
+          <p className="mt-3 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive" role="status">
+            {appointmentGate.warning} Award generation stays blocked until a Section 11 order or a signed consent is uploaded.
+          </p>
+        ) : null}
         <p className="mt-3 max-w-2xl text-base leading-7 text-muted-foreground">
           {bank.name} vs {item.customerName}. Fields already known from the case are filled in. Interest rates stay empty, and both are required before a draft can be made. The Word file is saved on the case as v1, v2, and so on. It is not sent.
         </p>

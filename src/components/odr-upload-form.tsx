@@ -10,7 +10,7 @@ const fieldClass = "h-11 rounded-lg border border-input bg-card px-3 text-sm fon
 export function OdrUploadForm({
   neutrals,
 }: {
-  neutrals: Array<{ id: string; name: string; qualification: string }>;
+  neutrals: Array<{ id: string; name: string; qualification: string; email: string; mobile: string }>;
 }) {
   const [state, formAction, pending] = useActionState(uploadOdrExcel, null);
   const [count, setCount] = useState(1);
@@ -89,6 +89,8 @@ export function OdrUploadForm({
               <option key={neutral.id} value={neutral.id}>
                 {neutral.name}
                 {neutral.qualification ? ` · ${neutral.qualification}` : ""}
+                {neutral.email ? ` · ${neutral.email}` : ""}
+                {neutral.mobile ? ` · ${neutral.mobile}` : ""}
               </option>
             ))}
           </select>
@@ -96,7 +98,7 @@ export function OdrUploadForm({
       ))}
       <OdrSlotFields />
       <p className="text-sm leading-6 text-muted-foreground">
-        Each customer gets the next open time. A hearing must finish by the end of the window, and none run through the lunch break.
+        Each customer gets the next open time. A hearing must finish by the end of the window, and none run through the lunch break. The email and mobile saved for the chosen name are used for the invite, the morning list, and the hearing notice.
       </p>
       <label className="flex flex-col gap-1 text-sm font-medium">
         Bank Excel file

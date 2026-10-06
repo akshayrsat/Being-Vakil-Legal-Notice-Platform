@@ -1,9 +1,14 @@
 // The page a recipient opens from an SMS link. It shows one notice, or a not-found message.
 
 import { headers } from "next/headers";
+import { noticeGrantMatches } from "@/app/actions/notice-public";
 import { NoticeLetterfoot, NoticeLetterhead, NoticeSignature } from "@/components/notice-letter";
+import { NoticeVerifyForm } from "@/components/notice-verify-form";
 import { PrintLetterButton } from "@/components/print-letter-button";
+import { getCurrentUser } from "@/lib/auth";
+import { accountLast4 } from "@/lib/odr-ref";
 import { buildDemandNotice } from "@/lib/demand-notice";
+import { grievanceFooter } from "@/lib/grievance";
 import { legalNoticeParagraphs, usesStructuredDemand } from "@/lib/legal-notice-templates";
 import {
   findPublicNotice,
@@ -15,12 +20,14 @@ import {
 
 export async function PublicNoticeScreen({ noticeNumber }: { noticeNumber: string }) {
   const loaded = await loadNotice(noticeNumber);
+  if (loaded.kind === "locked") return <NoticeLocked noticeNumber={loaded.noticeNumber} canVerify={loaded.canVerify} />;
   if (loaded.kind !== "ready") return <NoticeMissing kind={loaded.kind} />;
   return <PublicNoticeDocument notice={loaded.notice} />;
 }
 
 async function loadNotice(noticeNumber: string): Promise<
   | { kind: "empty" | "missing" | "error" }
+  | { kind: "locked"; noticeNumber: string; canVerify: boolean }
   | { kind: "ready"; notice: PublicNoticeView }
 > {
   try {
@@ -28,7 +35,10 @@ async function loadNotice(noticeNumber: string): Promise<
     if (!normalized) return { kind: "empty" };
     const notice = await findPublicNotice(normalized);
     if (!notice) return { kind: "missing" };
-    if (shouldRecordNoticeView(await headers())) {
+    const staff = await getCurrentUser();
+    const granted = staff ? true : await noticeGrantMatches(normalized);
+    if (!granted) return { kind: "locked", noticeNumber: normalized, canVerify: Boolean(accountLast4(notice.loanNumber)) };
+    if (!staff && shouldRecordNoticeView(await headers())) {
       await recordPublicNoticeOpen(normalized);
     }
     return { kind: "ready", notice };
@@ -36,6 +46,26 @@ async function loadNotice(noticeNumber: string): Promise<
     console.error(error instanceof Error ? error.message : "notice page failed");
     return { kind: "error" };
   }
+}
+
+function NoticeLocked({ noticeNumber, canVerify }: { noticeNumber: string; canVerify: boolean }) {
+  return (
+    <main className="notice-screen">
+      <div className="notice-stage">
+        <article className="notice-sheet notice-letter bg-card shadow-sm ring-1 ring-foreground/10">
+          <NoticeLetterhead />
+          <h1 className="mt-8 font-serif text-3xl tracking-tight">Open your legal notice</h1>
+          <p className="mt-3 text-base leading-7">
+            Enter the last 4 digits of the loan or card account number in the message you received. The name, address, and loan details stay hidden until that matches.
+          </p>
+          {canVerify ? <NoticeVerifyForm noticeNumber={noticeNumber} /> : (
+            <p className="mt-4 text-sm">This notice cannot be opened online. Please call Being Vakil Associates.</p>
+          )}
+          <NoticeLetterfoot />
+        </article>
+      </div>
+    </main>
+  );
 }
 
 function NoticeMissing({ kind }: { kind: "empty" | "missing" | "error" }) {
@@ -112,6 +142,7 @@ function PublicNoticeDocument({ notice }: { notice: PublicNoticeView }) {
             ))}
           </div>
           <NoticeSignature bankName={notice.bankName} />
+          <GrievanceNote notice={notice} />
           <NoticeLetterfoot />
         </article>
       </div>
@@ -138,9 +169,24 @@ function FilledLegalNotice({ notice }: { notice: PublicNoticeView }) {
             ))}
           </div>
           <NoticeSignature bankName={notice.bankName} />
+          <GrievanceNote notice={notice} />
           <NoticeLetterfoot />
         </article>
       </div>
     </main>
+  );
+}
+
+function GrievanceNote({ notice }: { notice: PublicNoticeView }) {
+  return (
+    <p className="notice-copy whitespace-pre-wrap text-sm leading-6">
+      {grievanceFooter({
+        officerName: notice.grievanceOfficerName,
+        officerPhone: notice.grievanceOfficerPhone,
+        officerEmail: notice.grievanceOfficerEmail,
+        ombudsman: notice.grievanceOmbudsman,
+        wordingApprovedOn: notice.wordingApprovedOn,
+      })}
+    </p>
   );
 }

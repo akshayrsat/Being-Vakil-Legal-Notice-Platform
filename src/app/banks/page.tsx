@@ -35,7 +35,10 @@ export default async function BanksPage({
   const { added } = await searchParams;
   const addedCode = added?.trim().toUpperCase() ?? "";
 
-  const banks = await prisma.bank.findMany({ orderBy: { name: "asc" } });
+  const banks = await prisma.bank.findMany({
+    orderBy: { name: "asc" },
+    include: { representatives: { orderBy: { sortOrder: "asc" } } },
+  });
   const addedBank = banks.find((bank) => bank.code === addedCode);
 
   return (
@@ -72,7 +75,21 @@ export default async function BanksPage({
         <section className="flex flex-col gap-3">
           <h2 className="font-serif text-2xl">Banks on file</h2>
           <BankList
-            banks={banks.map((bank) => ({ ...toBankSnapshot(bank)!, attachNoticePdf: bank.attachNoticePdf }))}
+            banks={banks.map((bank) => ({
+              ...toBankSnapshot(bank)!,
+              attachNoticePdf: bank.attachNoticePdf,
+              officerName: bank.grievanceOfficerName,
+              officerPhone: bank.grievanceOfficerPhone,
+              officerEmail: bank.grievanceOfficerEmail,
+              ombudsman: bank.grievanceOmbudsman,
+              wordingApprovedOn: bank.wordingApprovedOn,
+              representatives: bank.representatives.map((person) => ({
+                id: person.id,
+                name: person.name,
+                email: person.email,
+                mobile: person.mobile,
+              })),
+            }))}
             currentBankId={workingBank(user)?.id ?? null}
             canManage={owner}
           />

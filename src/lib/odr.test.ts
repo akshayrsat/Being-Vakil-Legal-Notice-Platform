@@ -10,8 +10,8 @@ import { attendanceFromParticipants, fakeMeetLink, meetConfigured, meetJwtClaims
 import { dueReminderKeys, needsNextHearing, autoRescheduleAt } from "./odr-schedule";
 import { buildOdrExportRows, odrCaseWhere, readOdrFilters } from "./odr-reports";
 import { templatesFor, defaultTemplateMap, hearingMessageText } from "./odr-templates";
+import { odrCopy, odrCopyFor } from "./odr-copy";
 import { deliverOdrChannel } from "./odr-dispatch";
-import { odrCopy } from "./odr-copy";
 import { stageTracker } from "./odr-status";
 
 test("ODR sits next to Send notice for staff, and a bank user stays on Tracking and Reports", () => {
@@ -119,7 +119,16 @@ test("hearing labels, times, and the no-show cap", () => {
   assert.equal(hearingOrdinal(11), "11th");
   const when = indiaDateTime("2026-10-20", "11:00");
   assert.equal(when?.toISOString(), "2026-10-20T05:30:00.000Z");
-  assert.deepEqual(nextNoShowState({ noShowCount: 2, maxNoShow: 3 }), { noShowCount: 3, flaggedExParte: true });
+  assert.deepEqual(nextNoShowState({ noShowCount: 2, maxNoShow: 3 }), {
+    noShowCount: 3,
+    flaggedExParte: false,
+    considerFinalOpportunity: true,
+  });
+  assert.deepEqual(nextNoShowState({ noShowCount: 2, maxNoShow: 3, matterType: "MEDIATION" }), {
+    noShowCount: 3,
+    flaggedExParte: false,
+    considerFinalOpportunity: false,
+  });
   assert.equal(autoSendAllowed({ flaggedExParte: true, noShowCount: 3, maxNoShow: 3 }), false);
   assert.equal(autoSendAllowed({ flaggedExParte: false, noShowCount: 1, maxNoShow: 3 }), true);
 });
@@ -269,8 +278,49 @@ test("first-hearing wording keeps the approved variables, and later templates st
     kind: "first",
   });
   assert.match(text, /Test Bank vs\. Ravi Shah/);
+  assert.match(text, /By order of the Sole Arbitrator/);
+  assert.match(text, /Section 13/);
+  assert.match(text, /statement of claim/i);
   assert.match(text, /abc-defg-hij/);
   assert.match(text, /\/odr\/c\/token/);
+  assert.match(text, /remain present/);
+  const panel = hearingMessageText({
+    customer: "Ravi Shah",
+    bank: "Test Bank",
+    number: "ARB-2026-AAAAAA",
+    date: "20 October 2026",
+    time: "11:00 am",
+    meetLink: "https://meet.google.com/abc-defg-hij",
+    caseLink: "https://www.notice.beingvakil.in/odr/c/token",
+    ordinal: "first",
+    matterType: "ARBITRATION",
+    kind: "first",
+    panelCount: 3,
+    arbitratorName: "A, B and C",
+    claimReference: "SOC-1",
+    defenceDeadline: "4 November 2026",
+  });
+  assert.match(panel, /By order of the Arbitral Tribunal/);
+  assert.match(panel, /A, B and C/);
+  assert.match(panel, /SOC-1/);
+  assert.match(panel, /4 November 2026/);
+  const mediation = hearingMessageText({
+    customer: "Ravi Shah",
+    bank: "Test Bank",
+    number: "MED-2026-AAAAAA",
+    date: "20 October 2026",
+    time: "11:00 am",
+    meetLink: "https://meet.google.com/abc-defg-hij",
+    caseLink: "https://www.notice.beingvakil.in/odr/c/token",
+    ordinal: "first",
+    matterType: "MEDIATION",
+    kind: "first",
+  });
+  assert.match(mediation, /voluntary mediation session/);
+  assert.doesNotMatch(mediation, /remain present|ex parte|must appear/i);
+  const mediationCopy = odrCopyFor("MEDIATION");
+  assert.doesNotMatch(mediationCopy.rules.join(" "), /remain present|ex parte/i);
+  assert.match(odrCopyFor("ARBITRATION").rules.join(" "), /ex parte/);
   assert.equal(odrCopy("hi").localeName, "English");
   assert.equal(stageTracker("HEARING")[2]?.mark, "current");
   assert.equal(emptyOdrMapping().customerName, "");

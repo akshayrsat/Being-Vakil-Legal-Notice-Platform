@@ -1,8 +1,6 @@
 // ODR message slots. Each name can be filled in Settings or by an environment variable.
 // Empty means that channel is not sent. The approved first-hearing wording is fixed text.
 
-import { odrMatterLabel } from "./odr-status";
-
 export const ODR_TEMPLATE_KINDS = ["first", "next", "reminder"] as const;
 export type OdrTemplateKind = (typeof ODR_TEMPLATE_KINDS)[number];
 
@@ -22,25 +20,25 @@ export const FIRST_HEARING_EMAIL_SUBJECT =
   "First Arbitration Hearing: {{bank}} vs. {{customer}} and ors, Ref. {{number}}";
 
 export const FIRST_HEARING_EMAIL_TEXT = [
+  "{{order}}",
+  "{{arbitrator}}",
+  "",
   "Dear {{customer}},",
   "",
-  "We are Being Vakil Associates, representing {{bank}} in the following arbitration matter:",
+  "A hearing is fixed in {{bank}} vs. {{customer}}, Arbitration Ref. {{number}}.",
+  "Statement of claim: {{claimRef}}",
+  "Defence or reply by: {{defenceBy}}",
+  "You may object to the arbitrator within 15 days of receiving this notice, under Section 13 of the Arbitration and Conciliation Act, 1996.",
+  "On your case page you may accept the named arbitrator, choose one name from the panel, or object. That step is recorded. It does not decide the dispute.",
   "",
-  "{{bank}} vs. {{customer}} and ors",
-  "Arbitration Ref.: {{number}}",
-  "",
-  "Please note that the first hearing in the above matter is scheduled on {{date}} at {{time}} and will be conducted online through Google Meet.",
-  "",
+  "{{when}} is on {{date}} at {{time}} through Google Meet.",
   "Hearing Link: {{link}}",
-  "",
-  "You are requested to remain present for the hearing at the scheduled time. You may join from your mobile phone or computer using the link above.",
-  "",
   "Your private case page: {{case}}",
   "",
-  "For any queries, please contact us at +91 9653331393 or contact@beingvakil.in.",
+  "You are requested to remain present for the hearing.",
   "",
-  "Regards,",
   "Being Vakil Associates",
+  "Counsel for the claimant",
 ].join("\n");
 
 export const FIRST_HEARING_WHATSAPP_TEXT = [
@@ -173,37 +171,50 @@ export type HearingMessageInput = {
   ordinal: string;
   matterType: string;
   kind: OdrTemplateKind;
+  panelCount?: number;
+  arbitratorName?: string;
+  claimReference?: string;
+  defenceDeadline?: string;
 };
 
+export function tribunalOrderLine(panelCount: number): string {
+  return panelCount > 1 ? "By order of the Arbitral Tribunal" : "By order of the Sole Arbitrator";
+}
+
 export function hearingMessageText(input: HearingMessageInput): string {
-  const matter = odrMatterLabel(input.matterType);
-  if (input.kind === "first" && input.matterType !== "MEDIATION") {
-    return FIRST_HEARING_EMAIL_TEXT.replaceAll("{{customer}}", input.customer)
-      .replaceAll("{{bank}}", input.bank)
-      .replaceAll("{{number}}", input.number)
-      .replaceAll("{{date}}", input.date)
-      .replaceAll("{{time}}", input.time)
-      .replaceAll("{{link}}", input.meetLink)
-      .replaceAll("{{case}}", input.caseLink);
-  }
-  const heading =
-    input.kind === "reminder"
-      ? `Reminder: your ${input.ordinal} ${matter.toLowerCase()} hearing`
-      : `Your ${input.ordinal} ${matter.toLowerCase()} hearing`;
+  if (input.matterType === "MEDIATION") return mediationMessageText(input);
+  const when = input.kind === "reminder" ? `Reminder: the ${input.ordinal} hearing` : `The ${input.ordinal} hearing`;
+  return FIRST_HEARING_EMAIL_TEXT.replaceAll("{{order}}", tribunalOrderLine(input.panelCount ?? 1))
+    .replaceAll("{{arbitrator}}", input.arbitratorName?.trim() || "The arbitrator named on the case page")
+    .replaceAll("{{customer}}", input.customer)
+    .replaceAll("{{bank}}", input.bank)
+    .replaceAll("{{number}}", input.number)
+    .replaceAll("{{claimRef}}", input.claimReference?.trim() || "the statement of claim on your case page")
+    .replaceAll("{{defenceBy}}", input.defenceDeadline?.trim() || "a date the tribunal will fix")
+    .replaceAll("{{when}}", when)
+    .replaceAll("{{date}}", input.date)
+    .replaceAll("{{time}}", input.time)
+    .replaceAll("{{link}}", input.meetLink)
+    .replaceAll("{{case}}", input.caseLink);
+}
+
+function mediationMessageText(input: HearingMessageInput): string {
+  const heading = input.kind === "reminder"
+    ? "Reminder: you are invited to a voluntary mediation session"
+    : "Invitation to a voluntary mediation session";
   return [
     `Dear ${input.customer},`,
     "",
-    `We are Being Vakil Associates, representing ${input.bank} in the ${matter.toLowerCase()} matter:`,
+    `Being Vakil Associates is writing for ${input.bank} to invite you to a voluntary mediation session.`,
     "",
-    `${input.bank} vs. ${input.customer} and ors`,
-    `${matter} Ref.: ${input.number}`,
+    `${input.bank} and ${input.customer}`,
+    `Mediation ref.: ${input.number}`,
     "",
-    `${heading} is scheduled on ${input.date} at ${input.time} through Google Meet.`,
+    `${heading} on ${input.date} at ${input.time}.`,
+    "You may join or decline. A settlement is recorded only if the people who join agree.",
     "",
-    `Hearing Link: ${input.meetLink}`,
-    `Your private case page: ${input.caseLink}`,
-    "",
-    "You are requested to remain present for the hearing.",
+    `Session link: ${input.meetLink}`,
+    `Your private page: ${input.caseLink}`,
     "",
     "Regards,",
     "Being Vakil Associates",

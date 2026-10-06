@@ -1,12 +1,17 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import {
   confirmOdrBatch,
   refreshAttendance,
   retryHearingMeet,
+  removeRespondent,
   saveCasePartyInfo,
+  saveRespondent,
+  setPartyAttendance,
+  saveBankPanel,
   saveNeutral,
+  updateNeutral,
   scheduleBulkHearings,
   scheduleOneHearing,
   updateOdrStatus,
@@ -27,7 +32,19 @@ function ErrorLine({ error }: { error?: string }) {
   );
 }
 
-export function OdrStatusForm({ caseId, status, stage, exParte }: { caseId: string; status: string; stage: string; exParte: boolean }) {
+export function OdrStatusForm({
+  caseId,
+  status,
+  stage,
+  exParte,
+  matterType = "ARBITRATION",
+}: {
+  caseId: string;
+  status: string;
+  stage: string;
+  exParte: boolean;
+  matterType?: string;
+}) {
   const [state, action, pending] = useActionState(updateOdrStatus, null);
   return (
     <form action={action} className="flex flex-col gap-3">
@@ -52,10 +69,15 @@ export function OdrStatusForm({ caseId, status, stage, exParte }: { caseId: stri
           ))}
         </select>
       </label>
-      <label className="flex items-center gap-2 text-sm">
-        <input type="checkbox" name="exParte" value="on" defaultChecked={exParte} className="size-4 accent-primary" />
-        Ex parte
-      </label>
+      {matterType === "MEDIATION" ? (
+        <p className="text-sm text-muted-foreground">Mediation is voluntary. A missed session does not decide the case.</p>
+      ) : (
+        <p className="text-sm text-muted-foreground">
+          {exParte
+            ? "Ex parte is on because the arbitrator’s order is on the case."
+            : "A no-show does not mark the case ex parte. Upload the arbitrator’s ex parte order when the arbitrator has made that order."}
+        </p>
+      )}
       <label className="flex flex-col gap-1 text-sm font-medium">
         Note
         <textarea name="note" rows={3} className="rounded-lg border border-input bg-card px-3 py-2 text-sm font-normal" />
@@ -121,7 +143,7 @@ export function OdrScheduleForm({
       </label>
       {flagged ? (
         <p className="text-sm text-muted-foreground">
-          This case has reached the no-show limit. Further automatic messages are stopped. The arbitrator may proceed ex parte or close the case.
+          This case has reached the no-show limit. Further automatic messages are stopped. Consider a final opportunity notice. Ex parte is not set until the arbitrator’s order is uploaded.
         </p>
       ) : null}
       <ErrorLine error={state?.error} />
@@ -157,11 +179,17 @@ export function OdrPartyForm({
   bankCounsel,
   bankContact,
   paymentInfo,
+  claimReference = "",
+  defenceDeadline = "",
+  matterType = "ARBITRATION",
 }: {
   caseId: string;
   bankCounsel: string;
   bankContact: string;
   paymentInfo: string;
+  claimReference?: string;
+  defenceDeadline?: string;
+  matterType?: string;
 }) {
   const [state, action, pending] = useActionState(saveCasePartyInfo, null);
   return (
@@ -175,6 +203,18 @@ export function OdrPartyForm({
         Contact shown to the customer
         <textarea name="bankContact" defaultValue={bankContact} rows={2} className="rounded-lg border border-input bg-card px-3 py-2 text-sm" />
       </label>
+      {matterType === "ARBITRATION" ? (
+        <>
+          <label className="flex flex-col gap-1 text-sm font-medium">
+            Statement of claim reference
+            <input name="claimReference" defaultValue={claimReference} className={field} />
+          </label>
+          <label className="flex flex-col gap-1 text-sm font-medium">
+            Defence or reply by
+            <input name="defenceDeadline" type="date" defaultValue={defenceDeadline} className={field} />
+          </label>
+        </>
+      ) : null}
       <label className="flex flex-col gap-1 text-sm font-medium">
         Payment details shown to the customer
         <textarea name="paymentInfo" defaultValue={paymentInfo} rows={2} className="rounded-lg border border-input bg-card px-3 py-2 text-sm" />
@@ -184,6 +224,97 @@ export function OdrPartyForm({
         {pending ? "Saving…" : "Save contact details"}
       </Button>
     </form>
+  );
+}
+
+const partyField = "h-11 rounded-lg border border-input bg-card px-3 text-sm";
+
+export function OdrRespondentEditor({
+  caseId,
+  party,
+}: {
+  caseId: string;
+  party?: { id: string; name: string; role: string; mobile: string; email: string; address: string };
+}) {
+  const [state, action, pending] = useActionState(saveRespondent, null);
+  return (
+    <form action={action} className="grid gap-2 sm:grid-cols-2">
+      <input type="hidden" name="caseId" value={caseId} />
+      {party ? <input type="hidden" name="respondentId" value={party.id} /> : null}
+      <label className="flex flex-col gap-1 text-sm font-medium sm:col-span-2">
+        Name
+        <input name="name" required defaultValue={party?.name ?? ""} className={partyField} />
+      </label>
+      <label className="flex flex-col gap-1 text-sm font-medium">
+        Role
+        <select name="role" defaultValue={party?.role === "Guarantor" ? "Guarantor" : "Co-borrower"} className={partyField}>
+          <option>Co-borrower</option>
+          <option>Guarantor</option>
+        </select>
+      </label>
+      <label className="flex flex-col gap-1 text-sm font-medium">
+        Mobile
+        <input name="mobile" defaultValue={party?.mobile ?? ""} className={partyField} />
+      </label>
+      <label className="flex flex-col gap-1 text-sm font-medium">
+        Email
+        <input name="email" type="email" defaultValue={party?.email ?? ""} className={partyField} />
+      </label>
+      <label className="flex flex-col gap-1 text-sm font-medium sm:col-span-2">
+        Address
+        <textarea name="address" defaultValue={party?.address ?? ""} rows={2} className="rounded-lg border border-input bg-card px-3 py-2 text-sm" />
+      </label>
+      <div className="sm:col-span-2">
+        <ErrorLine error={state?.error} />
+        <Button type="submit" variant="outline" className="h-11 w-fit px-4" disabled={pending}>
+          {pending ? "Saving…" : party ? "Save co-party" : "Add co-party"}
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+export function OdrRemoveRespondent({ caseId, respondentId }: { caseId: string; respondentId: string }) {
+  const [state, action, pending] = useActionState(removeRespondent, null);
+  return (
+    <form action={action}>
+      <input type="hidden" name="caseId" value={caseId} />
+      <input type="hidden" name="respondentId" value={respondentId} />
+      <ErrorLine error={state?.error} />
+      <Button type="submit" variant="outline" className="h-9 px-3" disabled={pending}>
+        {pending ? "Removing…" : "Remove"}
+      </Button>
+    </form>
+  );
+}
+
+export function OdrPartyAttendanceButtons({
+  caseId,
+  hearingId,
+  respondentId,
+}: {
+  caseId: string;
+  hearingId: string;
+  respondentId: string;
+}) {
+  const [state, action, pending] = useActionState(setPartyAttendance, null);
+  return (
+    <div className="flex flex-col gap-2">
+      <ErrorLine error={state?.error} />
+      <div className="flex flex-wrap gap-2">
+        {(["JOINED", "NO_SHOW"] as const).map((attendance) => (
+          <form key={attendance} action={action}>
+            <input type="hidden" name="caseId" value={caseId} />
+            <input type="hidden" name="hearingId" value={hearingId} />
+            <input type="hidden" name="respondentId" value={respondentId} />
+            <input type="hidden" name="attendance" value={attendance} />
+            <Button type="submit" variant="outline" className="h-9 px-3" disabled={pending}>
+              {attendance === "JOINED" ? "Joined" : "No-show"}
+            </Button>
+          </form>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -226,12 +357,122 @@ export function OdrNeutralForm() {
         <input name="qualification" className={field} />
       </label>
       <label className="flex flex-col gap-1 text-sm font-medium">
+        Email
+        <input name="email" type="email" required autoComplete="off" className={field} />
+      </label>
+      <label className="flex flex-col gap-1 text-sm font-medium">
+        Mobile
+        <input name="mobile" inputMode="numeric" required autoComplete="tel" className={field} />
+      </label>
+      <label className="flex flex-col gap-1 text-sm font-medium">
         Enrolment number
         <input name="enrolmentNo" className={field} />
       </label>
       <ErrorLine error={state?.error} />
       <Button type="submit" className="h-11 w-fit px-4" disabled={pending}>
         {pending ? "Saving…" : "Add to the list"}
+      </Button>
+    </form>
+  );
+}
+
+export function OdrNeutralEditForm({
+  neutral,
+}: {
+  neutral: {
+    id: string;
+    name: string;
+    qualification: string;
+    enrolmentNo: string;
+    email: string;
+    mobile: string;
+    active: boolean;
+  };
+}) {
+  const [open, setOpen] = useState(false);
+  const [state, action, pending] = useActionState(updateNeutral, null);
+  if (!open) {
+    return (
+      <Button type="button" variant="outline" className="mt-2 h-9 px-3" onClick={() => setOpen(true)}>
+        Edit
+      </Button>
+    );
+  }
+  return (
+    <form action={action} className="mt-3 grid max-w-xl gap-3">
+      <input type="hidden" name="neutralId" value={neutral.id} />
+      <label className="flex flex-col gap-1 text-sm font-medium">
+        Name
+        <input name="name" required defaultValue={neutral.name} className={field} />
+      </label>
+      <label className="flex flex-col gap-1 text-sm font-medium">
+        Qualification
+        <input name="qualification" defaultValue={neutral.qualification} className={field} />
+      </label>
+      <label className="flex flex-col gap-1 text-sm font-medium">
+        Enrolment number
+        <input name="enrolmentNo" defaultValue={neutral.enrolmentNo} className={field} />
+      </label>
+      <label className="flex flex-col gap-1 text-sm font-medium">
+        Email
+        <input name="email" type="email" required defaultValue={neutral.email} autoComplete="off" className={field} />
+      </label>
+      <label className="flex flex-col gap-1 text-sm font-medium">
+        Mobile
+        <input name="mobile" inputMode="numeric" required defaultValue={neutral.mobile} autoComplete="tel" className={field} />
+      </label>
+      <label className="flex items-center gap-2 text-sm">
+        <input type="checkbox" name="active" value="yes" defaultChecked={neutral.active} className="size-4 accent-primary" />
+        Active
+      </label>
+      <ErrorLine error={state?.error} />
+      <div className="flex flex-wrap gap-2">
+        <Button type="submit" className="h-11 px-4" disabled={pending}>
+          {pending ? "Saving…" : "Save changes"}
+        </Button>
+        <Button type="button" variant="outline" className="h-11 px-4" onClick={() => setOpen(false)}>
+          Close
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+export function OdrBankPanelForm({
+  bankName,
+  neutrals,
+  selectedIds,
+}: {
+  bankName: string;
+  neutrals: Array<{ id: string; name: string; qualification: string; enrolmentNo: string; email: string; mobile: string; active: boolean }>;
+  selectedIds: string[];
+}) {
+  const [state, action, pending] = useActionState(saveBankPanel, null);
+  const selected = new Set(selectedIds);
+  return (
+    <form action={action} className="flex flex-col gap-3">
+      <p className="text-sm leading-6 text-muted-foreground">
+        Panel for {bankName}. Tick at least 3 names. Each needs a qualification, an enrolment number, an email, and a 10-digit mobile. Invites, the morning list, and hearing notices use those saved details. The customer can choose one of these names after the dispute.
+      </p>
+      <ul className="flex flex-col gap-2">
+        {neutrals.filter((neutral) => neutral.active).map((neutral) => (
+          <li key={neutral.id}>
+            <label className="flex items-start gap-2 text-sm">
+              <input type="checkbox" name="neutralId" value={neutral.id} defaultChecked={selected.has(neutral.id)} className="mt-1 size-4 accent-primary" />
+              <span>
+                {neutral.name}
+                {neutral.qualification ? ` · ${neutral.qualification}` : ""}
+                {neutral.enrolmentNo ? ` · ${neutral.enrolmentNo}` : ""}
+                {neutral.email ? ` · ${neutral.email}` : ""}
+                {neutral.mobile ? ` · ${neutral.mobile}` : ""}
+              </span>
+            </label>
+          </li>
+        ))}
+      </ul>
+      <ErrorLine error={state?.error} />
+      <Button type="submit" className="h-11 w-fit px-4" disabled={pending}>
+        {pending ? "Saving…" : "Save this bank’s panel"}
       </Button>
     </form>
   );

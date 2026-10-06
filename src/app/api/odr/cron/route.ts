@@ -1,5 +1,5 @@
 // Cloud Scheduler can call this with header x-odr-cron-secret.
-// It refreshes attendance, sends due reminders, and applies the auto-reschedule rule.
+// It refreshes attendance, sends due reminders, sends the 07:30 IST arbitrator list, and applies the auto-reschedule rule.
 
 import { timingSafeEqual } from "node:crypto";
 import { runOdrMaintenance } from "@/lib/odr-runner";

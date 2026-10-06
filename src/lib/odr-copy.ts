@@ -120,8 +120,34 @@ export const odrCopyCatalog: Record<"en" | "hi" | "mr", OdrCopy | null> = {
   mr: null,
 };
 
+const MEDIATION_RULES = [
+  "You are invited to a voluntary mediation session. You may join or decline.",
+  "Joining a few minutes early gives everyone time to connect.",
+  "A photo identity document helps the mediator know who is present.",
+  "Please keep your camera on if you can.",
+  "Please do not record the session.",
+  "The session is confidential.",
+  "A settlement is recorded only if everyone agrees. Nothing is decided against a person who does not join.",
+];
+
 export function odrCopy(locale = "en"): OdrCopy {
   if (locale === "hi" && odrCopyCatalog.hi) return odrCopyCatalog.hi;
   if (locale === "mr" && odrCopyCatalog.mr) return odrCopyCatalog.mr;
   return ENGLISH;
+}
+
+export function odrCopyFor(matterType: string): OdrCopy {
+  const copy = odrCopy("en");
+  if (matterType !== "MEDIATION") return copy;
+  return {
+    ...copy,
+    pageTitle: "Your mediation session",
+    rulesHeading: "About this session",
+    rules: MEDIATION_RULES,
+    nextHearing: "Next session",
+    noHearing: "The next session date will appear here if one is arranged.",
+    join: "Join session",
+    rescheduleBody: "You may ask for another date. Joining is voluntary.",
+    settleBody: "If you want to propose a settlement, send the amount and a short note. It is recorded only if the parties agree.",
+  };
 }
