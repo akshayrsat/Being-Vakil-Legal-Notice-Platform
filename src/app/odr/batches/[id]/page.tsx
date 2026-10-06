@@ -31,13 +31,14 @@ export default async function OdrBatchPage({ params }: { params: Promise<{ id: s
   });
   if (!batch) notFound();
   const technical = seesVendorDetail(user);
+  const messages = batch.cases.flatMap((item) => item.messages);
   const pending = batch.cases.reduce(
-    (sum, item) =>
-      sum +
-      item.hearings.filter((hearing) => !hearing.meetLink && !hearing.meetError).length +
-      item.messages.filter((message) => message.status === "QUEUED" || message.status === "SENDING").length,
+    (sum, item) => sum + item.hearings.filter((hearing) => !hearing.meetLink && !hearing.meetError).length,
     0,
-  );
+  ) + messages.filter((message) => message.status === "QUEUED" || message.status === "SENDING").length;
+  const skipped = messages.filter((message) => message.status === "SKIPPED").length;
+  const ready = messages.filter((message) => message.status === "SENT" || message.status === "DELIVERED").length;
+  const failed = messages.filter((message) => message.status === "FAILED").length;
 
   return (
     <DeskShell user={user}>
@@ -47,7 +48,7 @@ export default async function OdrBatchPage({ params }: { params: Promise<{ id: s
       </div>
       <OdrSendProgress
         batchId={batch.id}
-        initial={{ done: pending === 0, pending, ready: 0, skipped: 0, failed: 0, note: pending === 0 ? "Finished." : "Starting." }}
+        initial={{ done: pending === 0, pending, ready, skipped, failed, note: pending === 0 ? "Finished." : "Starting." }}
       />
       <div className="overflow-x-auto rounded-lg ring-1 ring-foreground/10">
         <table className="w-full min-w-[40rem] border-collapse text-left text-sm">
