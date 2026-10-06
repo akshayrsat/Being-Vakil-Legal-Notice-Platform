@@ -36,6 +36,8 @@ export const STAFF_DOCUMENT_KINDS = [
   { id: "SECTION_21", label: "Section 21 notice" },
   { id: "STATEMENT_OF_CLAIM", label: "Statement of claim" },
   { id: "APPOINTMENT", label: "Appointment letter" },
+  { id: "FINAL_OPPORTUNITY", label: "Final opportunity notice" },
+  { id: "EX_PARTE_ORDER", label: "Arbitrator’s ex parte order" },
   { id: "ORDER", label: "Order" },
   { id: "AWARD", label: "Award" },
   { id: "EVIDENCE", label: "Evidence" },

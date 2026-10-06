@@ -31,6 +31,7 @@ import { odrCaseBack } from "@/lib/odr-back";
 import { arbitrationNoticeError, arbitrationNoticeGaps } from "@/lib/odr-notice-gate";
 import { redactCell } from "@/lib/data-min";
 import { partyAttendanceLabel, partyAttendanceMap } from "@/lib/odr-parties";
+import { readOdrRules } from "@/lib/odr-store";
 import { canSendNotices, isBankUser } from "@/lib/roles";
 import { hideVendorWording, seesVendorDetail } from "@/lib/staff-language";
 
@@ -63,6 +64,7 @@ export default async function OdrCasePage({
   });
   if (!item) notFound();
   const canSend = canSendNotices(user.role);
+  const rules = await readOdrRules();
   const noticeGaps = arbitrationNoticeGaps(item.matterType, item.documents.map((doc) => doc.kind));
   const technical = seesVendorDetail(user);
   const now = nowMs();
@@ -77,7 +79,7 @@ export default async function OdrCasePage({
         <p className="mt-3 text-base leading-7 text-muted-foreground">
           {bank.name} vs {item.customerName}
           {item.coParties ? ` and ${item.coParties}` : ""}. {odrMatterLabel(item.matterType)}. {odrStatusLabel(item.status)}
-          {item.matterType !== "MEDIATION" && (item.exParte || item.flaggedExParte) ? ". Flagged for ex parte." : "."}
+          {item.matterType !== "MEDIATION" && item.exParte ? ". Ex parte, on the arbitrator’s order." : "."}
         </p>
         {canSend ? (
           <div className="mt-4">
@@ -292,7 +294,7 @@ export default async function OdrCasePage({
               </p>
             ) : null}
             <div className="mt-3">
-              <OdrScheduleForm caseId={item.id} flagged={item.flaggedExParte} duration={item.hearings.at(-1)?.durationMinutes ?? 60} />
+              <OdrScheduleForm caseId={item.id} flagged={item.flaggedExParte || item.noShowCount >= rules.maxNoShow} duration={item.hearings.at(-1)?.durationMinutes ?? 60} />
             </div>
           </div>
           <div>

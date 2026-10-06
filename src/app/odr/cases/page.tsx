@@ -179,7 +179,7 @@ async function CaseTable({
                 ) : null}
                 <td className="px-3 py-2">
                   {odrStatusLabel(item.status)}
-                  {item.matterType !== "MEDIATION" && (item.exParte || item.flaggedExParte) ? " · Ex parte" : ""}
+                  {item.matterType !== "MEDIATION" && item.exParte ? " · Ex parte" : ""}
                 </td>
               </tr>
             );

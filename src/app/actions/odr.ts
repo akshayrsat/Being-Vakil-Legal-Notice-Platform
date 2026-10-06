@@ -26,6 +26,7 @@ import { durationMinutes, generateRefNo, indiaDateTime, newPublicToken, normaliz
 import { panelJson, parsePanel, type PanelMember } from "@/lib/odr-panel";
 import { busyByNeutral, planBatchHearings } from "@/lib/odr-slot-store";
 import { planSeats, readArbitratorChoice, readScheduleInput, rulesFromSchedule } from "@/lib/odr-slots";
+import { nextNoShowState } from "@/lib/odr-plan";
 import { isOdrDocumentKind, isOdrMatter, isOdrStage, isOdrStatus, terminalOdrStatus } from "@/lib/odr-status";
 import { ODR_LIVE_SEND_SETTING_ID } from "@/lib/odr-live";
 import { ODR_SETTINGS_ID, odrTemplateSlots, parseTemplateMap } from "@/lib/odr-templates";
@@ -327,11 +328,12 @@ export async function updateOdrStatus(_previous: OdrFormState, formData: FormDat
   if (!isOdrStage(stage)) return { error: "Choose a stage." };
   const note = String(formData.get("note") ?? "").trim().slice(0, 500);
   const mediation = item.matterType === "MEDIATION";
-  const exParteFlag = !mediation && formData.get("exParte") === "on";
+  const docKind = String(formData.get("docKind") ?? "ORDER");
   let awardAt = item.awardAt;
   if (status === "AWARD_PASSED" && !awardAt) awardAt = new Date();
   let noShowCount = item.noShowCount;
-  let flaggedExParte = mediation ? false : item.flaggedExParte || exParteFlag;
+  const flaggedExParte = false;
+  let exParteFlag = mediation ? false : item.exParte;
   const latestHearing =
     status === "NO_SHOW" || status === "JOINED"
       ? await prisma.odrHearing.findFirst({
@@ -340,10 +342,12 @@ export async function updateOdrStatus(_previous: OdrFormState, formData: FormDat
         })
       : null;
   // A hearing record owns the count via applyAttendance. Increment here only when there is no hearing to attach.
+  let considerFinalOpportunity = false;
   if (status === "NO_SHOW" && item.status !== "NO_SHOW" && !latestHearing) {
     const rules = await readOdrRules();
-    noShowCount += 1;
-    if (!mediation && noShowCount >= rules.maxNoShow) flaggedExParte = true;
+    const next = nextNoShowState({ noShowCount: item.noShowCount, maxNoShow: rules.maxNoShow, matterType: item.matterType });
+    noShowCount = next.noShowCount;
+    considerFinalOpportunity = next.considerFinalOpportunity;
   }
   const file = formData.get("file");
   let documentId = "";
@@ -359,6 +363,17 @@ export async function updateOdrStatus(_previous: OdrFormState, formData: FormDat
     });
     if (!saved.ok) return { error: saved.error };
     documentId = saved.id;
+    if (!mediation && docKind === "EX_PARTE_ORDER") exParteFlag = true;
+  }
+  if (considerFinalOpportunity) {
+    await prisma.odrAlert.create({
+      data: {
+        caseId: item.id,
+        bankId: scope.bank.id,
+        kind: "FINAL_OPPORTUNITY",
+        summary: `Consider a final opportunity notice for ${item.refNo}.`,
+      },
+    });
   }
   await prisma.odrCase.update({
     where: { id: item.id },
@@ -409,6 +424,10 @@ export async function uploadStaffDocument(_previous: OdrFormState, formData: For
     allowed: STAFF_DOCUMENT_KINDS.map((kind) => kind.id),
   });
   if (!saved.ok) return { error: saved.error };
+  const kind = String(formData.get("kind") ?? "");
+  if (item.matterType !== "MEDIATION" && kind === "EX_PARTE_ORDER") {
+    await prisma.odrCase.update({ where: { id: item.id }, data: { exParte: true, flaggedExParte: false } });
+  }
   await releaseArbitrationNotices(prisma, item.id);
   await auditCurrentUser({
     action: "odr.document",
@@ -436,7 +455,7 @@ export async function scheduleOneHearing(_previous: OdrFormState, formData: Form
   if (!duration) return { error: "Session length must be between 15 and 240 minutes." };
   const rules = await readOdrRules();
   const number = item.hearings.reduce((max, hearing) => Math.max(max, hearing.number), 0) + 1;
-  const send = formData.get("send") === "on" && !item.flaggedExParte;
+  const send = formData.get("send") === "on" && !item.flaggedExParte && item.noShowCount < rules.maxNoShow;
   if (send) {
     const missing = arbitrationNoticeGaps(item.matterType, (await prisma.odrDocument.findMany({
       where: { caseId: item.id },
@@ -551,7 +570,7 @@ export async function scheduleBulkHearings(_previous: OdrFormState, formData: Fo
   let count = 0;
   for (const { item, start } of placed) {
     const number = item.hearing.case.hearings.reduce((max, row) => Math.max(max, row.number), 0) + 1;
-    const send = !item.hearing.case.flaggedExParte;
+    const send = !item.hearing.case.flaggedExParte && item.hearing.case.noShowCount < rules.maxNoShow;
     await scheduleHearingRecord(prisma, {
       caseId: item.hearing.caseId,
       bankId: scope.bank.id,

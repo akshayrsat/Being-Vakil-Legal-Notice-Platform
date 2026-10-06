@@ -401,10 +401,20 @@ export async function applyAttendance(
     data: {
       status: "NO_SHOW",
       noShowCount: next.noShowCount,
-      flaggedExParte: current.matterType === "MEDIATION" ? false : next.flaggedExParte,
+      flaggedExParte: false,
       ...(current.matterType === "MEDIATION" ? { exParte: false } : {}),
     },
   });
+  if (next.considerFinalOpportunity) {
+    await db.odrAlert.create({
+      data: {
+        caseId: current.id,
+        bankId: current.bankId,
+        kind: "FINAL_OPPORTUNITY",
+        summary: `Consider a final opportunity notice for ${current.refNo}.`,
+      },
+    });
+  }
   return true;
 }
 

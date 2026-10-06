@@ -70,10 +70,11 @@ export function OdrStatusForm({
       {matterType === "MEDIATION" ? (
         <p className="text-sm text-muted-foreground">Mediation is voluntary. A missed session does not decide the case.</p>
       ) : (
-        <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" name="exParte" value="on" defaultChecked={exParte} className="size-4 accent-primary" />
-          Ex parte
-        </label>
+        <p className="text-sm text-muted-foreground">
+          {exParte
+            ? "Ex parte is on because the arbitrator’s order is on the case."
+            : "A no-show does not mark the case ex parte. Upload the arbitrator’s ex parte order when the arbitrator has made that order."}
+        </p>
       )}
       <label className="flex flex-col gap-1 text-sm font-medium">
         Note
@@ -140,7 +141,7 @@ export function OdrScheduleForm({
       </label>
       {flagged ? (
         <p className="text-sm text-muted-foreground">
-          This case has reached the no-show limit. Further automatic messages are stopped. The arbitrator may proceed ex parte or close the case.
+          This case has reached the no-show limit. Further automatic messages are stopped. Consider a final opportunity notice. Ex parte is not set until the arbitrator’s order is uploaded.
         </p>
       ) : null}
       <ErrorLine error={state?.error} />

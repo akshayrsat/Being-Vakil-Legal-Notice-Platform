@@ -149,7 +149,7 @@ export function OdrTemplateForm({ rules, showIds }: { rules: OdrRules; showIds: 
           Uploads keep only the columns you map. A full card number is stored as the last 4 digits, and a 12-digit Aadhaar number is never stored. The raw spreadsheet is deleted when the cases or notices are created, or after the number of days above if it is still sitting here. Closed-case clearing is off until you set a number of days. That removes the customer’s name, contact, address, and account from the case. It does not delete the case itself.
         </p>
         <label className="flex flex-col gap-1 text-sm font-medium">
-          Maximum no-shows before ex parte review
+          Maximum no-shows before a final-opportunity alert
           <input name="maxNoShow" type="number" min={1} max={10} defaultValue={rules.maxNoShow} className={field} />
         </label>
         <label className="flex flex-col gap-1 text-sm font-medium">

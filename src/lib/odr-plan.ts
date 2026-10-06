@@ -54,9 +54,12 @@ export function nextNoShowState(input: {
   noShowCount: number;
   maxNoShow: number;
   matterType?: string;
-}): { noShowCount: number; flaggedExParte: boolean } {
+}): { noShowCount: number; flaggedExParte: boolean; considerFinalOpportunity: boolean } {
   const noShowCount = input.noShowCount + 1;
   const cap = input.maxNoShow > 0 ? input.maxNoShow : 3;
-  const flaggedExParte = input.matterType === "MEDIATION" ? false : noShowCount >= cap;
-  return { noShowCount, flaggedExParte };
+  return {
+    noShowCount,
+    flaggedExParte: false,
+    considerFinalOpportunity: input.matterType !== "MEDIATION" && noShowCount >= cap,
+  };
 }

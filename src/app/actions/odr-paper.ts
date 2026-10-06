@@ -16,6 +16,7 @@ import {
   composeModel,
   fieldsFor,
   flagsFor,
+  exParteAwardError,
   missingAwardRates,
   parsePaper,
   seatFromBatch,
@@ -145,11 +146,17 @@ export async function saveOdrPaper(_previous: PaperFormState, formData: FormData
   if (kind === "award" && item.matterType !== "ARBITRATION") return { error: "An award is prepared for an arbitration case." };
   if (kind === "settlement" && item.matterType !== "MEDIATION") return { error: "A settlement agreement is prepared for a mediation case." };
   const store = readStore(formData, kind);
+  if (kind === "award") store.fields.arbitrator_entered_by = scope.user.name;
   await prisma.odrCase.update({ where: { id: item.id }, data: { paperJson: JSON.stringify(store) } });
   const generate = formData.get("intent") === "generate";
   if (generate && kind === "award") {
     const missing = missingAwardRates(store.fields);
     if (missing) return { error: missing };
+    const blocked = exParteAwardError({
+      exParte: store.fields.ex_parte === "true" || item.exParte,
+      documents: item.documents.map((doc) => doc.kind),
+    });
+    if (blocked) return { error: blocked };
   }
   if (!generate) {
     await auditCurrentUser({

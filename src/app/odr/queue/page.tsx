@@ -43,7 +43,7 @@ export default async function OdrQueuePage() {
       <div>
         <h1 className="font-serif text-4xl tracking-tight">Next hearing needed</h1>
         <p className="mt-3 max-w-2xl text-base leading-7 text-muted-foreground">
-          No-show cases for {bank.name} that do not yet have another date. A case at the no-show limit stays here for the arbitrator to proceed ex parte or close. It is not sent another message automatically.
+          No-show cases for {bank.name} that do not yet have another date. A case at the no-show limit stays here so you can consider a final opportunity notice. It is not marked ex parte, and it is not sent another message automatically.
         </p>
       </div>
       {queue.length === 0 ? (
@@ -59,7 +59,7 @@ export default async function OdrQueuePage() {
                 </Link>{" "}
                 · {item.customerName} · {item.noShowCount} no-show{item.noShowCount === 1 ? "" : "s"}
                 {last ? ` · last hearing ${formatHearingDate(last.scheduledAt)}` : ""}
-                {item.flaggedExParte ? " · Ex parte review" : ""}
+                {item.alerts.some((alert) => alert.kind === "FINAL_OPPORTUNITY") ? " · Consider a final opportunity notice" : ""}
               </li>
             );
           })}

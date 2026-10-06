@@ -6,6 +6,7 @@ import {
   agreedSettlementAmount,
   canReadOdrDocument,
   composeModel,
+  exParteAwardError,
   exParteSwitch,
   missingAwardRates,
   parsePaper,
@@ -75,16 +76,20 @@ test("amounts use the Indian lakh and crore system", () => {
   assert.equal(formatIndianAmount("10000000"), "1,00,00,000.00");
 });
 
-test("ex parte switches on when the customer never joined, and a full Aadhaar is not kept", () => {
-  assert.equal(exParteSwitch({ exParte: false, flaggedExParte: true, hearings: [] }), true);
+test("ex parte stays off until the arbitrator’s order, and a full Aadhaar is not kept", () => {
+  assert.equal(exParteSwitch({ exParte: false, flaggedExParte: true, hearings: [] }), false);
   assert.equal(
     exParteSwitch({
       exParte: false,
       flaggedExParte: false,
       hearings: [{ attendance: "NO_SHOW" }, { attendance: "NO_SHOW" }],
     }),
-    true,
+    false,
   );
+  assert.equal(exParteSwitch({ exParte: true, hearings: [] }), true);
+  assert.equal(exParteAwardError({ exParte: true, documents: [] }), "An ex parte award needs the final-opportunity notice and the arbitrator’s ex parte order on the case.");
+  assert.equal(exParteAwardError({ exParte: true, documents: ["FINAL_OPPORTUNITY", "EX_PARTE_ORDER"] }), "");
+  assert.equal(exParteAwardError({ exParte: false, documents: [] }), "");
   assert.equal(
     exParteSwitch({
       exParte: false,
@@ -98,7 +103,7 @@ test("ex parte switches on when the customer never joined, and a full Aadhaar is
   assert.equal(aadhaarLast4("XXXX-XXXX-7781"), "7781");
   assert.equal(aadhaarLast4("1234"), "1234");
   const model = composeModel(sampleCase(), parsePaper("{}"), "award");
-  assert.equal(model.flags.ex_parte, true);
+  assert.equal(model.flags.ex_parte, false);
   assert.equal(model.values.seat_city, "");
   assert.equal(model.values.pendente_lite_rate, "");
   assert.equal(model.values.post_award_rate, "");

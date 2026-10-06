@@ -119,8 +119,16 @@ test("hearing labels, times, and the no-show cap", () => {
   assert.equal(hearingOrdinal(11), "11th");
   const when = indiaDateTime("2026-10-20", "11:00");
   assert.equal(when?.toISOString(), "2026-10-20T05:30:00.000Z");
-  assert.deepEqual(nextNoShowState({ noShowCount: 2, maxNoShow: 3 }), { noShowCount: 3, flaggedExParte: true });
-  assert.deepEqual(nextNoShowState({ noShowCount: 2, maxNoShow: 3, matterType: "MEDIATION" }), { noShowCount: 3, flaggedExParte: false });
+  assert.deepEqual(nextNoShowState({ noShowCount: 2, maxNoShow: 3 }), {
+    noShowCount: 3,
+    flaggedExParte: false,
+    considerFinalOpportunity: true,
+  });
+  assert.deepEqual(nextNoShowState({ noShowCount: 2, maxNoShow: 3, matterType: "MEDIATION" }), {
+    noShowCount: 3,
+    flaggedExParte: false,
+    considerFinalOpportunity: false,
+  });
   assert.equal(autoSendAllowed({ flaggedExParte: true, noShowCount: 3, maxNoShow: 3 }), false);
   assert.equal(autoSendAllowed({ flaggedExParte: false, noShowCount: 1, maxNoShow: 3 }), true);
 });
