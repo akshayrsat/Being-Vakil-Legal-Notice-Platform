@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { OdrNeutralForm } from "@/components/odr-case-forms";
+import { OdrBackLink } from "@/components/odr-back-link";
 import { DeskShell } from "@/components/desk-shell";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { backToOdr } from "@/lib/odr-back";
 import { canSendNotices } from "@/lib/roles";
 
 export const metadata: Metadata = { title: "Arbitrators" };
@@ -15,6 +17,7 @@ export default async function NeutralsPage() {
   const neutrals = await prisma.odrNeutral.findMany({ orderBy: { name: "asc" } });
   return (
     <DeskShell user={user}>
+      <OdrBackLink target={backToOdr()} />
       <div>
         <h1 className="font-serif text-4xl tracking-tight">Arbitrators and mediators</h1>
         <p className="mt-3 max-w-2xl text-base leading-7 text-muted-foreground">

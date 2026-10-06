@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { OdrBackLink } from "@/components/odr-back-link";
 import { OdrUploadForm } from "@/components/odr-upload-form";
 import { DeskShell } from "@/components/desk-shell";
 import { buttonVariants } from "@/components/ui/button";
@@ -11,6 +12,7 @@ import { approvedWording } from "@/lib/odr-templates";
 import { odrEnvLive, odrLiveWarning } from "@/lib/odr-live";
 import { readOdrRules } from "@/lib/odr-store";
 import { isOwnerAdmin } from "@/lib/owner-admin";
+import { backToDesk } from "@/lib/odr-back";
 import { canSendNotices } from "@/lib/roles";
 
 export const metadata: Metadata = { title: "ODR" };
@@ -29,6 +31,7 @@ export default async function OdrPage() {
 
   return (
     <DeskShell user={user}>
+      <OdrBackLink target={backToDesk()} />
       <div>
         <h1 className="font-serif text-4xl tracking-tight">ODR</h1>
         <p className="mt-3 max-w-2xl text-base leading-7 text-muted-foreground">

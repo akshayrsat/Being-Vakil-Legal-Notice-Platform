@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { OdrConfirmForm } from "@/components/odr-case-forms";
+import { OdrBackLink } from "@/components/odr-back-link";
 import { DeskShell } from "@/components/desk-shell";
 import { getCurrentUser } from "@/lib/auth";
 import { workingBank } from "@/lib/bank-context";
@@ -11,6 +12,7 @@ import { planOdrChannels } from "@/lib/odr-plan";
 import { formatHearingDate, formatHearingTime } from "@/lib/odr-ref";
 import { readOdrRules } from "@/lib/odr-store";
 import { templatesFor } from "@/lib/odr-templates";
+import { backToOdr } from "@/lib/odr-back";
 import { canSendNotices } from "@/lib/roles";
 
 export const metadata: Metadata = { title: "Review ODR" };
@@ -36,6 +38,7 @@ export default async function OdrPreviewPage({ params }: { params: Promise<{ id:
 
   return (
     <DeskShell user={user}>
+      <OdrBackLink target={backToOdr()} />
       <div>
         <h1 className="font-serif text-4xl tracking-tight">Review who will get it</h1>
         <p className="mt-3 max-w-2xl text-base leading-7 text-muted-foreground">
