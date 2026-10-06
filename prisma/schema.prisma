@@ -274,6 +274,8 @@ model CampaignDelivery {
   noticeNumber   String         @default("")
   // First MSG91 email open (or WhatsApp read). Null until the webhook reports it.
   openedAt       DateTime?
+  // Set when a live confirm happened outside 09:00–18:30 IST. The cron sends it later.
+  notBefore      DateTime?
 
   @@index([campaignId])
   @@index([providerId])
@@ -553,6 +555,7 @@ model OdrMessage {
   detail      String      @default("")
   messageText String      @default("")
   providerId  String      @default("")
+  notBefore   DateTime?
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
 
@@ -656,5 +659,9 @@ model OdrSettings {
   reminderHourOn      Boolean  @default(true)
   maxNoShow           Int      @default(3)
   autoRescheduleDays  Int      @default(0)
+  sendWindowStart     String   @default("09:00")
+  sendWindowEnd       String   @default("18:30")
+  maxRemindersPerHearing Int   @default(1)
+  maxMessagesPerDay   Int      @default(1)
   updatedAt           DateTime @updatedAt
 }

@@ -119,6 +119,25 @@ export function OdrTemplateForm({ rules, showIds }: { rules: OdrRules; showIds: 
           Send the hour-before reminder
         </label>
         <label className="flex flex-col gap-1 text-sm font-medium">
+          Send from (IST)
+          <input name="sendWindowStart" type="time" required defaultValue={rules.sendWindowStart} className={field} />
+        </label>
+        <label className="flex flex-col gap-1 text-sm font-medium">
+          Send until (IST)
+          <input name="sendWindowEnd" type="time" required defaultValue={rules.sendWindowEnd} className={field} />
+        </label>
+        <label className="flex flex-col gap-1 text-sm font-medium">
+          Automatic reminders per hearing
+          <input name="maxRemindersPerHearing" type="number" min={1} max={5} defaultValue={rules.maxRemindersPerHearing} className={field} />
+        </label>
+        <label className="flex flex-col gap-1 text-sm font-medium">
+          Messages per customer per day
+          <input name="maxMessagesPerDay" type="number" min={1} max={5} defaultValue={rules.maxMessagesPerDay} className={field} />
+        </label>
+        <p className="text-sm leading-6 text-muted-foreground sm:col-span-2">
+          ODR messages, and a legal notice confirmed outside these hours, wait until the next opening. An automatic reminder uses one channel. Nothing extra goes out once the daily cap is reached. ODR sending stays off until you turn it on.
+        </p>
+        <label className="flex flex-col gap-1 text-sm font-medium">
           Maximum no-shows before ex parte review
           <input name="maxNoShow" type="number" min={1} max={10} defaultValue={rules.maxNoShow} className={field} />
         </label>

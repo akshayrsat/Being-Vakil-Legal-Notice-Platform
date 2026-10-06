@@ -30,6 +30,7 @@ import { ODR_SETTINGS_ID, odrTemplateSlots, parseTemplateMap } from "@/lib/odr-t
 import { templatesFor } from "@/lib/odr-templates";
 import { canFlipLiveSend } from "@/lib/live-send-switch";
 import { canSendNotices } from "@/lib/roles";
+import { validSendWindow } from "@/lib/send-window";
 import { STAFF_DOCUMENT_KINDS } from "@/lib/odr-status";
 
 export type OdrFormState = { error: string } | null;
@@ -613,6 +614,20 @@ export async function saveOdrSettings(_previous: OdrFormState, formData: FormDat
   if (!Number.isInteger(autoRescheduleDays) || autoRescheduleDays < 0 || autoRescheduleDays > 60) {
     return { error: "Auto-reschedule days must be from 0 to 60. Use 0 to keep it off." };
   }
+  const sendWindowStart = String(formData.get("sendWindowStart") ?? "").trim();
+  const sendWindowEnd = String(formData.get("sendWindowEnd") ?? "").trim();
+  const maxRemindersPerHearing = Number(formData.get("maxRemindersPerHearing"));
+  const maxMessagesPerDay = Number(formData.get("maxMessagesPerDay"));
+  if (!/^\d{2}:\d{2}$/.test(sendWindowStart) || !/^\d{2}:\d{2}$/.test(sendWindowEnd) || !validSendWindow(sendWindowStart, sendWindowEnd)) {
+    return { error: "Send hours must be a clock time, and the start must be earlier than the end." };
+  }
+  if (!Number.isInteger(maxRemindersPerHearing) || maxRemindersPerHearing < 1 || maxRemindersPerHearing > 5) {
+    return { error: "Automatic reminders per hearing must be from 1 to 5." };
+  }
+  if (!Number.isInteger(maxMessagesPerDay) || maxMessagesPerDay < 1 || maxMessagesPerDay > 5) {
+    return { error: "Messages per customer per day must be from 1 to 5." };
+  }
+  const windowFields = { sendWindowStart, sendWindowEnd, maxRemindersPerHearing, maxMessagesPerDay };
   await prisma.odrSettings.upsert({
     where: { id: ODR_SETTINGS_ID },
     create: {
@@ -624,6 +639,7 @@ export async function saveOdrSettings(_previous: OdrFormState, formData: FormDat
       reminderHoursBefore: Number.isInteger(reminderHoursBefore) ? reminderHoursBefore : 1,
       reminderDayOn: formData.get("reminderDayOn") === "on",
       reminderHourOn: formData.get("reminderHourOn") === "on",
+      ...windowFields,
     },
     update: {
       templatesJson: JSON.stringify(currentMap),
@@ -633,6 +649,7 @@ export async function saveOdrSettings(_previous: OdrFormState, formData: FormDat
       reminderHoursBefore: Number.isInteger(reminderHoursBefore) ? reminderHoursBefore : 1,
       reminderDayOn: formData.get("reminderDayOn") === "on",
       reminderHourOn: formData.get("reminderHourOn") === "on",
+      ...windowFields,
     },
   });
   await auditCurrentUser({

@@ -100,7 +100,7 @@ export default async function SettingsPage({
         <Card>
           <CardHeader>
             <CardTitle>ODR templates and reminders</CardTitle>
-            <CardDescription>Empty template slots are not sent. This does not change notice sending.</CardDescription>
+            <CardDescription>Empty template slots are not sent. Send hours also hold a legal notice that is confirmed outside the window.</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-6">
             <OdrTemplateForm rules={odrRules} showIds={vendor} />

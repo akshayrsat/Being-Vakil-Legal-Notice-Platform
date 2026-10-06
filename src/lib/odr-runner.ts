@@ -14,7 +14,7 @@ import {
   attendanceFromParticipants,
   type MeetLinkResult,
 } from "./odr-meet";
-import { autoSendAllowed, nextNoShowState, planOdrChannels } from "./odr-plan";
+import { autoSendAllowed, nextNoShowState, planOdrChannels, type ChannelPlan } from "./odr-plan";
 import {
   formatHearingDate,
   formatHearingTime,
@@ -31,6 +31,9 @@ import {
 } from "./odr-schedule";
 import { readOdrRules, type OdrRules } from "./odr-store";
 import { hearingMessageText, templatesFor, type OdrTemplateKind } from "./odr-templates";
+import { sendWindowFromRules } from "./odr-store";
+import { releaseHeldNoticeSends } from "./notice-release";
+import { canQueueReminder, dayHold, istDayBounds, pickReminderChannel, windowHold, type SendWindow } from "./send-window";
 import { terminalOdrStatus } from "./odr-status";
 
 const CLAIM = "CREATING";
@@ -129,9 +132,11 @@ export async function processOdrWork(
     });
   }
 
+  const sendWindow = sendWindowFromRules(deps.rules);
   const queued = await db.odrMessage.findMany({
     where: {
       status: "QUEUED",
+      AND: [{ OR: [{ notBefore: null }, { notBefore: { lte: deps.now } }] }],
       ...(bankId ? { bankId } : {}),
       ...(batchId ? { case: { batchId } } : {}),
       hearing: { meetLink: { not: "" } },
@@ -150,6 +155,20 @@ export async function processOdrWork(
       data: { status: "SENDING" },
     });
     if (claim.count !== 1 || !message.hearing) continue;
+    const held = await messageHold(db, {
+      now: deps.now,
+      window: sendWindow,
+      caseId: message.caseId,
+      messageId: message.id,
+      maxPerDay: deps.rules.maxMessagesPerDay,
+    });
+    if (held) {
+      await db.odrMessage.update({
+        where: { id: message.id },
+        data: { status: "QUEUED", notBefore: held.notBefore, detail: held.detail },
+      });
+      continue;
+    }
     const kind = message.kind === "NEXT" || message.kind === "REMINDER" ? message.kind.toLowerCase() as OdrTemplateKind : "first";
     const text = hearingMessageText({
       customer: message.case.customerName,
@@ -351,6 +370,7 @@ export async function runOdrMaintenance(
   const attendance = await refreshEndedAttendance(db, liveDeps);
   const reminders = await sendDueReminders(db, liveDeps);
   const rescheduled = await autoRescheduleNoShows(db, liveDeps);
+  await releaseHeldNoticeSends(liveDeps.now);
   await processOdrWork(db, { limit: 6, deps: liveDeps });
   return { reminders, rescheduled, attendance };
 }
@@ -411,6 +431,27 @@ async function sendDueReminders(db: PrismaClient, deps: OdrDeps): Promise<number
       },
     });
     if (keys.length === 0) continue;
+    const already = await db.odrMessage.count({
+      where: { hearingId: hearing.id, kind: "REMINDER", status: { not: "SKIPPED" } },
+    });
+    if (!canQueueReminder(already, deps.rules.maxRemindersPerHearing)) {
+      const sentKeys = [...parseReminderKeys(hearing.remindersSent), ...keys];
+      await db.odrHearing.update({ where: { id: hearing.id }, data: { remindersSent: JSON.stringify(sentKeys) } });
+      continue;
+    }
+    const plans = planOdrChannels({
+      live: deps.live,
+      mobile: hearing.case.mobile,
+      email: hearing.case.email,
+      templates: templatesFor(deps.rules.templates, hearing.case.matterType, "reminder"),
+    });
+    const chosen = pickReminderChannel(plans);
+    if (!chosen) continue;
+    const usedToday = await messagesUsedToday(db, hearing.caseId, deps.now, "");
+    const window = sendWindowFromRules(deps.rules);
+    const held = windowHold(deps.now, window).hold
+      ? windowHold(deps.now, window)
+      : dayHold(deps.now, window, usedToday, deps.rules.maxMessagesPerDay);
     await queueMessages(db, {
       caseId: hearing.caseId,
       hearingId: hearing.id,
@@ -421,6 +462,9 @@ async function sendDueReminders(db: PrismaClient, deps: OdrDeps): Promise<number
       kind: "REMINDER",
       live: deps.live,
       templates: templatesFor(deps.rules.templates, hearing.case.matterType, "reminder"),
+      plans: [chosen],
+      notBefore: held.hold ? held.notBefore : null,
+      detail: held.hold ? held.detail : "",
     });
     const sent = [...parseReminderKeys(hearing.remindersSent), ...keys];
     await db.odrHearing.update({ where: { id: hearing.id }, data: { remindersSent: JSON.stringify(sent) } });
@@ -482,9 +526,12 @@ export async function queueMessages(
     kind: "FIRST" | "NEXT" | "REMINDER";
     live: boolean;
     templates: { smsFlowId: string; emailTemplateId: string; whatsappTemplate: string };
+    plans?: ChannelPlan[];
+    notBefore?: Date | null;
+    detail?: string;
   },
 ): Promise<void> {
-  const plans = planOdrChannels({
+  const plans = input.plans ?? planOdrChannels({
     live: input.live,
     mobile: input.mobile,
     email: input.email,
@@ -499,8 +546,38 @@ export async function queueMessages(
       kind: input.kind,
       toAddress: plan.to,
       status: plan.status,
-      detail: plan.detail || (plan.status === "SKIPPED" ? ODR_NOT_SENT_DETAIL : ""),
+      notBefore: plan.status === "QUEUED" ? input.notBefore ?? null : null,
+      detail: plan.status === "QUEUED" && input.detail
+        ? input.detail
+        : plan.detail || (plan.status === "SKIPPED" ? ODR_NOT_SENT_DETAIL : ""),
     })),
+  });
+}
+
+async function messageHold(
+  db: PrismaClient,
+  input: { now: Date; window: SendWindow; caseId: string; messageId: string; maxPerDay: number },
+): Promise<{ notBefore: Date; detail: string } | null> {
+  const outside = windowHold(input.now, input.window);
+  if (outside.hold) return { notBefore: outside.notBefore, detail: outside.detail };
+  const used = await messagesUsedToday(db, input.caseId, input.now, input.messageId);
+  const capped = dayHold(input.now, input.window, used, input.maxPerDay);
+  if (capped.hold) return { notBefore: capped.notBefore, detail: capped.detail };
+  return null;
+}
+
+async function messagesUsedToday(db: PrismaClient, caseId: string, now: Date, excludeId: string): Promise<number> {
+  const { start, end } = istDayBounds(now);
+  return db.odrMessage.count({
+    where: {
+      caseId,
+      ...(excludeId ? { id: { not: excludeId } } : {}),
+      OR: [
+        { status: "SENT", updatedAt: { gte: start, lt: end } },
+        { status: "SENDING" },
+        { status: "QUEUED", notBefore: { gte: start, lt: end } },
+      ],
+    },
   });
 }
 
