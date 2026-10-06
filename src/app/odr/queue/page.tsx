@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { OdrBulkScheduleForm } from "@/components/odr-case-forms";
+import { OdrBackLink } from "@/components/odr-back-link";
 import { DeskShell } from "@/components/desk-shell";
 import { EmptyState } from "@/components/empty-state";
 import { getCurrentUser } from "@/lib/auth";
@@ -9,6 +10,7 @@ import { workingBank } from "@/lib/bank-context";
 import { prisma } from "@/lib/db";
 import { formatHearingDate } from "@/lib/odr-ref";
 import { needsNextHearing, nowMs } from "@/lib/odr-schedule";
+import { backToOdr } from "@/lib/odr-back";
 import { canSendNotices } from "@/lib/roles";
 
 export const metadata: Metadata = { title: "Next hearing needed" };
@@ -37,6 +39,7 @@ export default async function OdrQueuePage() {
 
   return (
     <DeskShell user={user}>
+      <OdrBackLink target={backToOdr()} />
       <div>
         <h1 className="font-serif text-4xl tracking-tight">Next hearing needed</h1>
         <p className="mt-3 max-w-2xl text-base leading-7 text-muted-foreground">

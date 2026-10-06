@@ -10,6 +10,7 @@ import {
   OdrStatusForm,
 } from "@/components/odr-case-forms";
 import { OdrSignedUpload } from "@/components/odr-paper-form";
+import { OdrBackLink } from "@/components/odr-back-link";
 import { DeskShell } from "@/components/desk-shell";
 import { getCurrentUser } from "@/lib/auth";
 import { workingBank } from "@/lib/bank-context";
@@ -21,7 +22,8 @@ import { formatHearingDate, formatHearingTime, hearingOrdinal } from "@/lib/odr-
 import { nowMs } from "@/lib/odr-schedule";
 import { bankUserCanSeeDocument } from "@/lib/odr-paper";
 import { odrDocumentLabel, odrMatterLabel, odrNeutralRole, odrStatusLabel } from "@/lib/odr-status";
-import { canSendNotices } from "@/lib/roles";
+import { odrCaseBack } from "@/lib/odr-back";
+import { canSendNotices, isBankUser } from "@/lib/roles";
 import { hideVendorWording, seesVendorDetail } from "@/lib/staff-language";
 
 export const metadata: Metadata = { title: "ODR case" };
@@ -31,7 +33,7 @@ export default async function OdrCasePage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ attendance?: string }>;
+  searchParams: Promise<{ attendance?: string; from?: string }>;
 }) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
@@ -58,13 +60,9 @@ export default async function OdrCasePage({
 
   return (
     <DeskShell user={user}>
+      <OdrBackLink target={odrCaseBack({ bankUser: isBankUser(user.role), from: query.from })} />
       <div>
-        <p className="text-sm text-muted-foreground">
-          <Link href="/odr/cases" className="underline">
-            Cases
-          </Link>
-        </p>
-        <h1 className="mt-2 font-serif text-4xl tracking-tight">{item.refNo}</h1>
+        <h1 className="font-serif text-4xl tracking-tight">{item.refNo}</h1>
         <p className="mt-3 text-base leading-7 text-muted-foreground">
           {bank.name} vs {item.customerName}
           {item.coParties ? ` and ${item.coParties}` : ""}. {odrMatterLabel(item.matterType)}. {odrStatusLabel(item.status)}

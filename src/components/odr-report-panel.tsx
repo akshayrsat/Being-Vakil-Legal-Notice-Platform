@@ -90,14 +90,24 @@ export async function OdrReportPanel({
           )}
         </div>
       </form>
-      {odrFiltersApplied(filters) ? <OdrRows bankId={bankId} bankName={bankName} filters={filters} /> : (
+      {odrFiltersApplied(filters) ? <OdrRows bankId={bankId} bankName={bankName} filters={filters} returnTo={`${downloadBase}?${search}`} /> : (
         <p className="text-sm text-muted-foreground">Choose the file, type, status, or dates, then press Apply. The Excel is one row per person.</p>
       )}
     </>
   );
 }
 
-async function OdrRows({ bankId, bankName, filters }: { bankId: string; bankName: string; filters: OdrFilters }) {
+async function OdrRows({
+  bankId,
+  bankName,
+  filters,
+  returnTo,
+}: {
+  bankId: string;
+  bankName: string;
+  filters: OdrFilters;
+  returnTo: string;
+}) {
   const cases = await prisma.odrCase.findMany({
     where: odrCaseWhere(bankId, filters),
     include: {
@@ -133,7 +143,7 @@ async function OdrRows({ bankId, bankName, filters }: { bankId: string; bankName
           {cases.map((item) => (
             <tr key={item.id} className="border-t border-border">
               <td className="px-3 py-2">
-                <Link href={`/odr/cases/${item.id}`} className="font-medium underline">
+                <Link href={`/odr/cases/${item.id}?from=${encodeURIComponent(returnTo)}`} className="font-medium underline">
                   {item.refNo}
                 </Link>
               </td>

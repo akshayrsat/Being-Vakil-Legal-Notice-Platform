@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { OdrBackLink } from "@/components/odr-back-link";
 import { DeskShell } from "@/components/desk-shell";
 import { OdrSendProgress } from "@/components/odr-send-progress";
 import { buttonVariants } from "@/components/ui/button";
@@ -9,6 +10,7 @@ import { workingBank } from "@/lib/bank-context";
 import { prisma } from "@/lib/db";
 import { deliveryStatusLabel } from "@/lib/campaigns";
 import { hideVendorWording, seesVendorDetail } from "@/lib/staff-language";
+import { backToOdr } from "@/lib/odr-back";
 import { canSendNotices } from "@/lib/roles";
 
 export const metadata: Metadata = { title: "ODR send" };
@@ -42,6 +44,7 @@ export default async function OdrBatchPage({ params }: { params: Promise<{ id: s
 
   return (
     <DeskShell user={user}>
+      <OdrBackLink target={backToOdr()} />
       <div>
         <h1 className="font-serif text-4xl tracking-tight">{batch.fileName}</h1>
         <p className="mt-3 text-base text-muted-foreground">{batch.cases.length} cases for {bank.name}.</p>

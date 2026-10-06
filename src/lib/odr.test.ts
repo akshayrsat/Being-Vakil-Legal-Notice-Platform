@@ -4,7 +4,7 @@ import { ROLE_BANK_USER, ROLE_COORDINATOR, ROLE_OWNER } from "./roles";
 import { workspaceNav } from "./send-notice";
 import { last4Matches, hearingOrdinal, indiaDateTime, generateRefNo } from "./odr-ref";
 import { suggestOdrMapping, mapOdrRows, ODR_SAMPLE_HEADERS, emptyOdrMapping } from "./odr-fields";
-import { effectiveOdrLiveSend, ODR_NOT_SENT_DETAIL, odrEnvLive } from "./odr-live";
+import { effectiveOdrLiveSend, ODR_NOT_SENT_DETAIL, ODR_SERVER_DISABLED_NOTE, odrEnvLive, odrServerDisabledNote } from "./odr-live";
 import { planOdrChannels, nextNoShowState, autoSendAllowed } from "./odr-plan";
 import { attendanceFromParticipants, fakeMeetLink, meetConfigured, meetJwtClaims, meetingCodeFromLink } from "./odr-meet";
 import { dueReminderKeys, needsNextHearing, autoRescheduleAt } from "./odr-schedule";
@@ -35,6 +35,9 @@ test("ODR sending stays off unless the owner switch and ODR_LIVE_SEND are both o
   assert.equal(effectiveOdrLiveSend(true, undefined), false);
   assert.equal(effectiveOdrLiveSend(true, "true"), true);
   assert.equal(effectiveOdrLiveSend(false, "true"), false);
+  assert.equal(odrServerDisabledNote(false), ODR_SERVER_DISABLED_NOTE);
+  assert.equal(ODR_SERVER_DISABLED_NOTE, "ODR sending is disabled on the server");
+  assert.equal(odrServerDisabledNote(true), "");
 });
 
 test("a missing template is named, and a configured template stays unsent while ODR sending is off", () => {

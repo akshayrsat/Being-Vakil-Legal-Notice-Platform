@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { OdrBackLink } from "@/components/odr-back-link";
 import { DeskShell } from "@/components/desk-shell";
 import { EmptyState } from "@/components/empty-state";
 import { buttonVariants } from "@/components/ui/button";
@@ -10,7 +11,8 @@ import { prisma } from "@/lib/db";
 import { formatHearingDate } from "@/lib/odr-ref";
 import { odrCaseWhere, odrFiltersApplied, odrFiltersToSearch, readOdrFilters } from "@/lib/odr-reports";
 import { ODR_MATTERS, ODR_STATUSES, odrMatterLabel, odrStatusLabel } from "@/lib/odr-status";
-import { canSendNotices } from "@/lib/roles";
+import { odrListBack } from "@/lib/odr-back";
+import { canSendNotices, isBankUser } from "@/lib/roles";
 
 export const metadata: Metadata = { title: "ODR cases" };
 
@@ -35,6 +37,7 @@ export default async function OdrCasesPage({
 
   return (
     <DeskShell user={user}>
+      <OdrBackLink target={odrListBack(isBankUser(user.role))} />
       <div>
         <h1 className="font-serif text-4xl tracking-tight">ODR cases</h1>
         <p className="mt-3 max-w-2xl text-base leading-7 text-muted-foreground">

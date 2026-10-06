@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { OdrBackLink } from "@/components/odr-back-link";
 import { OdrPaperForm } from "@/components/odr-paper-form";
 import { DeskShell } from "@/components/desk-shell";
 import { getCurrentUser } from "@/lib/auth";
@@ -16,6 +16,7 @@ import {
   type PaperCase,
   type PaperKind,
 } from "@/lib/odr-paper";
+import { backToCase } from "@/lib/odr-back";
 import { canSendNotices } from "@/lib/roles";
 
 export const metadata: Metadata = { title: "Prepare ODR document" };
@@ -87,13 +88,9 @@ export default async function OdrPaperPage({
 
   return (
     <DeskShell user={user}>
+      <OdrBackLink target={backToCase(item.id)} />
       <div>
-        <p className="text-sm text-muted-foreground">
-          <Link href={`/odr/cases/${item.id}`} className="underline">
-            {item.refNo}
-          </Link>
-        </p>
-        <h1 className="mt-2 font-serif text-4xl tracking-tight">
+        <h1 className="font-serif text-4xl tracking-tight">
           {kind === "award" ? "Generate award" : "Generate settlement agreement"}
         </h1>
         <p className="mt-3 max-w-2xl text-base leading-7 text-muted-foreground">
