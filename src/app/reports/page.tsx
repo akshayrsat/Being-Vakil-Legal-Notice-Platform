@@ -21,6 +21,8 @@ import {
 import { resolveReportBank } from "@/lib/report-bank";
 import { isOwnerAdmin } from "@/lib/owner-admin";
 import { canChooseBank, isBankUser } from "@/lib/roles";
+import { RecordSwitch } from "@/components/record-switch";
+import { OdrReportPanel } from "@/components/odr-report-panel";
 
 export const metadata: Metadata = {
   title: "Reports",
@@ -50,22 +52,30 @@ export default async function ReportsPage({
     ...requested,
     file: files.some((file) => file.id === requested.file) ? requested.file : "",
   };
+  const view = params.get("view") === "odr" ? "odr" : "notices";
 
   return (
     <DeskShell user={user}>
       <div>
         <h1 className="font-serif text-4xl tracking-tight">Reports</h1>
         <p className="mt-3 max-w-2xl text-base leading-7 text-muted-foreground">
-          {technical
-            ? "Failure rates and delivery. Email and WhatsApp also show opened and not opened. A dry run is counted apart from a live failure. The delivery Excel is one row for each person, for this bank only."
-            : "Delivery status for notices already sent, for this bank only. You can download the report."}
+          {view === "odr"
+            ? `ODR cases for ${bank?.name ?? "this bank"}. The Excel is one row per person, and it downloads only after Apply.`
+            : technical
+              ? "Failure rates and delivery. Email and WhatsApp also show opened and not opened. A dry run is counted apart from a live failure. The delivery Excel is one row for each person, for this bank only."
+              : "Delivery status for notices already sent, for this bank only. You can download the report."}
         </p>
+        <div className="mt-4">
+          <RecordSwitch base="/reports" view={view} />
+        </div>
       </div>
 
       {!bank ? (
         <EmptyState title="No bank selected">
           {isAdmin ? "Open Banks and press Use this bank." : "This login is not linked to a bank."}
         </EmptyState>
+      ) : view === "odr" ? (
+        <OdrReportPanel bankId={bank.id} bankName={bank.name} params={params} downloadBase="/reports" />
       ) : (
         <>
           <form action="/reports" method="get" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">

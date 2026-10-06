@@ -5,6 +5,8 @@ import { canChooseBank, canCreateLogins, isBankUser, isOwner } from "./roles";
 
 export const SEND_NOTICE_HREF = "/send";
 export const SEND_NOTICE_LABEL = "Send notice";
+export const ODR_HREF = "/odr";
+export const ODR_LABEL = "ODR";
 export const SETTINGS_HREF = "/settings";
 export const SETTINGS_LABEL = "Settings";
 export const PEOPLE_HREF = "/people";
@@ -55,6 +57,7 @@ export function workspaceNav(role: string): NavLink[] {
   const links: NavLink[] = [
     { href: "/dashboard", label: "Home" },
     { href: SEND_NOTICE_HREF, label: SEND_NOTICE_LABEL },
+    { href: ODR_HREF, label: ODR_LABEL },
     { href: "/templates", label: "Templates" },
     { href: LEGAL_NOTICES_HREF, label: LEGAL_NOTICES_LABEL },
     { href: "/deliveries", label: "Tracking" },

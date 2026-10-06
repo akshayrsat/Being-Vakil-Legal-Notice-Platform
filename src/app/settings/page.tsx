@@ -17,6 +17,10 @@ import { canFlipLiveSend } from "@/lib/live-send-switch";
 import { isOwnerAdmin } from "@/lib/owner-admin";
 import { confirmWarning } from "@/lib/send-notice";
 import { msg91AuthKey } from "@/lib/msg91";
+import { OdrLiveForm, OdrTemplateForm } from "@/components/odr-settings-form";
+import { odrEnvLive, odrLiveWarning } from "@/lib/odr-live";
+import { readOdrRules } from "@/lib/odr-store";
+import { approvedWording } from "@/lib/odr-templates";
 
 export const dynamic = "force-dynamic";
 
@@ -35,6 +39,7 @@ export default async function SettingsPage({
 
   const query = await searchParams;
   const enabled = await liveSendIsOn();
+  const odrRules = await readOdrRules();
   const vendor = isOwnerAdmin(user);
   const warning = confirmWarning({
     switchOn: enabled,
@@ -58,6 +63,11 @@ export default async function SettingsPage({
             Saved. {warning}
           </p>
         ) : null}
+        {query.saved === "odr" ? (
+          <p className="rounded-lg border border-border bg-card px-3 py-2 text-sm" role="status">
+            ODR settings saved. Notice sending was not changed.
+          </p>
+        ) : null}
         <Card>
           <CardHeader>
             <CardTitle>Live send is {enabled ? "on" : "off"}</CardTitle>
@@ -65,6 +75,22 @@ export default async function SettingsPage({
           </CardHeader>
           <CardContent>
             <LiveSendSwitchForm enabled={enabled} technical={vendor} />
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>ODR sending is {odrRules.live ? "on" : "off"}</CardTitle>
+            <CardDescription>
+              {odrLiveWarning({ storedOn: odrRules.liveStored, envOn: odrEnvLive() })} This does not change notice sending.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-6">
+            <OdrLiveForm enabled={odrRules.liveStored} />
+            <OdrTemplateForm rules={odrRules} showIds={vendor} />
+            <div>
+              <h2 className="font-serif text-2xl">Approved first-hearing wording</h2>
+              <pre className="mt-3 whitespace-pre-wrap text-sm leading-6">{approvedWording("arbitration.first")}</pre>
+            </div>
           </CardContent>
         </Card>
       </main>
