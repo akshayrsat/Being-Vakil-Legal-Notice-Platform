@@ -23,6 +23,7 @@ import {
 import { loanSearchHref } from "@/lib/loan-timeline";
 import { noticeLinkOpensByNumber } from "@/lib/public-notice";
 import { formatIndiaDateTime } from "@/lib/india-day";
+import { maskContact } from "@/lib/mask";
 import { resolveReportBank } from "@/lib/report-bank";
 import { canChooseBank, isBankUser } from "@/lib/roles";
 import { RecordSwitch } from "@/components/record-switch";
@@ -175,7 +176,7 @@ async function Results({
                   <tr key={row.id} className="border-t border-border">
                     <td className="px-3 py-2">
                       <p className="font-medium">{row.customerName}</p>
-                      <p className="text-muted-foreground">{row.mobile || row.email || "—"}</p>
+                      <p className="text-muted-foreground">{maskContact(row.mobile, row.email)}</p>
                       <NoticeOpenLink noticeNumber={row.noticeNumber} />
                     </td>
                     <td className="px-3 py-2">

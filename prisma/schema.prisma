@@ -4,6 +4,7 @@
 // A bank user is tied to one bank (bankId). The owner and a legal coordinator are not.
 // selectedBankId is the bank the owner or legal coordinator is working on right now.
 // A session is one signed-in visit. Signing out deletes it.
+// Session.token stores the SHA-256 hash of the cookie, never the cookie itself.
 // mustChangePassword is set when someone is given a temporary password.
 // Allowed roles: OWNER, LEGAL_COORDINATOR, BANK_USER.
 // ADMIN and BANK_VIEWER remain so an existing login still opens.
@@ -61,6 +62,8 @@ model Bank {
   wordingApprovedOn     String @default("")
   odrPanel        OdrBankPanel[]
   representatives BankRepresentative[]
+  retention       BankRetention?
+  legalHolds      PersonLegalHold[]
   createdAt  DateTime       @default(now())
 }
 
@@ -872,4 +875,93 @@ model OdrSettings {
   consentDays         Int      @default(15)
   consentBlockDays    Int      @default(30)
   updatedAt           DateTime @updatedAt
+}
+
+// Wrong last-4 tries for one public notice or one ODR case. Not keyed on an IP address.
+model VerifyLock {
+  id          String    @id @default(cuid())
+  scope       String
+  subject     String
+  failures    Int       @default(0)
+  lockedUntil DateTime?
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([scope, subject])
+}
+
+// Firm privacy contact. One row, id "firm". Missing row uses the defaults in code.
+// DRAFT FOR COUNSEL REVIEW: the notice text is not legal advice.
+model FirmPrivacySetting {
+  id             String   @id
+  officerName    String   @default("")
+  officerEmail   String   @default("contact@beingvakil.in")
+  officerPhone   String   @default("+91 9653331393")
+  requestDueDays Int      @default(30)
+  updatedAt      DateTime @updatedAt
+}
+
+// A data-principal request. bankId is empty until the bank name matches one bank.
+model PrivacyRequest {
+  id             String   @id @default(cuid())
+  bankId         String   @default("")
+  bankName       String   @default("")
+  kind           String
+  requesterName  String
+  email          String   @default("")
+  mobile         String   @default("")
+  accountHint    String   @default("")
+  detail         String
+  status         String   @default("OPEN")
+  dueAt          DateTime
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([bankId])
+  @@index([status])
+  @@index([dueAt])
+}
+
+// How long this bank keeps personal data. 0 days means that category is not cleared.
+// legalHold stops the schedule and stops erasure for this bank.
+model BankRetention {
+  bankId            String   @id
+  bank              Bank     @relation(fields: [bankId], references: [id], onDelete: Cascade)
+  closedCaseDays    Int      @default(0)
+  messageDays       Int      @default(0)
+  documentDays      Int      @default(0)
+  publicNoticeDays  Int      @default(0)
+  campaignDays      Int      @default(0)
+  legalHold         Boolean  @default(false)
+  updatedAt         DateTime @updatedAt
+}
+
+// A hold on one person. Erasure and the bank schedule both leave matching rows in place.
+model PersonLegalHold {
+  id         String   @id @default(cuid())
+  bankId     String
+  bank       Bank     @relation(fields: [bankId], references: [id], onDelete: Cascade)
+  accountKey String   @default("")
+  mobileKey  String   @default("")
+  emailKey   String   @default("")
+  reason     String   @default("")
+  active     Boolean  @default(true)
+  createdAt  DateTime @default(now())
+
+  @@index([bankId])
+}
+
+// Owner-only incident note. Nothing here is sent to a bank, the Board, or a person.
+model PrivacyIncident {
+  id                   String    @id @default(cuid())
+  title                String
+  whatHappened         String
+  detectedAt           DateTime
+  banksAffected        String    @default("")
+  peopleAffectedCount  Int       @default(0)
+  notifiedBankAt       DateTime?
+  notifiedBoardAt      DateTime?
+  notifiedPeopleAt     DateTime?
+  checklistJson        String    @default("{}")
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
 }

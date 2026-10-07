@@ -370,6 +370,7 @@
   display: block;
   width: 100% !important;
   max-width: 100% !important;
+  min-width: 0;
   height: auto !important;
   object-fit: contain;
 }
@@ -461,6 +462,7 @@
 
   html,
   body {
+    display: block !important;
     margin: 0 !important;
     padding: 0 !important;
     height: auto !important;
@@ -493,11 +495,34 @@
     break-after: auto;
   }
 
-  .notice-letterhead,
-  .notice-letterfoot,
+  .notice-closing,
   .notice-sign,
-  .notice-grievance,
-  .notice-closing {
+  .notice-grievance {
+    break-inside: auto;
+    page-break-inside: auto;
+  }
+
+  .notice-screen,
+  .notice-stage,
+  .notice-sheet,
+  .notice-closing,
+  .notice-letterfoot {
+    max-width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  .notice-letterfoot {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .notice-letterfoot img {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    height: auto !important;
+    overflow: visible !important;
     break-inside: avoid;
     page-break-inside: avoid;
   }

@@ -7,10 +7,17 @@ export const EMPTY_SHEET = { headers: "[]", rawRows: "[]" };
 
 const TOKEN = /(?<!\d)(?:\d[ -]?){11,18}\d(?!\d)/g;
 
-export function redactCell(value: string): string {
+export function isPhoneHeader(header: string): boolean {
+  return /mobile|phone|whatsapp/i.test(header);
+}
+
+export function redactCell(value: string, options?: { phone?: boolean }): string {
   return value.replace(TOKEN, (match) => {
     const digits = match.replace(/\D/g, "");
-    if (digits.length === 12 && !digits.startsWith("91")) return `XXXX-XXXX-${digits.slice(-4)}`;
+    if (digits.length === 12) {
+      if (options?.phone && digits.startsWith("91")) return match;
+      return `XXXX-XXXX-${digits.slice(-4)}`;
+    }
     if (digits.length >= 13 && digits.length <= 19) return maskCardNumber(digits);
     return match;
   });
@@ -19,7 +26,9 @@ export function redactCell(value: string): string {
 export function redactSheet(headers: string[], rows: string[][]): { headers: string[]; rows: string[][] } {
   return {
     headers,
-    rows: rows.map((row) => row.map((cell) => redactCell(String(cell ?? "")))),
+    rows: rows.map((row) =>
+      row.map((cell, index) => redactCell(String(cell ?? ""), { phone: isPhoneHeader(headers[index] ?? "") })),
+    ),
   };
 }
 

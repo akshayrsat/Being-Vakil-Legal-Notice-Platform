@@ -75,6 +75,10 @@ export function OdrConsentForm({
         <input type="checkbox" name="waive" value="yes" className="mt-1 size-4 accent-primary" />
         I have read the explanation of Section 12(5). If I accept the named arbitrator, I waive that ineligibility in writing for this case.
       </label>
+      {/* DRAFT FOR COUNSEL REVIEW. The Section 12(5) waiver is not a DPDP consent. */}
+      <p className="text-sm leading-6 text-muted-foreground">
+        This choice is about the Arbitration Act. It is not consent under the Digital Personal Data Protection Act.
+      </p>
       <label className="flex flex-col gap-1 text-sm font-medium">
         Type your full name
         <input name="typedName" autoComplete="name" className={field} />

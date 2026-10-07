@@ -1,14 +1,14 @@
 "use server";
 
-import { cookies, headers } from "next/headers";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
-import { clientIp, ODR_GRANT_HOURS, ODR_VERIFY_LIMIT, ODR_VERIFY_WINDOW_MS } from "@/lib/odr-access";
+import { ODR_GRANT_HOURS } from "@/lib/odr-access";
 import { last4Challenge, last4Matches, newGrantToken } from "@/lib/odr-ref";
 import { normalizeNoticeNumber, noticeCustomerMobile } from "@/lib/public-notice";
 import { NOTICE_VERIFY_COOKIE } from "@/lib/notice-access";
 import { noticePageHref } from "@/lib/notice-link";
-import { tooManyAttempts } from "@/lib/rate-limit";
+import { clearVerifyLock, recordVerifyFailure, verifyLockError } from "@/lib/verify-lock-store";
 
 export type NoticeVerifyState = { error: string } | null;
 
@@ -32,23 +32,23 @@ export async function verifyPublicNotice(
     select: { loanNumber: true },
   });
   if (!notice) return { error: "This notice link is not valid." };
-  const headerList = await headers();
-  const ip = clientIp(headerList.get("x-forwarded-for"));
+  const locked = await verifyLockError("notice", noticeNumber);
+  if (locked) return { error: locked };
   const mobile = await noticeCustomerMobile(noticeNumber);
   const challenge = last4Challenge(notice.loanNumber, mobile);
   if (!challenge) {
     return { error: "This notice cannot be opened online. Please call Being Vakil Associates." };
   }
-  if (tooManyAttempts(`notice-verify:${noticeNumber}:${ip.slice(0, 64)}`, ODR_VERIFY_LIMIT, ODR_VERIFY_WINDOW_MS)) {
-    return { error: "Too many attempts. Wait a few minutes and try again." };
-  }
   if (!last4Matches(challenge.value, String(formData.get("last4") ?? ""))) {
+    const lockMessage = await recordVerifyFailure("notice", noticeNumber);
+    if (lockMessage) return { error: lockMessage };
     return {
       error: challenge.source === "mobile"
         ? "Those digits do not match this notice. Check the mobile number and try again."
         : "Those digits do not match this notice. Check the account number and try again.",
     };
   }
+  await clearVerifyLock("notice", noticeNumber);
   const grant = newGrantToken();
   await prisma.noticeVerifyGrant.create({
     data: {

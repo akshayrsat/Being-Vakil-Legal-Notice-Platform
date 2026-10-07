@@ -1,6 +1,8 @@
 // Spreadsheet columns for an ODR upload. Customer name and the account number are required.
 
-import { redactCell } from "./data-min";
+import { emailProblem, mobileProblem } from "./contact";
+import { redactCell, isPhoneHeader } from "./data-min";
+import { normalizeRefNo } from "./odr-ref";
 import { normalizeHeader } from "./sheet-fields";
 
 export const ODR_FIELD_GROUPS = ["Case", "Customer", "Amounts"] as const;
@@ -260,15 +262,15 @@ export type OdrMappedRow = {
   problems: string[];
 };
 
-function cell(headers: string[], row: string[], header: string): string {
+function cell(headers: string[], row: string[], header: string, phone = false): string {
   const index = headers.indexOf(header);
   if (index < 0) return "";
-  return redactCell((row[index] ?? "").trim().slice(0, 2000));
+  return redactCell((row[index] ?? "").trim().slice(0, 2000), { phone: phone || isPhoneHeader(header) });
 }
 
 export function mapOdrRows(headers: string[], rows: string[][], mapping: OdrFieldMapping): OdrMappedRow[] {
   return rows.map((row, index) => {
-    const read = (key: OdrFieldKey) => cell(headers, row, mapping[key]);
+    const read = (key: OdrFieldKey) => cell(headers, row, mapping[key], key.toLowerCase().includes("mobile"));
     const mapped: OdrMappedRow = {
       rowNumber: index + 2,
       refNo: read("refNo"),
@@ -298,6 +300,43 @@ export function mapOdrRows(headers: string[], rows: string[][], mapping: OdrFiel
     if (!mapped.customerName) mapped.problems.push("Customer name is empty.");
     const digits = mapped.accountNumber.replace(/\D/g, "");
     if (digits.length < 4) mapped.problems.push("Account number needs at least 4 digits.");
+    for (const problem of [
+      mobileProblem(mapped.mobile),
+      emailProblem(mapped.email),
+      mobileProblem(mapped.co1Mobile),
+      emailProblem(mapped.co1Email),
+      mobileProblem(mapped.co2Mobile),
+      emailProblem(mapped.co2Email),
+    ]) {
+      if (problem) mapped.problems.push(problem);
+    }
     return mapped;
+  });
+}
+
+export function accountKey(value: string): string {
+  return value.trim().toLowerCase();
+}
+
+export function flagOdrDuplicates(
+  rows: OdrMappedRow[],
+  existing: { openAccounts: string[]; refs: string[] },
+): OdrMappedRow[] {
+  const openAccounts = new Set(existing.openAccounts.map(accountKey).filter(Boolean));
+  const refs = new Set(existing.refs.map((ref) => normalizeRefNo(ref)).filter(Boolean));
+  const seenAccounts = new Set<string>();
+  const seenRefs = new Set<string>();
+  return rows.map((row) => {
+    const problems = [...row.problems];
+    const account = accountKey(row.accountNumber);
+    if (account && openAccounts.has(account)) problems.push("This account already has an open case for this bank.");
+    if (account && seenAccounts.has(account)) problems.push("This account number is already in this file.");
+    if (account) seenAccounts.add(account);
+    const ref = normalizeRefNo(row.refNo);
+    if (ref && (refs.has(ref) || seenRefs.has(ref))) {
+      problems.push("This reference is already used. It was not replaced.");
+    }
+    if (ref) seenRefs.add(ref);
+    return { ...row, problems };
   });
 }

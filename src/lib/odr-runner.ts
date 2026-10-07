@@ -39,6 +39,7 @@ import { arbitrationNoticeError, arbitrationNoticeGaps } from "./odr-notice-gate
 import { releaseHeldNoticeSends } from "./notice-release";
 import { canQueueReminder, dayHold, istDayBounds, pickReminderChannel, windowHold, type SendWindow } from "./send-window";
 import { CLOSED_CASE_BLANK, EMPTY_SHEET, closedCaseExpired, sheetExpired } from "./data-min";
+import { enforcePrivacyRetention } from "./privacy-retention";
 import { grievanceFooter, grievanceFromBank, withGrievanceFooter } from "./grievance";
 import { noticeRecipients } from "./odr-parties";
 import { terminalOdrStatus } from "./odr-status";
@@ -653,20 +654,22 @@ async function purgeExpiredPersonalData(
     if (!sheetExpired(sheet.createdAt, now, rules.sheetRetentionDays)) continue;
     await db.uploadBatch.update({ where: { id: sheet.id }, data: EMPTY_SHEET });
   }
-  if (rules.closedDataRetentionDays < 1) return;
-  const closed = await db.odrCase.findMany({
-    where: {
-      status: { in: ["CLOSED", "SETTLED", "AWARD_PASSED"] },
-      NOT: { customerName: "" },
-    },
-    select: { id: true, updatedAt: true },
-    take: 40,
-  });
-  for (const item of closed) {
-    if (!closedCaseExpired(item.updatedAt, now, rules.closedDataRetentionDays)) continue;
-    await db.odrCase.update({ where: { id: item.id }, data: CLOSED_CASE_BLANK });
-    await db.odrRespondent.deleteMany({ where: { caseId: item.id } });
+  if (rules.closedDataRetentionDays >= 1) {
+    const closed = await db.odrCase.findMany({
+      where: {
+        status: { in: ["CLOSED", "SETTLED", "AWARD_PASSED"] },
+        NOT: { customerName: "" },
+      },
+      select: { id: true, updatedAt: true },
+      take: 40,
+    });
+    for (const item of closed) {
+      if (!closedCaseExpired(item.updatedAt, now, rules.closedDataRetentionDays)) continue;
+      await db.odrCase.update({ where: { id: item.id }, data: CLOSED_CASE_BLANK });
+      await db.odrRespondent.deleteMany({ where: { caseId: item.id } });
+    }
   }
+  await enforcePrivacyRetention(db, now);
 }
 
 export async function runOdrMaintenance(

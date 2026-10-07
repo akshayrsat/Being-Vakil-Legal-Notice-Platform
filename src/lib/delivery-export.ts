@@ -12,6 +12,7 @@ import { noticePublicUrl } from "./notice-link";
 import { noticeLinkOpensByNumber } from "./public-notice";
 import { postalStatusLabel } from "./postal";
 import type { ReportFilters } from "./desk-reports";
+import { maskEmail, maskMobile } from "./mask";
 
 export const DELIVERY_EXPORT_COLUMNS = [
   "Name",
@@ -401,8 +402,8 @@ function channelMatches(person: PersonSheet, channel: string): boolean {
 function cellsForPerson(person: PersonSheet): string[] {
   return [
     person.name,
-    person.mobile,
-    person.email,
+    maskMobile(person.mobile),
+    maskEmail(person.email),
     person.loan,
     person.notice,
     person.link,

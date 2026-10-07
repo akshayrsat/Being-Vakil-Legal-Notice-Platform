@@ -27,6 +27,8 @@ import { consentShownText } from "@/lib/odr-consent";
 import { loadAppointmentConsent } from "@/lib/odr-consent-store";
 import { partyAttendanceLabel, partyAttendanceMap } from "@/lib/odr-parties";
 import { resolvePublicCase } from "@/lib/odr-public-case";
+import { PrivacyLine } from "@/components/privacy-line";
+import { PrivacyPublicExtras } from "@/components/privacy-public";
 import { grievanceFooter, grievanceFromBank } from "@/lib/grievance";
 import { odrDocumentLabel, odrMatterLabel, odrNeutralRole, stageTracker } from "@/lib/odr-status";
 
@@ -65,6 +67,7 @@ export default async function CustomerCasePage({ params }: { params: Promise<{ t
           {verify?.source === "mobile" ? MOBILE_LAST4_PROMPT : copy.verifyBody}
         </p>
         {verify ? <OdrVerifyForm token={token} source={verify.source} /> : <p className="mt-4 text-sm">{copy.verifyUnavailable}</p>}
+        <PrivacyLine purpose="odr" />
       </Frame>
     );
   }
@@ -338,6 +341,9 @@ export default async function CustomerCasePage({ params }: { params: Promise<{ t
 
       <Section title="Grievance redressal">
         <p className="whitespace-pre-wrap text-sm leading-6">{grievanceFooter(grievanceFromBank(item.bank))}</p>
+        <div className="mt-4">
+          <PrivacyLine purpose="odr" />
+        </div>
       </Section>
 
       {item.bankContact || item.paymentInfo ? (
@@ -365,6 +371,7 @@ function Frame({ children }: { children: ReactNode }) {
         </div>
       </header>
       <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-8 px-4 py-8 sm:px-6">{children}</main>
+      <PrivacyPublicExtras purpose="odr" />
     </div>
   );
 }

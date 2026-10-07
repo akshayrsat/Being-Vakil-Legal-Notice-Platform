@@ -28,6 +28,7 @@ export function NoticeLetterfoot() {
         width={1733}
         height={231}
         unoptimized
+        priority
       />
     </footer>
   );

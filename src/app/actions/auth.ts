@@ -20,6 +20,7 @@ import {
   resetPasswordError,
   resetTokenState,
 } from "@/lib/passwords";
+import { sessionCookieOptions, sessionCookieSecure } from "@/lib/session-cookie";
 import { tooManyAttempts } from "@/lib/rate-limit";
 import { passwordResetMailReady, sendPasswordResetEmail } from "@/lib/system-email";
 import {
@@ -110,13 +111,17 @@ async function signInWithPassword(formData: FormData): Promise<SignInState> {
     });
 
     const cookieStore = await cookies();
-    cookieStore.set(OTP_COOKIE, token, {
-      httpOnly: true,
-      sameSite: "lax",
-      secure: false,
-      path: "/",
-      maxAge: OTP_MAX_AGE_SECONDS,
-    });
+    cookieStore.set(
+      OTP_COOKIE,
+      token,
+      sessionCookieOptions({
+        secure: sessionCookieSecure({
+          nodeEnv: process.env.NODE_ENV,
+          publicBaseUrl: process.env.NOTICE_PUBLIC_BASE_URL,
+        }),
+        maxAge: OTP_MAX_AGE_SECONDS,
+      }),
+    );
     redirect("/login/otp");
   }
 
@@ -175,7 +180,7 @@ async function startSession(userId: string): Promise<boolean> {
 
   await prisma.session.create({
     data: {
-      token,
+      token: hashResetToken(token),
       userId,
       expiresAt,
     },
@@ -203,14 +208,11 @@ async function startSession(userId: string): Promise<boolean> {
   }
 
   const cookieStore = await cookies();
-  cookieStore.set(SESSION_COOKIE, token, {
-    httpOnly: true,
-    sameSite: "lax",
-    // This practice site runs on http on your computer. Turn secure on when it is served over https.
-    secure: false,
-    path: "/",
-    maxAge: SESSION_MAX_AGE_SECONDS,
+  const secure = sessionCookieSecure({
+    nodeEnv: process.env.NODE_ENV,
+    publicBaseUrl: process.env.NOTICE_PUBLIC_BASE_URL,
   });
+  cookieStore.set(SESSION_COOKIE, token, sessionCookieOptions({ secure, maxAge: SESSION_MAX_AGE_SECONDS }));
   return signedIn?.mustChangePassword === true;
 }
 
@@ -320,17 +322,16 @@ export async function signOut(): Promise<void> {
   const token = cookieStore.get(SESSION_COOKIE)?.value;
 
   if (token) {
-    await prisma.session.deleteMany({ where: { token } });
+    await prisma.session.deleteMany({ where: { token: hashResetToken(token) } });
   }
 
-  // Session and OTP cookies are set with secure:false. Clear them the same way.
-  const sessionCookie = {
-    httpOnly: true,
-    sameSite: "lax" as const,
-    secure: false,
-    path: "/",
+  const sessionCookie = sessionCookieOptions({
+    secure: sessionCookieSecure({
+      nodeEnv: process.env.NODE_ENV,
+      publicBaseUrl: process.env.NOTICE_PUBLIC_BASE_URL,
+    }),
     maxAge: 0,
-  };
+  });
   cookieStore.set(SESSION_COOKIE, "", sessionCookie);
   cookieStore.set(OTP_COOKIE, "", sessionCookie);
   // Production sets the staff door cookie with Secure. A delete that omits Secure

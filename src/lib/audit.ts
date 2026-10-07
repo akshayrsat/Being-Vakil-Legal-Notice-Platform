@@ -44,6 +44,13 @@ export const AUDIT_ACTIONS = [
   { id: "odr.respondent", label: "Updated a co-borrower or guarantor" },
   { id: "odr.panel", label: "Updated an arbitrator panel" },
   { id: "odr.export", label: "Downloaded an ODR report" },
+  { id: "privacy.request", label: "Recorded a privacy request" },
+  { id: "privacy.correct", label: "Corrected personal data" },
+  { id: "privacy.erase", label: "Erased personal data" },
+  { id: "privacy.incident", label: "Updated an incident note" },
+  { id: "privacy.contact", label: "Updated the privacy contact" },
+  { id: "privacy.retention", label: "Updated a retention schedule" },
+  { id: "privacy.hold", label: "Updated a legal hold" },
 ] as const;
 
 export type AuditActionId = (typeof AUDIT_ACTIONS)[number]["id"];

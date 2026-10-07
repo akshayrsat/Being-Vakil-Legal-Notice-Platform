@@ -339,14 +339,14 @@ export function OdrAttendanceButton({ caseId }: { caseId: string }) {
   );
 }
 
-export function OdrConfirmForm({ batchId, live }: { batchId: string; live: boolean }) {
+export function OdrConfirmForm({ batchId, sendNow }: { batchId: string; sendNow: boolean }) {
   const [state, action, pending] = useActionState(confirmOdrBatch, null);
   return (
     <form action={action} className="flex flex-col gap-3">
       <input type="hidden" name="batchId" value={batchId} />
       <ErrorLine error={state?.error} />
       <Button type="submit" className="h-11 w-fit px-4" disabled={pending}>
-        {pending ? "Working…" : live ? "Send hearing messages" : "Record hearings, do not send"}
+        {pending ? "Working…" : sendNow ? "Send hearing messages" : "Record hearings, do not send"}
       </Button>
     </form>
   );

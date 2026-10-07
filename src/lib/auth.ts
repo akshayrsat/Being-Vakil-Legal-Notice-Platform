@@ -8,6 +8,7 @@ import { redirect, unstable_rethrow } from "next/navigation";
 import { PASSWORD_HREF } from "./account-paths";
 import { toBankSnapshot, type BankSnapshot } from "./banks";
 import { prisma } from "./db";
+import { hashResetToken } from "./passwords";
 import { usesAssignedBank } from "./roles";
 
 export const SESSION_COOKIE = "noticedesk_session";
@@ -63,7 +64,7 @@ async function readSessionContext(): Promise<SessionContext | null> {
   if (!token) return null;
 
   const session = await prisma.session.findUnique({
-    where: { token },
+    where: { token: hashResetToken(token) },
     include: {
       user: {
         include: {
