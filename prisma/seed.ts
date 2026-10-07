@@ -19,6 +19,7 @@ import { DEMO_NOTICES } from "../src/lib/demo-notices";
 import { noticePageHref } from "../src/lib/notice-link";
 import { alignMsg91Library } from "../src/lib/align-msg91-library";
 import { ensureStarterLegalNotice } from "../src/lib/legal-notice-templates";
+import { clearCoordinatorBankLinks } from "../src/lib/coordinator-bank";
 import { isBankUser } from "../src/lib/roles";
 
 const prisma = new PrismaClient();
@@ -72,6 +73,9 @@ async function main() {
       },
     });
   }
+
+  const cleared = await clearCoordinatorBankLinks(prisma);
+  if (cleared > 0) console.log(`Cleared a bank link on ${cleared} legal coordinator login(s).`);
 
   console.log("Practice users are ready.");
   for (const account of DEMO_ACCOUNTS) {

@@ -39,7 +39,7 @@ export async function deliverOdrChannel(
   deps?: { fetchImpl?: FetchLike; env?: Record<string, string | undefined> },
 ): Promise<OdrDeliveryResult> {
   if (!input.templateId.trim()) {
-    return { ok: false, skipped: true, detail: unconfiguredDetail(input.channel) };
+    return { ok: false, skipped: true, detail: unconfiguredDetail() };
   }
   if (!input.live) {
     return { ok: false, skipped: true, detail: ODR_NOT_SENT_DETAIL };

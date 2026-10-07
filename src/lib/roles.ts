@@ -1,6 +1,6 @@
 // Who can sign in.
-// Owner: one firm admin. Banks, the audit log, and the live-send switch.
-// Legal coordinator: can send notices and add a bank user for one bank.
+// Owner: one firm admin. Banks, the audit log, firm settings, and the live-send switch.
+// Legal coordinator: law-firm staff. Switches banks the same way the owner does. Not tied to one bank.
 // Bank user: one bank, and only that bank.
 // ADMIN and BANK_VIEWER are the earlier names for owner and bank user. They still sign in.
 
@@ -84,7 +84,7 @@ export function roleSummary(role: string): string {
     return "You are the owner. You can send a notice, open an ODR case, add a bank, add a login, read the audit log, and turn live send on or off. ODR messages use their own switch and stay off until you turn that on. A spreadsheet, its people, and a send stay on the bank you are working on.";
   }
   if (isCoordinator(role)) {
-    return "You can send a notice and manage ODR cases for the bank you are working on, and you can add a bank user for one bank. You cannot turn live send on or off, add a bank, or open the audit log.";
+    return "You are law-firm staff and you are not tied to one bank. You can switch banks and, for the bank you are working on, send a notice, open an ODR case, and use templates, tracking, Speed Post, reports, and people. You can add a bank user for one bank. You cannot turn live send on or off, add a bank, change firm settings, or open the audit log.";
   }
   if (isBankUser(role)) {
     return "You can look at notices and ODR cases already on file for this one bank, including delivery status, and you can download that bank’s report. You cannot upload a spreadsheet, send a notice, change an ODR case, add a login, or see another bank.";

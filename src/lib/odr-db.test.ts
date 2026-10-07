@@ -123,7 +123,7 @@ test("an ODR case stays on its bank, and a switched-off send does not call the m
     const sms = messages.find((row) => row.channel === "SMS");
     assert.equal(email?.status, "SKIPPED");
     assert.equal(email?.detail, ODR_NOT_SENT_DETAIL);
-    assert.equal(sms?.detail, "SMS template not configured");
+    assert.equal(sms?.detail, "template not ready");
     assert.equal(await db.odrCase.count({ where: { bankId: other.id } }), 0);
     assert.equal(await db.odrMessage.count({ where: { bankId: other.id } }), 0);
   } finally {

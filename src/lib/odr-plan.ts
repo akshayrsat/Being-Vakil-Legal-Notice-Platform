@@ -1,6 +1,7 @@
 // What each channel will do before anything is handed to an operator.
 
 import { ODR_NOT_SENT_DETAIL } from "./odr-live";
+import { odrChannelApproved } from "./odr-template-library";
 import { unconfiguredDetail, type OdrChannelTemplates } from "./odr-templates";
 import { toMsg91Mobile } from "./phone";
 
@@ -19,19 +20,27 @@ export function planOdrChannels(input: {
   mobile: string;
   email: string;
   templates: OdrChannelTemplates;
+  slot?: string;
 }): ChannelPlan[] {
   return ODR_CHANNELS.map((channel) => planOne(channel, input));
 }
 
+function templateReady(slot: string | undefined, channel: OdrChannel, vendorId: string): boolean {
+  const id = vendorId.trim();
+  if (!id) return false;
+  if (!slot) return true;
+  return odrChannelApproved(slot, channel, id);
+}
+
 function planOne(
   channel: OdrChannel,
-  input: { live: boolean; mobile: string; email: string; templates: OdrChannelTemplates },
+  input: { live: boolean; mobile: string; email: string; templates: OdrChannelTemplates; slot?: string },
 ): ChannelPlan {
   if (channel === "EMAIL") {
     const email = input.email.trim();
     if (!email.includes("@")) return { channel, to: email, status: "SKIPPED", detail: "No email address" };
-    if (!input.templates.emailTemplateId) {
-      return { channel, to: email, status: "SKIPPED", detail: unconfiguredDetail(channel) };
+    if (!templateReady(input.slot, channel, input.templates.emailTemplateId)) {
+      return { channel, to: email, status: "SKIPPED", detail: unconfiguredDetail() };
     }
     if (!input.live) return { channel, to: email, status: "SKIPPED", detail: ODR_NOT_SENT_DETAIL };
     return { channel, to: email, status: "QUEUED", detail: "" };
@@ -40,7 +49,9 @@ function planOne(
   const mobile = toMsg91Mobile(input.mobile) ?? "";
   if (!mobile) return { channel, to: input.mobile.trim(), status: "SKIPPED", detail: "No mobile number" };
   const template = channel === "SMS" ? input.templates.smsFlowId : input.templates.whatsappTemplate;
-  if (!template) return { channel, to: mobile, status: "SKIPPED", detail: unconfiguredDetail(channel) };
+  if (!templateReady(input.slot, channel, template)) {
+    return { channel, to: mobile, status: "SKIPPED", detail: unconfiguredDetail() };
+  }
   if (!input.live) return { channel, to: mobile, status: "SKIPPED", detail: ODR_NOT_SENT_DETAIL };
   return { channel, to: mobile, status: "QUEUED", detail: "" };
 }

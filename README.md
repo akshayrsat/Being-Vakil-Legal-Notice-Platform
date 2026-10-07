@@ -2,7 +2,7 @@
 
 Local web app for preparing and reviewing legal notices for client banks. Sending a notice is one screen: the bank’s spreadsheet, the approved wording, a review of who will get it, then send. The owner turns MSG91 live send on or off in Settings. That switch starts on and overrides `MSG91_LIVE_SEND`. Confirming sends for real only when the switch is on and MSG91 is set up. When the switch is off, confirming records a dry run and nothing is sent.
 
-ODR (arbitration and mediation) is a separate tab. It does not use the notice live-send switch. ODR messages stay off until `ODR_LIVE_SEND` is exactly `true` and the owner turns the ODR switch on in Settings. Without Google Meet settings, each hearing gets a practice link.
+ODR (arbitration and mediation) is a separate tab. It does not use the notice live-send switch. ODR messages go out when the owner turns ODR messages on in Settings, and only on channels with an approved template. Set `ODR_LIVE_SEND=kill` to block that sending even if the switch is on. Any other value, including `false` or leaving it unset, leaves the decision to the switch. Without Google Meet settings, each hearing gets a practice link.
 
 ## Run locally
 
@@ -27,7 +27,9 @@ These practice passwords are for your own computer. Do not put this site on the 
 - Owner: `admin@noticedesk.local` / `admin123`
 - Bank user (Northwind only): `viewer@noticedesk.local` / `viewer123`
 
-The owner can add a legal coordinator or a bank user on People. A legal coordinator can add a bank user for one bank. Nothing is emailed. There is no public signup.
+The owner can add a legal coordinator or a bank user on People. A legal coordinator is law-firm staff, not a bank user: they switch banks the same way the owner does and are not tied to one bank. They can add a bank user for one bank. Nothing is emailed when a login is added. There is no public signup.
+
+The owner or a legal coordinator can set a temporary password on People. That password is shown once, stored only as a hash, and must be changed at the next sign-in. A legal coordinator can do this for bank users and other legal coordinators, not for the owner. Every signed-in person can change their own password. Forgot password on the sign-in page emails a one-time link (30 minutes, single use) when MSG91 email is set up for that message. That mail does not use the ODR switch or notice live send. If the mail cannot be sent, the page still gives the same reply and says to ask an admin for a temporary password.
 
 ## Bank isolation
 
@@ -38,7 +40,7 @@ Approved notice wording is the firm library. Any bank can select the approved MS
 The seeded library is the live MSG91 set: **Legal notice (SMS)** (`6abf5af2e9226c340a0548e2`), **Legal notice (email)** (`legal_notice_non_payment`), and **Legal notice (WhatsApp)** (`legal_notice_link`). Every bank sees those three, without a practice-bank name. To refresh the same rows on Cloud SQL without resetting passwords, run `npx tsx scripts/align-msg91-library.ts`. That script does not turn live send on.
 
 - A bank user can read only the bank on their login. A `?bank=` parameter does not change that.
-- The owner and a legal coordinator use the bank chosen with **Use this bank** (`selectedBankId`). Spreadsheets, people, sends, tracking, bank-owned templates, Speed Post, loan history, and reports stay on that bank. A `?bank=` address cannot open a different bank. Switch on the Banks page first. Only the owner can add a bank or mark one active.
+- The owner and a legal coordinator use the bank chosen with **Use this bank** (`selectedBankId`). A legal coordinator is not stored against one bank. Spreadsheets, people, sends, tracking, bank-owned templates, Speed Post, loan history, and reports stay on the bank they are working on. A `?bank=` address cannot open a different bank. Switch on the Banks page first. Only the owner can add a bank, mark one active, or open firm settings and the audit log.
 - Opening a campaign, consignment, or CSV by id loads that row only when its `bankId` is the bank in use. Guessing another bank’s id returns “not found”.
 - The templates page lists the three approved notice templates for every bank. Opening one shows the name, the channel, and the message. The owner admin also sees the reference id. It does not show a practice-bank name and it does not share spreadsheets or recipient rows. Sending still uses the stored ids. The owner turns live send on or off in Settings. The switch starts on and overrides `MSG91_LIVE_SEND`.
 - The public letter at `/notice-<id>` stays open without sign-in. It shows that one notice and no one else’s.

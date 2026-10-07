@@ -2,9 +2,11 @@
 
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { useActionState } from "react";
 import { signIn } from "@/app/actions/auth";
+import { FORGOT_PASSWORD_HREF } from "@/lib/account-paths";
 import { DEMO_ACCOUNTS, type DemoAccount } from "@/lib/demo-accounts";
 import { roleTitle } from "@/lib/roles";
 import { Button } from "@/components/ui/button";
@@ -53,6 +55,9 @@ export function LoginForm() {
             onChange={(event) => setPassword(event.target.value)}
             className="h-11 px-3 text-base md:text-base"
           />
+          <Link href={FORGOT_PASSWORD_HREF} className="text-sm underline">
+            Forgot password?
+          </Link>
         </div>
 
         {state?.error ? (

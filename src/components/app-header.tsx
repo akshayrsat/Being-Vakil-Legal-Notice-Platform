@@ -5,6 +5,7 @@ import { signOut } from "@/app/actions/auth";
 import { BrandLogo } from "@/components/brand-logo";
 import { DeskNav } from "@/components/desk-nav";
 import { SignOutButton } from "@/components/sign-out-button";
+import { PASSWORD_HREF } from "@/lib/account-paths";
 import type { SignedInUser } from "@/lib/auth";
 import { workingBank } from "@/lib/bank-context";
 import { PRODUCT_NAME, PRODUCT_TAGLINE } from "@/lib/brand";
@@ -47,6 +48,9 @@ export function AppHeader({ user }: { user: SignedInUser }) {
                 <span className="font-medium">{user.name}</span>
                 <span className="text-muted-foreground"> · {roleTitle(user.role)}</span>
               </p>
+              <Link href={PASSWORD_HREF} className="text-sm underline">
+                Password
+              </Link>
               <form action={signOut}>
                 <SignOutButton />
               </form>

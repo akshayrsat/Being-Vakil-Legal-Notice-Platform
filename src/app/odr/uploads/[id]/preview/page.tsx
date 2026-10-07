@@ -7,7 +7,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { workingBank } from "@/lib/bank-context";
 import { prisma } from "@/lib/db";
 import { mapOdrRows, parseOdrMapping, suggestOdrMapping } from "@/lib/odr-fields";
-import { odrEnvLive, odrLiveWarning } from "@/lib/odr-live";
+import { odrKillSwitch, odrLiveWarning } from "@/lib/odr-live";
 import { planOdrChannels } from "@/lib/odr-plan";
 import { formatHearingDate, formatHearingTime } from "@/lib/odr-ref";
 import { planBatchHearings } from "@/lib/odr-slot-store";
@@ -49,7 +49,7 @@ export default async function OdrPreviewPage({ params }: { params: Promise<{ id:
         <p className="mt-3 max-w-2xl text-base leading-7 text-muted-foreground">
           {batch.durationMinutes} minutes each. {batch.neutralName}.{" "}
           {seats?.ok ? seats.summary : "Hearing times will appear once every row can be placed."}{" "}
-          {odrLiveWarning({ storedOn: rules.liveStored, envOn: odrEnvLive() })}
+          {odrLiveWarning({ storedOn: rules.liveStored, killed: odrKillSwitch() })}
         </p>
       </div>
       {seats && !seats.ok ? (

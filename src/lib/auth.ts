@@ -4,7 +4,8 @@
 // For an Admin, bank is the client they have chosen to work on, or nothing yet.
 
 import { cookies } from "next/headers";
-import { unstable_rethrow } from "next/navigation";
+import { redirect, unstable_rethrow } from "next/navigation";
+import { PASSWORD_HREF } from "./account-paths";
 import { toBankSnapshot, type BankSnapshot } from "./banks";
 import { prisma } from "./db";
 import { usesAssignedBank } from "./roles";
@@ -20,6 +21,7 @@ export type SignedInUser = {
   name: string;
   email: string;
   role: string;
+  mustChangePassword: boolean;
   bank: BankSnapshot | null;
 };
 
@@ -36,9 +38,12 @@ export function sessionExpiryDate(): Date {
 
 export const SESSION_MAX_AGE_SECONDS = SESSION_DAYS * 24 * 60 * 60;
 
-export async function getSessionContext(): Promise<SessionContext | null> {
+export async function getSessionContext(options?: {
+  allowStalePassword?: boolean;
+}): Promise<SessionContext | null> {
+  let current: SessionContext | null = null;
   try {
-    return await readSessionContext();
+    current = await readSessionContext();
   } catch (error) {
     // A database failure must not replace /login with the crash page.
     // Redirects and dynamic rendering still propagate.
@@ -46,6 +51,10 @@ export async function getSessionContext(): Promise<SessionContext | null> {
     console.error(JSON.stringify({ app: "notice-desk", event: "session.lookup_failed" }));
     return null;
   }
+  if (current?.user.mustChangePassword && !options?.allowStalePassword) {
+    redirect(PASSWORD_HREF);
+  }
+  return current;
 }
 
 async function readSessionContext(): Promise<SessionContext | null> {
@@ -83,12 +92,15 @@ async function readSessionContext(): Promise<SessionContext | null> {
       name: session.user.name,
       email: session.user.email,
       role: session.user.role,
+      mustChangePassword: session.user.mustChangePassword,
       bank: toBankSnapshot(bankRecord),
     },
   };
 }
 
-export async function getCurrentUser(): Promise<SignedInUser | null> {
-  const current = await getSessionContext();
+export async function getCurrentUser(options?: {
+  allowStalePassword?: boolean;
+}): Promise<SignedInUser | null> {
+  const current = await getSessionContext(options);
   return current?.user ?? null;
 }

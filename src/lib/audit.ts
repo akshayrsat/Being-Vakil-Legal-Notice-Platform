@@ -30,6 +30,7 @@ export const AUDIT_ACTIONS = [
   { id: "bank.representative", label: "Updated a bank representative" },
   { id: "live-send.update", label: "Changed live send" },
   { id: "user.create", label: "Added a login" },
+  { id: "user.password", label: "Set a password" },
   { id: "odr.upload", label: "Uploaded an ODR sheet" },
   { id: "odr.mapping", label: "Matched ODR columns" },
   { id: "odr.send", label: "Sent an ODR hearing" },
@@ -100,7 +101,7 @@ export function auditActor(user: { id: string; name: string; role: string } | nu
 export async function auditCurrentUser(
   event: Omit<AuditInput, "actorId" | "actorName" | "actorRole">,
 ): Promise<void> {
-  const current = await getSessionContext();
+  const current = await getSessionContext({ allowStalePassword: true });
   const actor = auditActor(current?.user ?? null);
   if (!current || !actor) return;
   await recordAudit({

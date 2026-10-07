@@ -57,6 +57,12 @@ test("owner sees Settings, Audit, People, and Banks; a coordinator cannot change
   assert.equal(coordinator.includes("/settings"), false);
   assert.equal(coordinator.includes("/audit"), false);
 
+  const ownerOnly = new Set(["/settings", "/audit"]);
+  assert.deepEqual(
+    coordinator,
+    owner.filter((href) => !ownerOnly.has(href)),
+  );
+
   const bankUser = workspaceNav(ROLE_BANK_USER).map((link) => link.href);
   assert.equal(bankUser.includes("/people"), false);
   assert.equal(bankUser.includes("/banks"), false);

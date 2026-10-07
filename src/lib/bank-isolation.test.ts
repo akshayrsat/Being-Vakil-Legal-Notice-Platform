@@ -5,7 +5,10 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { PrismaClient } from "@prisma/client";
+import type { SignedInUser } from "./auth";
 import { campaignWhere, onlyThisBank, recipientRowWhere, uploadBatchWhere } from "./bank-data";
+import { clearCoordinatorBankLinks } from "./coordinator-bank";
+import { canReadBank, scopedBankId } from "./report-bank";
 
 test("bank A cannot see bank B upload batches, rows, or campaigns", () => {
   const rows = [
@@ -138,6 +141,71 @@ test("a database query for one bank does not return the other bank's uploads", {
     assert.equal(unscoped.length, 0);
     const missing = await db.uploadBatch.findMany({ where: uploadBatchWhere(undefined) });
     assert.equal(missing.length, 0);
+
+    const coordinator = await db.user.create({
+      data: {
+        name: "Legal Coord",
+        email: "coord@firm.example",
+        passwordHash: "hash",
+        role: "LEGAL_COORDINATOR",
+        bankId: testBank.id,
+        selectedBankId: testBank.id,
+      },
+    });
+    assert.equal(await clearCoordinatorBankLinks(db), 1);
+    const firmStaff = await db.user.findUniqueOrThrow({ where: { id: coordinator.id } });
+    assert.equal(firmStaff.bankId, null);
+    assert.equal(firmStaff.selectedBankId, testBank.id);
+
+    const working = (bankId: string, name: string, code: string): SignedInUser => ({
+      id: coordinator.id,
+      name: coordinator.name,
+      email: coordinator.email,
+      role: "LEGAL_COORDINATOR",
+      mustChangePassword: false,
+      bank: { id: bankId, name, code, active: true },
+    });
+    const onTest = working(testBank.id, testBank.name, testBank.code);
+    const onNorth = working(northwind.id, northwind.name, northwind.code);
+    const testNames = (
+      await db.uploadBatch.findMany({ where: uploadBatchWhere(scopedBankId(onTest) ?? "") })
+    ).map((batch) => batch.fileName);
+    const northNames = (
+      await db.uploadBatch.findMany({ where: uploadBatchWhere(scopedBankId(onNorth) ?? "") })
+    ).map((batch) => batch.fileName);
+    assert.deepEqual(testNames, ["test sheet.xlsx"]);
+    assert.deepEqual(northNames, ["OD Data more than 154 day.xlsx"]);
+    assert.equal(canReadBank(onTest, northwind.id), false);
+    assert.equal(canReadBank(onNorth, testBank.id), false);
+
+    await db.user.create({
+      data: {
+        name: "Bank Person",
+        email: "banker@bank.example",
+        passwordHash: "hash",
+        role: "BANK_USER",
+        bankId: testBank.id,
+        selectedBankId: northwind.id,
+      },
+    });
+    const banker: SignedInUser = {
+      id: "bank-user",
+      name: "Bank Person",
+      email: "banker@bank.example",
+      role: "BANK_USER",
+      mustChangePassword: false,
+      bank: { id: testBank.id, name: testBank.name, code: testBank.code, active: true },
+    };
+    assert.equal(canReadBank(banker, northwind.id), false);
+    assert.equal(scopedBankId(banker, northwind.id), testBank.id);
+    const visibleToBanker = await db.uploadBatch.findMany({
+      where: uploadBatchWhere(scopedBankId(banker, northwind.id) ?? ""),
+    });
+    assert.deepEqual(
+      visibleToBanker.map((batch) => batch.fileName),
+      ["test sheet.xlsx"],
+    );
+    assert.equal(visibleToBanker.some((batch) => batch.bankId === northwind.id), false);
   } finally {
     await db.$disconnect();
     rmSync(dir, { recursive: true, force: true });

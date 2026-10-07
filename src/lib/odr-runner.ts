@@ -6,6 +6,7 @@ import { prisma } from "./db";
 import { noticePublicBaseUrl } from "./notice-link";
 import { deliverOdrChannel, type OdrDeliveryResult } from "./odr-dispatch";
 import { ODR_NOT_SENT_DETAIL } from "./odr-live";
+import { odrChannelApproved } from "./odr-template-library";
 import {
   createHearingMeet,
   fetchMeetParticipants,
@@ -33,7 +34,7 @@ import {
 } from "./odr-schedule";
 import { readOdrRules, sendWindowFromRules, type OdrRules } from "./odr-store";
 import { parsePanel } from "./odr-panel";
-import { hearingMessageText, templatesFor, type OdrTemplateKind } from "./odr-templates";
+import { hearingMessageText, ODR_TEMPLATE_NOT_READY, templateSlot, templatesFor, type OdrTemplateKind } from "./odr-templates";
 import { arbitrationNoticeError, arbitrationNoticeGaps } from "./odr-notice-gate";
 import { releaseHeldNoticeSends } from "./notice-release";
 import { canQueueReminder, dayHold, istDayBounds, pickReminderChannel, windowHold, type SendWindow } from "./send-window";
@@ -254,9 +255,16 @@ export async function processOdrWork(
         : message.channel === "EMAIL"
           ? templates.emailTemplateId
           : templates.whatsappTemplate;
+    const channel =
+      message.channel === "SMS" || message.channel === "EMAIL" || message.channel === "WHATSAPP"
+        ? message.channel
+        : null;
+    const slot = templateSlot(message.case.matterType, kind);
     let result: OdrDeliveryResult;
     try {
-      result = await deps.deliver({
+      if (!channel || !odrChannelApproved(slot, channel, templateId)) {
+        result = { ok: false, skipped: true, detail: ODR_TEMPLATE_NOT_READY };
+      } else result = await deps.deliver({
         live: deps.live,
         channel: message.channel as "SMS" | "EMAIL" | "WHATSAPP",
         to: message.toAddress,
@@ -762,6 +770,7 @@ async function sendDueReminders(db: PrismaClient, deps: OdrDeps): Promise<number
         mobile: person.mobile,
         email: person.email,
         templates,
+        slot: hearingSlot(hearing.case.matterType, "REMINDER"),
       });
       const chosen = pickReminderChannel(plans);
       if (!chosen) continue;
@@ -964,6 +973,7 @@ async function queueArbitratorNotices(
       mobile: person.mobile,
       email: person.email,
       templates: input.templates,
+      slot: hearingSlot(input.matterType, input.kind),
     }).filter((plan) => plan.channel !== "WHATSAPP");
     let notBefore: Date | null = null;
     let detail = "";
@@ -1002,6 +1012,11 @@ async function queueArbitratorNotices(
   return queued;
 }
 
+function hearingSlot(matterType: string, kind: "FIRST" | "NEXT" | "REMINDER"): string {
+  const templateKind: OdrTemplateKind = kind === "NEXT" ? "next" : kind === "REMINDER" ? "reminder" : "first";
+  return templateSlot(matterType, templateKind);
+}
+
 export async function queueMessages(
   db: PrismaClient,
   input: {
@@ -1025,6 +1040,7 @@ export async function queueMessages(
     mobile: input.mobile,
     email: input.email,
     templates: input.templates,
+    slot: hearingSlot(input.matterType, input.kind),
   });
   await db.odrMessage.createMany({
     data: plans.map((plan) => ({

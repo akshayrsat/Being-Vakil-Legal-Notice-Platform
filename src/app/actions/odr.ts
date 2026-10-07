@@ -994,8 +994,8 @@ export async function setOdrLiveSwitch(_previous: OdrFormState, formData: FormDa
   await auditCurrentUser({
     action: "odr.settings",
     summary: enabled
-      ? "Turned the ODR switch on. Messages go out only when ODR_LIVE_SEND is also true."
-      : "Turned the ODR switch off. ODR messages are recorded as not sent.",
+      ? "Turned the ODR switch on. Confirming sends ODR messages on channels with an approved template."
+      : "Turned the ODR switch off. ODR messages are recorded and not sent.",
     bankId: null,
     bankName: "",
   });

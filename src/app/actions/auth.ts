@@ -7,8 +7,21 @@ import { randomBytes } from "node:crypto";
 import { cookies, headers } from "next/headers";
 import { redirect, unstable_rethrow } from "next/navigation";
 import { logDesk } from "@/lib/desk-log";
-import { passwordMatches } from "@/lib/passwords";
+import { RESET_PASSWORD_HREF } from "@/lib/account-paths";
+import { clearCoordinatorBankLinks } from "@/lib/coordinator-bank";
+import { noticePublicBaseUrl } from "@/lib/notice-link";
+import {
+  destinationAfterSignIn,
+  forgotPasswordReply,
+  hashPassword,
+  hashResetToken,
+  newResetToken,
+  passwordMatches,
+  resetPasswordError,
+  resetTokenState,
+} from "@/lib/passwords";
 import { tooManyAttempts } from "@/lib/rate-limit";
+import { passwordResetMailReady, sendPasswordResetEmail } from "@/lib/system-email";
 import {
   OTP_COOKIE,
   OTP_MAX_AGE_SECONDS,
@@ -18,11 +31,15 @@ import {
 } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { isOtpEnabled, sendLoginOtp, verifyLoginOtp } from "@/lib/msg91";
-import { canSendNotices, isAppRole, usesAssignedBank } from "@/lib/roles";
+import { canSendNotices, isAppRole, isCoordinator, usesAssignedBank } from "@/lib/roles";
 import { STAFF_GATE_COOKIE, staffGateCookieOptions } from "@/lib/staff-gate";
 import { staffGateIsOpen } from "@/lib/staff-gate-session";
 
 export type SignInState = { error: string } | null;
+
+export type ForgotPasswordState = { error: string; message: string } | { error: null; message: string } | null;
+
+export type ResetPasswordState = { error: string } | { done: true } | null;
 
 const SIGN_IN_UNAVAILABLE = "Sign-in is unavailable right now. Try again in a moment.";
 
@@ -103,8 +120,8 @@ async function signInWithPassword(formData: FormData): Promise<SignInState> {
     redirect("/login/otp");
   }
 
-  await startSession(user.id);
-  redirect("/dashboard");
+  const mustChange = await startSession(user.id);
+  redirect(destinationAfterSignIn(mustChange));
 }
 
 export async function verifyOtp(
@@ -139,8 +156,8 @@ export async function verifyOtp(
   await prisma.loginChallenge.delete({ where: { id: challenge.id } });
   const cookieStore = await cookies();
   cookieStore.delete(OTP_COOKIE);
-  await startSession(challenge.userId);
-  redirect("/dashboard");
+  const mustChange = await startSession(challenge.userId);
+  redirect(destinationAfterSignIn(mustChange));
 }
 
 export async function resendOtp(): Promise<void> {
@@ -152,7 +169,7 @@ export async function resendOtp(): Promise<void> {
   redirect("/login/otp?resent=1");
 }
 
-async function startSession(userId: string): Promise<void> {
+async function startSession(userId: string): Promise<boolean> {
   const token = randomBytes(32).toString("hex");
   const expiresAt = sessionExpiryDate();
 
@@ -168,6 +185,9 @@ async function startSession(userId: string): Promise<void> {
     where: { id: userId },
     include: { bank: true, selectedBank: true },
   });
+  if (signedIn && isCoordinator(signedIn.role) && signedIn.bankId) {
+    await clearCoordinatorBankLinks(prisma);
+  }
   if (signedIn) {
     const bank = usesAssignedBank(signedIn.role) ? signedIn.bank : signedIn.selectedBank;
     const { recordAudit } = await import("@/lib/audit");
@@ -191,6 +211,95 @@ async function startSession(userId: string): Promise<void> {
     path: "/",
     maxAge: SESSION_MAX_AGE_SECONDS,
   });
+  return signedIn?.mustChangePassword === true;
+}
+
+export async function requestPasswordReset(
+  _previous: ForgotPasswordState,
+  formData: FormData,
+): Promise<ForgotPasswordState> {
+  if (!(await staffGateIsOpen())) redirect("/?staff=1");
+
+  const email = String(formData.get("email") ?? "")
+    .trim()
+    .toLowerCase();
+  const headerList = await headers();
+  const ip = (headerList.get("x-forwarded-for") ?? "local").split(",")[0]?.trim() || "local";
+  const limited =
+    tooManyAttempts(`reset:${ip}`, 5, 15 * 60 * 1000) ||
+    tooManyAttempts(`reset:${email || "blank"}`, 5, 15 * 60 * 1000);
+  const mailerReady = passwordResetMailReady();
+  const reply = forgotPasswordReply({ limited, mailerReady });
+  if (reply.error) return { error: reply.error, message: "" };
+
+  const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && email.length <= 200;
+  if (emailOk && mailerReady) {
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (user) {
+      const created = newResetToken();
+      await prisma.passwordReset.deleteMany({ where: { userId: user.id, usedAt: null } });
+      await prisma.passwordReset.create({
+        data: {
+          userId: user.id,
+          tokenHash: created.tokenHash,
+          expiresAt: created.expiresAt,
+        },
+      });
+      const link = `${noticePublicBaseUrl()}${RESET_PASSWORD_HREF}?token=${created.token}`;
+      const sent = await sendPasswordResetEmail({ to: user.email, name: user.name, link });
+      if (!sent.ok) logDesk("password.reset_mail_failed");
+    }
+  }
+
+  return { error: null, message: reply.message };
+}
+
+export async function completePasswordReset(
+  _previous: ResetPasswordState,
+  formData: FormData,
+): Promise<ResetPasswordState> {
+  const token = String(formData.get("token") ?? "").trim();
+  const next = String(formData.get("password") ?? "");
+  const confirm = String(formData.get("confirm") ?? "");
+  const problem = resetPasswordError(next, confirm);
+  if (problem) return { error: problem };
+  if (!/^[a-f0-9]{64}$/.test(token)) {
+    return { error: "That reset link is not valid. Ask for a new one." };
+  }
+
+  const row = await prisma.passwordReset.findUnique({
+    where: { tokenHash: hashResetToken(token) },
+    include: { user: true },
+  });
+  const state = resetTokenState(row);
+  if (state === "expired") return { error: "That reset link has expired. Ask for a new one." };
+  if (state === "used") return { error: "That reset link was already used. Ask for a new one." };
+  if (state !== "ready" || !row) return { error: "That reset link is not valid. Ask for a new one." };
+
+  const claimed = await prisma.passwordReset.updateMany({
+    where: { id: row.id, usedAt: null, expiresAt: { gt: new Date() } },
+    data: { usedAt: new Date() },
+  });
+  if (claimed.count !== 1) {
+    return { error: "That reset link was already used. Ask for a new one." };
+  }
+
+  const passwordHash = await hashPassword(next);
+  await prisma.user.update({
+    where: { id: row.userId },
+    data: { passwordHash, mustChangePassword: false },
+  });
+  await prisma.session.deleteMany({ where: { userId: row.userId } });
+
+  const { recordAudit } = await import("@/lib/audit");
+  await recordAudit({
+    actorId: row.user.id,
+    actorName: row.user.name,
+    actorRole: row.user.role,
+    action: "user.password",
+    summary: "Reset their password from a link.",
+  });
+  return { done: true };
 }
 
 async function currentChallenge() {
