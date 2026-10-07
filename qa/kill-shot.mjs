@@ -1,0 +1,22 @@
+import { readFileSync } from "node:fs";
+import playwright from "/tmp/qa/node_modules/playwright-core/index.js";
+
+const { chromium } = playwright;
+const code = readFileSync("/workspace/.env", "utf8").split("\n").find((row) => row.startsWith("NOTICE_DESK_ENTRY_CODE=")).split("=").slice(1).join("=").trim().replace(/^"|"$/g, "");
+const browser = await chromium.launch({ executablePath: "/opt/google/chrome/chrome", headless: true, args: ["--no-sandbox"] });
+const page = await browser.newPage({ viewport: { width: 1100, height: 900 } });
+await page.goto("http://127.0.0.1:4317/?staff=1", { waitUntil: "domcontentloaded" });
+await page.locator("#staff-entry-code").fill(code);
+await page.getByRole("button", { name: "Continue" }).click();
+await page.waitForURL(/\/login/);
+await page.locator("#email").fill("admin@noticedesk.local");
+await page.locator("#password").fill("admin123");
+await page.getByRole("button", { name: "Sign in" }).click();
+await page.waitForURL(/\/dashboard/);
+await page.goto("http://127.0.0.1:4317/settings", { waitUntil: "domcontentloaded" });
+await page.waitForFunction(() => document.body.innerText.includes("blocked by the server") || document.body.innerText.includes("ODR messages"));
+const text = (await page.locator("body").innerText()).replace(/\s+/g, " ");
+const at = text.indexOf("ODR messages");
+console.log(text.slice(at, at + 420));
+await page.screenshot({ path: "/opt/cursor/artifacts/screenshots/qa-odr-kill.png", fullPage: false });
+await browser.close();
