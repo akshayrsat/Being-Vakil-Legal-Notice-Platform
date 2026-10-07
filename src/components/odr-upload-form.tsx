@@ -15,7 +15,7 @@ export function OdrUploadForm({
   const [state, formAction, pending] = useActionState(uploadOdrExcel, null);
   const [count, setCount] = useState(1);
   const [mode, setMode] = useState<"SPLIT" | "PANEL">("SPLIT");
-  const [route, setRoute] = useState("ARBITRATION");
+  const [route, setRoute] = useState("");
   const lokAdalat = route === "LOK_ADALAT";
 
   return (

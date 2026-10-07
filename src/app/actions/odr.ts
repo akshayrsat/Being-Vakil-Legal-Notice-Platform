@@ -10,6 +10,7 @@ import { workingBank } from "@/lib/bank-context";
 import { prisma } from "@/lib/db";
 import { isPdf, safePdfName } from "@/lib/odr-access";
 import {
+  flagOdrDuplicates,
   mapOdrRows,
   odrMappingFromForm,
   parseOdrMapping,
@@ -246,8 +247,17 @@ export async function confirmOdrBatch(previousOrForm: OdrFormState | FormData, m
   }
   const mapping = suggestOdrMapping(headers, parseOdrMapping(batch.mappingUsed));
   const mapped = mapOdrRows(headers, rawRows, mapping);
-  const ready = mapped.filter((row) => row.problems.length === 0);
-  if (ready.length === 0) return { error: "No row has a customer name and an account number with at least 4 digits." };
+  const openCases = await prisma.odrCase.findMany({
+    where: { bankId: scope.bank.id, status: { notIn: ["SETTLED", "AWARD_PASSED", "CLOSED"] } },
+    select: { accountNumber: true },
+  });
+  const existingRefs = await prisma.odrCase.findMany({ select: { refNo: true } });
+  const flagged = flagOdrDuplicates(mapped, {
+    openAccounts: openCases.map((item) => item.accountNumber),
+    refs: existingRefs.map((item) => item.refNo),
+  });
+  const ready = flagged.filter((row) => row.problems.length === 0);
+  if (ready.length === 0) return { error: "No row is ready. Check the name, account, mobile, email, and any duplicate." };
 
   const rules = await readOdrRules();
   const templates = templatesFor(rules.templates, matterType, "first");
@@ -264,15 +274,23 @@ export async function confirmOdrBatch(previousOrForm: OdrFormState | FormData, m
       }) };
   if (!planned.ok) return { error: planned.error };
   const taken = new Set<string>();
-  const existingRefs = await prisma.odrCase.findMany({ select: { refNo: true } });
-  for (const row of existingRefs) taken.add(row.refNo);
+  for (const item of existingRefs) {
+    const ref = normalizeRefNo(item.refNo);
+    if (ref) taken.add(ref);
+  }
+  for (const row of ready) {
+    const suppliedRef = normalizeRefNo(row.refNo);
+    if (suppliedRef && taken.has(suppliedRef)) {
+      return { error: "A reference in this file is already used. It was not replaced." };
+    }
+    if (suppliedRef) taken.add(suppliedRef);
+  }
 
   await prisma.odrBatch.update({ where: { id: batch.id }, data: { status: "SENDING", rowCount: ready.length } });
 
   for (const row of ready) {
-    let refNo = normalizeRefNo(row.refNo);
-    if (!refNo || taken.has(refNo)) refNo = generateRefNo(matterType, taken);
-    else taken.add(refNo);
+    const suppliedRef = normalizeRefNo(row.refNo);
+    const refNo = suppliedRef || generateRefNo(matterType, taken);
     const seat = planned.seatFor(String(row.rowNumber));
     const created = await prisma.odrCase.create({
       data: {

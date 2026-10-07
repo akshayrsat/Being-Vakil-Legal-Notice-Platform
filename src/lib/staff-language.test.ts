@@ -13,9 +13,9 @@ import { ROLE_BANK_USER, ROLE_COORDINATOR, ROLE_OWNER } from "./roles";
 
 const VENDOR = /MSG91|DLT|webhook|dry run|dry-run|template id|flow id|legal_notice_non_payment|legal_notice_link/i;
 
-test("a bank user only gets tracking and reports", () => {
+test("a bank user gets tracking, reports, and privacy reads", () => {
   const hrefs = workspaceNav(ROLE_BANK_USER).map((link) => link.href);
-  assert.deepEqual(hrefs, ["/dashboard", "/deliveries", "/reports"]);
+  assert.deepEqual(hrefs, ["/dashboard", "/deliveries", "/reports", "/privacy/requests", "/privacy/find"]);
   assert.equal(workspaceNav(ROLE_COORDINATOR).some((link) => link.href === "/send"), true);
   assert.equal(workspaceNav(ROLE_OWNER).some((link) => link.href === "/settings"), true);
 });

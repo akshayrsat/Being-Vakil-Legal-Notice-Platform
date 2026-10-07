@@ -49,11 +49,16 @@ export type SendStepNumber = (typeof SEND_STEPS)[number]["number"];
 export type NavLink = { href: string; label: string };
 
 export function workspaceNav(role: string): NavLink[] {
+  const privacy: NavLink[] = [
+    { href: "/privacy/requests", label: "Privacy requests" },
+    { href: "/privacy/find", label: "Find a person" },
+  ];
   if (isBankUser(role)) {
     return [
       { href: "/dashboard", label: "Home" },
       { href: "/deliveries", label: "Tracking" },
       { href: "/reports", label: "Reports" },
+      ...privacy,
     ];
   }
   const links: NavLink[] = [
@@ -66,11 +71,16 @@ export function workspaceNav(role: string): NavLink[] {
     { href: "/deliveries", label: "Tracking" },
     { href: "/speed-post", label: "Speed Post" },
     { href: "/reports", label: "Reports" },
+    ...privacy,
   ];
   if (canChooseBank(role)) links.push({ href: "/banks", label: "Banks" });
   if (canCreateLogins(role)) links.push({ href: PEOPLE_HREF, label: PEOPLE_LABEL });
   if (isOwner(role)) {
-    links.push({ href: SETTINGS_HREF, label: SETTINGS_LABEL }, { href: "/audit", label: "Audit" });
+    links.push(
+      { href: SETTINGS_HREF, label: SETTINGS_LABEL },
+      { href: "/audit", label: "Audit" },
+      { href: "/privacy/incidents", label: "Incidents" },
+    );
   }
   return links;
 }

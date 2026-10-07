@@ -5,9 +5,11 @@ import { closedCaseExpired, keepMappedColumns, redactCell, redactSheet, sheetExp
 test("a full Aadhaar or card number is not kept", () => {
   assert.equal(redactCell("2345 6789 0123"), "XXXX-XXXX-0123");
   assert.equal(redactCell("4111111111111111"), "XXXX XXXX XXXX 1111");
-  assert.equal(redactCell("919876543210"), "919876543210");
+  assert.equal(redactCell("919876543210"), "XXXX-XXXX-3210");
+  assert.equal(redactCell("919876543210", { phone: true }), "919876543210");
   assert.equal(redactCell("Ravi Shah"), "Ravi Shah");
-  const sheet = redactSheet(["Aadhaar", "Name"], [["234567890123", "Ravi"]]);
+  const sheet = redactSheet(["Aadhaar", "Name", "Mobile"], [["234567890123", "Ravi", "919876543210"]]);
+  assert.equal(sheet.rows[0]?.[2], "919876543210");
   assert.equal(sheet.rows[0]?.[0], "XXXX-XXXX-0123");
 });
 

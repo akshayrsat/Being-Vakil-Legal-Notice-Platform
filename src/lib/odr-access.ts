@@ -10,7 +10,11 @@ export function verifyRateKey(caseToken: string, ip: string): string {
 }
 
 export function clientIp(forwardedFor: string | null): string {
-  const ip = (forwardedFor ?? "").split(",")[0]?.trim() || "local";
+  const parts = (forwardedFor ?? "")
+    .split(",")
+    .map((part) => part.trim())
+    .filter(Boolean);
+  const ip = parts[parts.length - 1] || "local";
   return ip.slice(0, 80);
 }
 

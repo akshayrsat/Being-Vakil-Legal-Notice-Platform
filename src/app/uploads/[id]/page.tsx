@@ -128,7 +128,7 @@ export default async function UploadBatchPage({
             Column match saved for {bank.name}. The next upload for this bank will start with the
             same choices.
             {Number.isFinite(skipped) && skipped > 0
-              ? ` ${skipped} ${skipped === 1 ? "row was" : "rows were"} left out because the customer name was empty.`
+              ? ` ${skipped} ${skipped === 1 ? "row was" : "rows were"} left out because the name was empty or the mobile or email was not valid.`
               : ""}
           </p>
         ) : null}

@@ -29,7 +29,7 @@ test("ODR sits next to Send notice for staff, and a bank user stays on Tracking 
   }
   assert.deepEqual(
     workspaceNav(ROLE_BANK_USER).map((link) => link.href),
-    ["/dashboard", "/deliveries", "/reports"],
+    ["/dashboard", "/deliveries", "/reports", "/privacy/requests", "/privacy/find"],
   );
 });
 

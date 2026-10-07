@@ -8,19 +8,16 @@ import { prisma } from "@/lib/db";
 import {
   ODR_GRANT_HOURS,
   ODR_VERIFY_COOKIE,
-  ODR_VERIFY_LIMIT,
-  ODR_VERIFY_WINDOW_MS,
   clientIp,
   clipAgent,
   isPdf,
   safePdfName,
-  verifyRateKey,
 } from "@/lib/odr-access";
 import { last4Challenge, last4Matches, newGrantToken } from "@/lib/odr-ref";
 import { CUSTOMER_DOCUMENT_KINDS } from "@/lib/odr-status";
 import { withPartyAttendance } from "@/lib/odr-parties";
 import { resolvePublicCase } from "@/lib/odr-public-case";
-import { tooManyAttempts } from "@/lib/rate-limit";
+import { clearVerifyLock, recordVerifyFailure, verifyLockError } from "@/lib/verify-lock-store";
 import { getCurrentUser } from "@/lib/auth";
 import { consentCertificateDocx } from "@/lib/odr-consent-docx";
 import { neutralContactError } from "@/lib/odr-neutral";
@@ -76,23 +73,27 @@ export async function verifyOdrCase(_previous: PublicOdrState, formData: FormDat
   if (!challenge) {
     return { error: "This case cannot be opened online. Please call Being Vakil Associates." };
   }
-  if (tooManyAttempts(verifyRateKey(token, meta.ip), ODR_VERIFY_LIMIT, ODR_VERIFY_WINDOW_MS)) {
+  const locked = await verifyLockError("odr", item.id);
+  if (locked) {
     await prisma.odrAccessLog.create({
       data: { caseId: item.id, bankId: item.bankId, kind: "VERIFY_FAIL", ip: meta.ip, userAgent: meta.userAgent, detail: "Locked" },
     });
-    return { error: "Too many attempts. Wait a few minutes and try again." };
+    return { error: locked };
   }
   const attempt = String(formData.get("last4") ?? "");
   if (!last4Matches(challenge.value, attempt)) {
+    const lockMessage = await recordVerifyFailure("odr", item.id);
     await prisma.odrAccessLog.create({
-      data: { caseId: item.id, bankId: item.bankId, kind: "VERIFY_FAIL", ip: meta.ip, userAgent: meta.userAgent, detail: "Digits did not match" },
+      data: { caseId: item.id, bankId: item.bankId, kind: "VERIFY_FAIL", ip: meta.ip, userAgent: meta.userAgent, detail: lockMessage ? "Locked" : "Digits did not match" },
     });
+    if (lockMessage) return { error: lockMessage };
     return {
       error: challenge.source === "mobile"
         ? "Those digits do not match this case. Check the mobile number and try again."
         : "Those digits do not match this case. Check the account number and try again.",
     };
   }
+  await clearVerifyLock("odr", item.id);
   const grant = newGrantToken();
   await prisma.odrVerifyGrant.create({
     data: { token: grant, caseId: item.id, expiresAt: new Date(Date.now() + ODR_GRANT_HOURS * 60 * 60 * 1000) },

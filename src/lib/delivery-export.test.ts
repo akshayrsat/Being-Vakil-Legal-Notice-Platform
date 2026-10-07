@@ -153,8 +153,8 @@ test("one person is one row, with a status column for each channel", () => {
   const asha = table.find((row) => row[name] === "Asha Rao");
   const ravi = table.find((row) => row[name] === "Ravi Shah");
   assert.ok(asha && ravi);
-  assert.equal(asha[mobile], "9811111111");
-  assert.equal(asha[email], "asha@example.com");
+  assert.equal(asha[mobile], "••••••1111");
+  assert.equal(asha[email], "a•••@example.com");
   assert.equal(asha[loan], "LN-10021");
   assert.equal(asha[notice], "DEMO-LN10021");
   assert.equal(asha[link], "https://www.notice.beingvakil.in/notice-DEMO-LN10021");
@@ -163,8 +163,8 @@ test("one person is one row, with a status column for each channel", () => {
   assert.equal(asha[whatsapp], "failed");
   assert.equal(asha[post], "In transit");
 
-  assert.equal(ravi[mobile], "9822222222");
-  assert.equal(ravi[email], "ravi@example.com");
+  assert.equal(ravi[mobile], "••••••2222");
+  assert.equal(ravi[email], "r•••@example.com");
   assert.equal(ravi[sms], "");
   assert.equal(ravi[whatsapp], "failed");
   assert.equal(ravi[post], "");
@@ -309,8 +309,8 @@ test("the excel sheet keeps each column separate and one person on one row", asy
   assert.deepEqual(header, [...DELIVERY_EXPORT_COLUMNS]);
   const person = DELIVERY_EXPORT_COLUMNS.map((_, index) => String(sheet.getRow(2).getCell(index + 1).value ?? ""));
   assert.equal(person[0], "Asha Rao");
-  assert.equal(person[1], "9811111111");
-  assert.equal(person[2], "asha@example.com");
+  assert.equal(person[1], "••••••1111");
+  assert.equal(person[2], "a•••@example.com");
   assert.equal(person[6], "sent");
   assert.equal(person[7], "delivered");
   assert.equal(person[8], "failed");

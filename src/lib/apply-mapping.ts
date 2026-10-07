@@ -1,7 +1,8 @@
 // Turns a spreadsheet into people, using the column match chosen for one bank.
 // A saved match is reused when the next file has the same column names.
 
-import { redactCell } from "./data-min";
+import { contactProblems } from "./contact";
+import { isPhoneHeader, redactCell } from "./data-min";
 import {
   emptyMapping,
   normalizeHeader,
@@ -118,7 +119,7 @@ export function mapSheetRows(
     if (!header) return "";
     const index = indexByHeader.get(header);
     if (index === undefined) return "";
-    return redactCell(row[index] ?? "");
+    return redactCell(row[index] ?? "", { phone: isPhoneHeader(header) });
   };
 
   let skipped = 0;
@@ -134,6 +135,15 @@ export function mapSheetRows(
     const mobile1 = cell(row, mapping.mobile1);
     const mobile2 = cell(row, mapping.mobile2);
     const mobile3 = cell(row, mapping.mobile3);
+    const email = cell(row, mapping.email);
+    if (
+      contactProblems(mobile1, email).length > 0 ||
+      contactProblems(mobile2, "").length > 0 ||
+      contactProblems(mobile3, "").length > 0
+    ) {
+      skipped += 1;
+      return;
+    }
 
     recipients.push({
       rowNumber: index + 2,
@@ -142,7 +152,7 @@ export function mapSheetRows(
       mobile2,
       mobile3,
       mobiles: collectMobiles([mobile1, mobile2, mobile3]),
-      email: cell(row, mapping.email),
+      email,
       address: cell(row, mapping.address),
       loanNumber: cell(row, mapping.loanNumber),
       customerId: cell(row, mapping.customerId),

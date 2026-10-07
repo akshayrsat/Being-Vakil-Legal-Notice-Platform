@@ -23,6 +23,7 @@ import { backToCampaigns, backToSend } from "@/lib/desk-back";
 import { deliveryStatusLabel, sendChannelLabel } from "@/lib/campaigns";
 import { prisma } from "@/lib/db";
 import { personHistoryHref } from "@/lib/delivery-report";
+import { maskContact } from "@/lib/mask";
 import { noticeLinkOpensByNumber } from "@/lib/public-notice";
 import { scopedBankId } from "@/lib/report-bank";
 import { canSendNotices, isBankUser } from "@/lib/roles";
@@ -139,7 +140,7 @@ export default async function RemindersPage({
                         <tr key={row.id} className="border-b border-border">
                           <td className="px-2 py-2">
                             <p className="font-medium">{row.customerName}</p>
-                            <p className="text-muted-foreground">{row.mobile || row.email || "—"}</p>
+                            <p className="text-muted-foreground">{maskContact(row.mobile, row.email)}</p>
                             <NoticeOpenLink noticeNumber={row.noticeNumber} />
                           </td>
                           <td className="px-2 py-2">

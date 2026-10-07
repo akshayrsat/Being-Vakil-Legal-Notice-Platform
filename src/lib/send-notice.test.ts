@@ -57,7 +57,7 @@ test("owner sees Settings, Audit, People, and Banks; a coordinator cannot change
   assert.equal(coordinator.includes("/settings"), false);
   assert.equal(coordinator.includes("/audit"), false);
 
-  const ownerOnly = new Set(["/settings", "/audit"]);
+  const ownerOnly = new Set(["/settings", "/audit", "/privacy/incidents"]);
   assert.deepEqual(
     coordinator,
     owner.filter((href) => !ownerOnly.has(href)),

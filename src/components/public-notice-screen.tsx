@@ -9,6 +9,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { last4Challenge, MOBILE_LAST4_PROMPT } from "@/lib/odr-ref";
 import { noticeCustomerMobile } from "@/lib/public-notice";
 import { buildDemandNotice } from "@/lib/demand-notice";
+import { PrivacyPublicExtras } from "@/components/privacy-public";
 import { grievanceFooter } from "@/lib/grievance";
 import { legalNoticeParagraphs, usesStructuredDemand } from "@/lib/legal-notice-templates";
 import {
@@ -73,6 +74,7 @@ function NoticeLocked({ noticeNumber, source }: { noticeNumber: string; source: 
           <NoticeLetterfoot />
         </article>
       </div>
+      <PrivacyPublicExtras purpose="notice" />
     </main>
   );
 }
@@ -94,6 +96,7 @@ function NoticeMissing({ kind }: { kind: "empty" | "missing" | "error" }) {
         <NoticeLetterfoot />
       </article>
       </div>
+      <PrivacyPublicExtras purpose="notice" />
     </main>
   );
 }
@@ -153,6 +156,7 @@ function PublicNoticeDocument({ notice }: { notice: PublicNoticeView }) {
           <NoticeClosing notice={notice} />
         </article>
       </div>
+      <PrivacyPublicExtras purpose="notice" />
     </main>
   );
 }
@@ -178,6 +182,7 @@ function FilledLegalNotice({ notice }: { notice: PublicNoticeView }) {
           <NoticeClosing notice={notice} />
         </article>
       </div>
+      <PrivacyPublicExtras purpose="notice" />
     </main>
   );
 }
