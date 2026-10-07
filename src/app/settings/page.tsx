@@ -1,6 +1,7 @@
 // Firm staff only. The live-send switch is not shown to a bank viewer.
 
 import type { Metadata } from "next";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AppHeader } from "@/components/app-header";
 import { LiveSendSwitchForm } from "@/components/live-send-switch-form";
@@ -18,9 +19,9 @@ import { isOwnerAdmin } from "@/lib/owner-admin";
 import { confirmWarning } from "@/lib/send-notice";
 import { msg91AuthKey } from "@/lib/msg91";
 import { OdrLiveForm, OdrTemplateForm } from "@/components/odr-settings-form";
-import { odrEnvLive, odrMessagesWarning } from "@/lib/odr-live";
+import { odrKillSwitch, odrMessagesWarning } from "@/lib/odr-live";
 import { readOdrRules } from "@/lib/odr-store";
-import { approvedWording } from "@/lib/odr-templates";
+import { ODR_TEMPLATES_HREF } from "@/lib/send-notice";
 
 export const dynamic = "force-dynamic";
 
@@ -40,7 +41,7 @@ export default async function SettingsPage({
   const query = await searchParams;
   const enabled = await liveSendIsOn();
   const odrRules = await readOdrRules();
-  const odrEnvOn = odrEnvLive();
+  const odrKilled = odrKillSwitch();
   const vendor = isOwnerAdmin(user);
   const warning = confirmWarning({
     switchOn: enabled,
@@ -49,7 +50,7 @@ export default async function SettingsPage({
   });
   const odrWarning = odrMessagesWarning({
     switchOn: odrRules.liveStored,
-    envOn: odrEnvOn,
+    killed: odrKilled,
     technical: vendor,
   });
 
@@ -94,20 +95,21 @@ export default async function SettingsPage({
             <CardDescription>{odrWarning} This does not change notice sending.</CardDescription>
           </CardHeader>
           <CardContent>
-            <OdrLiveForm enabled={odrRules.liveStored} serverDisabled={!odrEnvOn} technical={vendor} />
+            <OdrLiveForm enabled={odrRules.liveStored} killed={odrKilled} technical={vendor} />
           </CardContent>
         </Card>
         <Card>
           <CardHeader>
             <CardTitle>ODR templates and reminders</CardTitle>
-            <CardDescription>Empty template slots are not sent. Send hours also hold a legal notice that is confirmed outside the window.</CardDescription>
+            <CardDescription>A channel without an approved template is recorded and not sent. Send hours also hold a legal notice that is confirmed outside the window.</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-6">
             <OdrTemplateForm rules={odrRules} showIds={vendor} />
-            <div>
-              <h2 className="font-serif text-2xl">Approved first-hearing wording</h2>
-              <pre className="mt-3 whitespace-pre-wrap text-sm leading-6">{approvedWording("arbitration.first")}</pre>
-            </div>
+            <p className="text-sm leading-6">
+              <Link href={ODR_TEMPLATES_HREF} className="underline">
+                Approved wording is on ODR templates.
+              </Link>
+            </p>
           </CardContent>
         </Card>
       </main>

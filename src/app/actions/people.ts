@@ -4,21 +4,14 @@ import { Prisma } from "@prisma/client";
 import { redirect } from "next/navigation";
 import { auditCurrentUser } from "@/lib/audit";
 import { getSessionContext } from "@/lib/auth";
-import { draftLogin } from "@/lib/people";
+import { canSetTemporaryPassword, draftLogin } from "@/lib/people";
+import { hashPassword, otherSessionsWhere, temporaryPassword } from "@/lib/passwords";
 import { prisma } from "@/lib/db";
 import { canCreateLogins, roleTitle } from "@/lib/roles";
 
 export type LoginFormState = { error: string } | null;
 
-async function hashPassword(password: string): Promise<string> {
-  const loaded = (await import("bcryptjs")) as {
-    hash?: (value: string, rounds: number) => Promise<string>;
-    default?: { hash: (value: string, rounds: number) => Promise<string> };
-  };
-  const hash = loaded.hash ?? loaded.default?.hash;
-  if (!hash) throw new Error("bcryptjs did not load");
-  return hash(password, 10);
-}
+export type TemporaryPasswordState = { error: string } | { password: string; name: string } | null;
 
 export async function createLogin(
   _previous: LoginFormState,
@@ -76,4 +69,40 @@ export async function createLogin(
   }
 
   redirect("/people?added=1");
+}
+
+export async function setTemporaryPassword(
+  _previous: TemporaryPasswordState,
+  formData: FormData,
+): Promise<TemporaryPasswordState> {
+  const current = await getSessionContext();
+  if (!current) redirect("/login");
+  if (!canCreateLogins(current.user.role)) {
+    return { error: "Only the owner or a legal coordinator can set a temporary password." };
+  }
+
+  const userId = String(formData.get("userId") ?? "").trim();
+  if (!userId) return { error: "Choose a person first." };
+
+  const target = await prisma.user.findUnique({ where: { id: userId } });
+  if (!target) return { error: "That login was not found." };
+  if (!canSetTemporaryPassword(current.user.role, target.role, target.id === current.user.id)) {
+    return { error: "You cannot set a temporary password for that person." };
+  }
+
+  const password = temporaryPassword();
+  const passwordHash = await hashPassword(password);
+  await prisma.user.update({
+    where: { id: target.id },
+    data: { passwordHash, mustChangePassword: true },
+  });
+  await prisma.session.deleteMany({ where: otherSessionsWhere(target.id, null) });
+  await auditCurrentUser({
+    action: "user.password",
+    summary: `Set a temporary password for ${target.name}.`,
+    targetId: target.id,
+    bankId: null,
+    bankName: "",
+  });
+  return { password, name: target.name };
 }

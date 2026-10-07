@@ -4,12 +4,19 @@ import { ROLE_BANK_USER, ROLE_COORDINATOR, ROLE_OWNER } from "./roles";
 import { workspaceNav } from "./send-notice";
 import { last4Matches, last4Challenge, customerMobileFromDeliveries, MOBILE_LAST4_PROMPT, hearingOrdinal, indiaDateTime, generateRefNo } from "./odr-ref";
 import { suggestOdrMapping, mapOdrRows, ODR_SAMPLE_HEADERS, emptyOdrMapping } from "./odr-fields";
-import { effectiveOdrLiveSend, ODR_NOT_SENT_DETAIL, ODR_SERVER_DISABLED_NOTE, odrEnvLive, odrServerDisabledNote } from "./odr-live";
+import {
+  effectiveOdrLiveSend,
+  ODR_NOT_SENT_DETAIL,
+  ODR_SERVER_BLOCKED_NOTE,
+  odrKillSwitch,
+  odrMessagesWarning,
+  odrServerBlockedNote,
+} from "./odr-live";
 import { planOdrChannels, nextNoShowState, autoSendAllowed } from "./odr-plan";
 import { attendanceFromParticipants, fakeMeetLink, meetConfigured, meetJwtClaims, meetingCodeFromLink } from "./odr-meet";
 import { dueReminderKeys, needsNextHearing, autoRescheduleAt } from "./odr-schedule";
 import { buildOdrExportRows, odrCaseWhere, readOdrFilters } from "./odr-reports";
-import { templatesFor, defaultTemplateMap, hearingMessageText } from "./odr-templates";
+import { templatesFor, defaultTemplateMap, hearingMessageText, ODR_TEMPLATE_NOT_READY } from "./odr-templates";
 import { odrCopy, odrCopyFor } from "./odr-copy";
 import { deliverOdrChannel } from "./odr-dispatch";
 import { stageTracker } from "./odr-status";
@@ -26,28 +33,46 @@ test("ODR sits next to Send notice for staff, and a bank user stays on Tracking 
   );
 });
 
-test("ODR sending stays off unless the owner switch and ODR_LIVE_SEND are both on", () => {
-  assert.equal(odrEnvLive(undefined), false);
-  assert.equal(odrEnvLive("true"), true);
-  assert.equal(odrEnvLive("TRUE"), false);
+test("ODR sending follows the Settings switch, and only ODR_LIVE_SEND=kill blocks it", () => {
+  assert.equal(odrKillSwitch(undefined), false);
+  assert.equal(odrKillSwitch(""), false);
+  assert.equal(odrKillSwitch("false"), false);
+  assert.equal(odrKillSwitch("true"), false);
+  assert.equal(odrKillSwitch("off"), false);
+  assert.equal(odrKillSwitch("kill"), true);
+  assert.equal(odrKillSwitch(" KILL "), true);
   assert.equal(effectiveOdrLiveSend(null, undefined), false);
-  assert.equal(effectiveOdrLiveSend(null, "true"), false);
-  assert.equal(effectiveOdrLiveSend(true, undefined), false);
+  assert.equal(effectiveOdrLiveSend(null, "false"), false);
+  assert.equal(effectiveOdrLiveSend(false, "false"), false);
+  assert.equal(effectiveOdrLiveSend(true, undefined), true);
+  assert.equal(effectiveOdrLiveSend(true, "false"), true);
   assert.equal(effectiveOdrLiveSend(true, "true"), true);
-  assert.equal(effectiveOdrLiveSend(false, "true"), false);
-  assert.equal(odrServerDisabledNote(false), ODR_SERVER_DISABLED_NOTE);
-  assert.equal(ODR_SERVER_DISABLED_NOTE, "ODR sending is disabled on the server");
-  assert.equal(odrServerDisabledNote(true), "");
+  assert.equal(effectiveOdrLiveSend(true, "off"), true);
+  assert.equal(effectiveOdrLiveSend(true, "kill"), false);
+  assert.equal(odrServerBlockedNote(false), "");
+  assert.equal(odrServerBlockedNote(true), ODR_SERVER_BLOCKED_NOTE);
+  const on = odrMessagesWarning({ switchOn: true, killed: false });
+  const off = odrMessagesWarning({ switchOn: false, killed: false });
+  const blocked = odrMessagesWarning({ switchOn: true, killed: true, technical: true });
+  assert.match(on, /On\. Confirming sends ODR messages by SMS, email, or WhatsApp/);
+  assert.match(on, /approved template/);
+  assert.match(off, /Off\. Confirming records the message/);
+  assert.match(blocked, /Sending is blocked by the server/);
+  assert.match(blocked, /ODR_LIVE_SEND is set to kill/);
+  assert.equal(on.includes("disabled on the server"), false);
+  assert.equal(on.includes("not ready yet"), false);
+  assert.equal(off.includes("disabled on the server"), false);
 });
 
-test("a missing template is named, and a configured template stays unsent while ODR sending is off", () => {
+test("a missing or unapproved template is not sent, and a configured one stays unsent while ODR messages are off", () => {
   const off = planOdrChannels({
     live: false,
     mobile: "9876543210",
     email: "person@example.com",
+    slot: "arbitration.first",
     templates: { smsFlowId: "", emailTemplateId: "arbitration_first_hearing", whatsappTemplate: "arbitration_first_hearing" },
   });
-  assert.equal(off.find((row) => row.channel === "SMS")?.detail, "SMS template not configured");
+  assert.equal(off.find((row) => row.channel === "SMS")?.detail, ODR_TEMPLATE_NOT_READY);
   assert.equal(off.find((row) => row.channel === "EMAIL")?.detail, ODR_NOT_SENT_DETAIL);
   assert.equal(off.find((row) => row.channel === "EMAIL")?.status, "SKIPPED");
   assert.equal(off.find((row) => row.channel === "WHATSAPP")?.detail, ODR_NOT_SENT_DETAIL);
@@ -56,9 +81,52 @@ test("a missing template is named, and a configured template stays unsent while 
     live: true,
     mobile: "9876543210",
     email: "person@example.com",
+    slot: "arbitration.first",
     templates: { smsFlowId: "flow", emailTemplateId: "arbitration_first_hearing", whatsappTemplate: "arbitration_first_hearing" },
   });
   assert.deepEqual(on.map((row) => row.status), ["QUEUED", "QUEUED", "QUEUED"]);
+
+  const pending = planOdrChannels({
+    live: true,
+    mobile: "9876543210",
+    email: "person@example.com",
+    slot: "arbitration.next",
+    templates: { smsFlowId: "flow", emailTemplateId: "arbitration_next_hearing", whatsappTemplate: "arbitration_next_hearing" },
+  });
+  assert.deepEqual(pending.map((row) => row.status), ["SKIPPED", "SKIPPED", "SKIPPED"]);
+  assert.equal(pending.every((row) => row.detail === ODR_TEMPLATE_NOT_READY), true);
+
+  const reminder = planOdrChannels({
+    live: true,
+    mobile: "9876543210",
+    email: "person@example.com",
+    slot: "mediation.reminder",
+    templates: { smsFlowId: "flow", emailTemplateId: "mediation_reminder", whatsappTemplate: "mediation_reminder" },
+  });
+  assert.equal(reminder.every((row) => row.detail === ODR_TEMPLATE_NOT_READY), true);
+});
+
+test("a blank template is not sent even when ODR messages are on", async () => {
+  let called = 0;
+  const result = await deliverOdrChannel(
+    {
+      live: true,
+      channel: "SMS",
+      to: "919876543210",
+      templateId: "  ",
+      vars: { customer: "A", bank: "B", number: "ARB-1", date: "1 May 2026", time: "11:00 am", link: "https://meet.google.com/abc-defg-hij", caseLink: "https://example.com/case" },
+    },
+    {
+      env: { MSG91_AUTH_KEY: "secret" },
+      fetchImpl: async () => {
+        called += 1;
+        throw new Error("network");
+      },
+    },
+  );
+  assert.equal(called, 0);
+  assert.equal(result.ok, false);
+  if (!result.ok) assert.equal(result.detail, ODR_TEMPLATE_NOT_READY);
 });
 
 test("delivering an ODR message does not call the network when sending is off", async () => {

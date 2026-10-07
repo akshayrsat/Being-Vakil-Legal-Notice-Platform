@@ -260,11 +260,10 @@ function mediationMessageText(input: HearingMessageInput): string {
   ].join("\n");
 }
 
-export function unconfiguredDetail(channel: string): string {
-  if (channel === "SMS") return "SMS template not configured";
-  if (channel === "EMAIL") return "Email template not configured";
-  if (channel === "WHATSAPP") return "WhatsApp template not configured";
-  return "Template not configured";
+export const ODR_TEMPLATE_NOT_READY = "template not ready";
+
+export function unconfiguredDetail(): string {
+  return ODR_TEMPLATE_NOT_READY;
 }
 
 export function approvedWording(slot: string): string {

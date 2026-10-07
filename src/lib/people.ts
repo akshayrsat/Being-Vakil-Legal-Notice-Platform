@@ -1,6 +1,7 @@
 // Rules for adding a login. No email is sent. There is no public signup.
 
-import { isCoordinator, isOwner, ROLE_BANK_USER, ROLE_COORDINATOR, roleTitle } from "./roles";
+import { passwordLengthError } from "./passwords";
+import { isAppRole, isBankUser, isCoordinator, isOwner, ROLE_BANK_USER, ROLE_COORDINATOR, roleTitle } from "./roles";
 
 export type NewLoginRole = typeof ROLE_COORDINATOR | typeof ROLE_BANK_USER;
 
@@ -43,9 +44,8 @@ export function draftLogin(input: {
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 200) {
     return { ok: false, error: "Enter an email address." };
   }
-  if (input.password.length < 8 || input.password.length > 200) {
-    return { ok: false, error: "Use a password of at least 8 characters." };
-  }
+  const passwordError = passwordLengthError(input.password);
+  if (passwordError) return { ok: false, error: passwordError };
   if (role === ROLE_BANK_USER) {
     const bankId = input.bankId.trim();
     if (!/^[A-Za-z0-9_-]+$/.test(bankId)) {
@@ -58,4 +58,34 @@ export function draftLogin(input: {
 
 export function loginRoleLabel(role: string): string {
   return roleTitle(role);
+}
+
+export function canSetTemporaryPassword(actorRole: string, targetRole: string, samePerson: boolean): boolean {
+  if (samePerson) return false;
+  if (isOwner(actorRole)) return isAppRole(targetRole);
+  if (isCoordinator(actorRole)) return isCoordinator(targetRole) || isBankUser(targetRole);
+  return false;
+}
+
+export type PersonRow = {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  bankName: string | null;
+};
+
+export function peopleGroups(people: PersonRow[]): { staff: PersonRow[]; bankUsers: PersonRow[] } {
+  const staff: PersonRow[] = [];
+  const bankUsers: PersonRow[] = [];
+  for (const person of people) {
+    if (isBankUser(person.role)) {
+      bankUsers.push(person);
+      continue;
+    }
+    if (isOwner(person.role) || isCoordinator(person.role)) {
+      staff.push({ ...person, bankName: null });
+    }
+  }
+  return { staff, bankUsers };
 }

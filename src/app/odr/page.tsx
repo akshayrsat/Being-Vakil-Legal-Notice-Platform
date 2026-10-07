@@ -9,7 +9,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { workingBank } from "@/lib/bank-context";
 import { prisma } from "@/lib/db";
 import { approvedWording } from "@/lib/odr-templates";
-import { odrEnvLive, odrLiveWarning } from "@/lib/odr-live";
+import { odrKillSwitch, odrLiveWarning } from "@/lib/odr-live";
 import { readOdrRules } from "@/lib/odr-store";
 import { isOwnerAdmin } from "@/lib/owner-admin";
 import { backToDesk } from "@/lib/odr-back";
@@ -41,7 +41,7 @@ export default async function OdrPage() {
         </p>
       </div>
       <p className="rounded-lg border border-border bg-card px-3 py-2 text-sm leading-6">
-        {odrLiveWarning({ storedOn: rules.liveStored, envOn: odrEnvLive() })}
+        {odrLiveWarning({ storedOn: rules.liveStored, killed: odrKillSwitch() })}
       </p>
       <div className="flex flex-wrap gap-2">
         <Link href="/odr/cases" className={buttonVariants({ variant: "outline", className: "h-11 px-4" })}>

@@ -10,11 +10,11 @@ const field = "h-11 rounded-lg border border-input bg-card px-3 text-sm font-nor
 
 export function OdrLiveForm({
   enabled,
-  serverDisabled,
+  killed,
   technical = false,
 }: {
   enabled: boolean;
-  serverDisabled: boolean;
+  killed: boolean;
   technical?: boolean;
 }) {
   const [state, action, pending] = useActionState(setOdrLiveSwitch, null);
@@ -34,9 +34,7 @@ export function OdrLiveForm({
           <span>
             <span className="block font-bold">Off</span>
             <span className="block text-xs leading-5 text-muted-foreground">
-              {technical
-                ? "Confirming records a dry run. Nothing is sent."
-                : "Confirming records the message. Nothing is sent."}
+              Records only. Confirming records the message. Nothing is sent.
             </span>
           </span>
         </label>
@@ -51,14 +49,16 @@ export function OdrLiveForm({
           <span>
             <span className="block font-bold">On</span>
             <span className="block text-xs leading-5 text-muted-foreground">
-              {technical
-                ? "Confirming sends the ODR message through MSG91."
-                : "Confirming sends the ODR message by SMS, email, or WhatsApp."}
+              Confirming sends ODR messages by SMS, email, or WhatsApp, only on channels with an approved template.
             </span>
           </span>
         </label>
       </fieldset>
-      {serverDisabled ? <p className="text-sm leading-6 text-muted-foreground">ODR sending is disabled on the server</p> : null}
+      {killed ? (
+        <p className="text-sm leading-6 text-muted-foreground">
+          Sending is blocked by the server.{technical ? " ODR_LIVE_SEND is set to kill." : ""}
+        </p>
+      ) : null}
       {state?.error ? (
         <p
           role="alert"

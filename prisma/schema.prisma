@@ -1,9 +1,10 @@
 // What this app stores.
 // A bank is a client of the firm. Later notices and spreadsheets must belong to one bank.
 // A user is a person who can sign in.
-// A Bank Viewer is tied to one bank (bankId). An Admin is not tied to a bank.
-// The Admin's selectedBankId is the bank they are working on right now.
+// A bank user is tied to one bank (bankId). The owner and a legal coordinator are not.
+// selectedBankId is the bank the owner or legal coordinator is working on right now.
 // A session is one signed-in visit. Signing out deletes it.
+// mustChangePassword is set when someone is given a temporary password.
 // Allowed roles: OWNER, LEGAL_COORDINATOR, BANK_USER.
 // ADMIN and BANK_VIEWER remain so an existing login still opens.
 
@@ -160,19 +161,35 @@ model RecipientRow {
 }
 
 model User {
-  id             String    @id @default(cuid())
-  name           String
-  email          String    @unique
-  passwordHash   String
-  role           Role
-  bankId         String?
-  bank           Bank?     @relation("MemberBank", fields: [bankId], references: [id], onDelete: SetNull)
-  selectedBankId String?
-  selectedBank   Bank?     @relation("SelectedBank", fields: [selectedBankId], references: [id], onDelete: SetNull)
-  sessions       Session[]
-  challenges     LoginChallenge[]
-  campaigns      Campaign[]
-  createdAt      DateTime  @default(now())
+  id                 String    @id @default(cuid())
+  name               String
+  email              String    @unique
+  passwordHash       String
+  mustChangePassword Boolean   @default(false)
+  role               Role
+  bankId             String?
+  bank               Bank?     @relation("MemberBank", fields: [bankId], references: [id], onDelete: SetNull)
+  selectedBankId     String?
+  selectedBank       Bank?     @relation("SelectedBank", fields: [selectedBankId], references: [id], onDelete: SetNull)
+  sessions           Session[]
+  challenges         LoginChallenge[]
+  passwordResets     PasswordReset[]
+  campaigns          Campaign[]
+  createdAt          DateTime  @default(now())
+}
+
+// A one-time password reset. Only the hash of the token is stored.
+// The link expires after 30 minutes and works once.
+model PasswordReset {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
 }
 
 model Session {

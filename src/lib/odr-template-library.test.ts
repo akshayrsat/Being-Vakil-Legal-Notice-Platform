@@ -97,7 +97,10 @@ test("ODR templates sit with the notice Templates tab, and a bank user does not 
   assert.match(page, /pendingOdrTemplates/);
   assert.doesNotMatch(page, /setOdrLiveSwitch|ODR_LIVE_SEND|effectiveOdrLiveSend/);
   assert.match(detail, /showVendorDetail/);
-  assert.match(settings, /Approved first-hearing wording/);
+  assert.doesNotMatch(settings, /Approved first-hearing wording/);
+  assert.doesNotMatch(settings, /Subject: First Arbitration Hearing/);
+  assert.match(settings, /ODR_TEMPLATES_HREF/);
+  assert.match(settings, /Approved wording is on ODR templates/);
   assert.equal(odrHome.includes(ODR_TEMPLATES_HREF), true);
   assert.match(odrHome, /approvedWording/);
 });
